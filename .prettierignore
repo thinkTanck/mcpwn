@@ -1,0 +1,10 @@
+.next
+node_modules
+coverage
+playwright-report
+test-results
+package-lock.json
+
+# Hand-maintained governance docs — kept in sync with the code manually, not auto-formatted.
+CLAUDE.md
+plan.md

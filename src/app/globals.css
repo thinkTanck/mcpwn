@@ -1,0 +1,28 @@
+@import 'tailwindcss';
+
+/*
+ * Step-1 skeleton base only: a dark control-room ground with WCAG 2.2 AA
+ * contrast. The full DTCG two-tier token system and the J.A.R.V.I.S. HUD land
+ * in Phase 7 (see CLAUDE.md → UI & design), fed by the primitive token tier.
+ */
+:root {
+  color-scheme: dark;
+  --bg: #0a0f1e;
+  --fg: #e6edf3;
+  --accent: #67e8f9;
+  --muted: #9fb0c3;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--fg);
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    Helvetica,
+    Arial,
+    sans-serif;
+}
