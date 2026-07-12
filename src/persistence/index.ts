@@ -8,23 +8,29 @@
 import { getPersistenceConfig } from '@/config/env';
 import type { RunRepositoryPort } from './port';
 import { createInMemoryRunRepository } from './in-memory';
+import { createPostgresRunRepository } from './postgres';
 
 export * from './port';
 export { createInMemoryRunRepository } from './in-memory';
+export {
+  createPostgresRunRepository,
+  type SqlClient,
+  type SqlClientFactory,
+  type PostgresRepoOptions,
+} from './postgres';
 
 type Env = Record<string, string | undefined>;
 
 /**
  * Select the repository adapter by `PERSISTENCE_DRIVER`. Memory is the default
- * (offline-safe); postgres validates `DATABASE_URL` lazily via getPersistenceConfig.
+ * (offline-safe); postgres validates `DATABASE_URL` lazily at construction. In
+ * Phase 8 the postgres adapter's default client factory wires the real Neon
+ * driver; until then constructing a postgres repository throws (no creds/driver).
  */
 export function createRunRepository(env: Env = process.env): RunRepositoryPort {
   const persistence = getPersistenceConfig(env);
   if (persistence.driver === 'memory') {
     return createInMemoryRunRepository();
   }
-  // persistence.driver === 'postgres' — Neon adapter arrives in increment 2.
-  throw new Error(
-    'Postgres run repository is not available yet (the Neon adapter arrives in Phase 6 increment 2).',
-  );
+  return createPostgresRunRepository({ env });
 }
