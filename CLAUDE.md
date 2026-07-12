@@ -28,6 +28,8 @@ Standalone, deployed web app that red-teams an MCP-tool-using agent against the 
 ## Skills
 
 **Use any Claude Code skill that helps produce a professional, clean UI (directive 7b).** None build the app directly, but `canvas-design` can generate hero/visual assets, and any skill that aids a professional, clean UI is fair game.
+- **Impeccable** (pbakaus/impeccable, Apache-2.0) — the adopted front-end **polish/critique** layer for Phase 7: 23 commands (polish · audit · critique · distill · …) + deterministic detector rules, run on the *implemented* HUD screens. It **supplements, never replaces, Claude Design** + the DTCG token pipeline.
+- **archify** (tt-a1i/archify, MIT) — **documentation diagrams only**: renders the architecture map and the leakage-barrier data-flow as themeable (dark/light) SVGs. Not part of the app UI.
 
 ## Definition of Done (derived from current SE standards; every increment meets it)
 
@@ -40,7 +42,7 @@ Standalone, deployed web app that red-teams an MCP-tool-using agent against the 
 - **Accessibility** — WCAG 2.2 AA / POUR ([W3C](https://www.w3.org/WAI/standards-guidelines/wcag/)): `@axe-core/playwright` in CI + role/name unit assertions + Chrome-DevTools spot checks (automation catches ~30–50%; not a substitute for manual AT).
 - **Usability** — Nielsen's 10 heuristics ([NN/g](https://www.nngroup.com/articles/ten-usability-heuristics/)): visibility of system status (run progress), user control (stop/step a run), consistency, error prevention, recognition over recall, aesthetic/minimalist design.
 - **Performance** — Core Web Vitals good @ p75 (LCP ≤ 2.5s, INP ≤ 200ms, CLS ≤ 0.1; [web.dev](https://web.dev/articles/vitals)) via Lighthouse CI + Chrome DevTools MCP; virtualize long lists.
-- **Docs** — README + Mermaid architecture diagram; ADR log (`docs/adr/`); `.env.example`; CLAUDE.md + plan.md kept in sync and verified true.
+- **Docs** — README + architecture diagram (Mermaid source kept as the reproducible/diffable canonical **plus a polished `archify` SVG render**) + a **leakage-barrier data-flow SVG** (`archify`); ADR log (`docs/adr/`); `.env.example`; CLAUDE.md + plan.md kept in sync and verified true.
 - **Reproducibility** — clean clone → build/test/deploy; pinned deps + lockfile.
 
 ## Scope — Core-5 (OWASP Agentic Top 10 2026; genai.owasp.org)

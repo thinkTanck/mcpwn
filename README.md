@@ -50,6 +50,10 @@ The first wave targets five of the ten categories:
 Eight modules, two external ports (`McpTargetPort`, `JudgeModelPort`), and a small
 data contract that the whole system agrees on.
 
+![MCPwn module map](docs/diagrams/architecture.svg)
+
+<sub>Polished render — **archify**, themeable for dark/light. The Mermaid source below stays the canonical, diffable diagram.</sub>
+
 ```mermaid
 flowchart TD
     %% ---- External systems (outside the app boundary) ----
@@ -141,6 +145,8 @@ of the features. Here the observable `Trace` is the **feature** and the held-out
 `GroundTruth` never reaches the detector.** Precision/recall is measured by
 comparing detector verdicts against the held-out ground truth on constructed
 fixtures only. Live runs are unlabeled — which is exactly why the detector exists.
+
+![Leakage separation — the detector is blind (Trace + goal only); the held-out GroundTruth flows only to the eval / scorer, never to the detector, RunResult, or UI](docs/diagrams/leakage-dataflow.svg)
 
 ## Stack
 
