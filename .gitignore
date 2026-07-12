@@ -27,6 +27,12 @@ next-env.d.ts
 # vercel
 .vercel
 
+# Claude Code skills — vendored skill bundles are installed locally per-dev, not
+# committed (heavy). Personal settings + local tool state stay out of the repo.
+.claude/skills/
+.claude/settings.local.json
+.impeccable/
+
 # misc
 *.pem
 npm-debug.log*
