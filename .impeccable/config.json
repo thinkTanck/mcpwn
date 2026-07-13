@@ -1,0 +1,20 @@
+{
+  "detector": {
+    "ignoreRules": ["overused-font", "dark-glow"],
+    "ignoreFiles": ["**/*timeline*"],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "geist",
+        "reason": "Geist Mono/Sans is the deliberate 'Sentinel Fields' HUD instrument voice (design-system §4), an identity choice, not AI-default font drift.",
+        "createdAt": "2026-07-13T14:46:50.658Z"
+      },
+      {
+        "rule": "dark-glow",
+        "value": "rgb(237,87,110)",
+        "reason": "Tri-state breach glow (red-400) is the core documented status signal (design-system §5 'Glow & elevation — the signature'); always paired with icon+label, never color-only.",
+        "createdAt": "2026-07-13T14:46:51.820Z"
+      }
+    ]
+  }
+}

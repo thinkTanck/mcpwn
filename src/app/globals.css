@@ -1,28 +1,205 @@
 @import 'tailwindcss';
 
-/*
- * Step-1 skeleton base only: a dark control-room ground with WCAG 2.2 AA
- * contrast. The full DTCG two-tier token system and the J.A.R.V.I.S. HUD land
- * in Phase 7 (see CLAUDE.md → UI & design), fed by the primitive token tier.
- */
+/* =========================================================================
+ * MCPwn — "Sentinel Fields" DTCG two-tier design tokens
+ * -------------------------------------------------------------------------
+ * Tier 1  PRIMITIVES  — raw ramps (the Claude Design source plugs in here).
+ * Tier 2  SEMANTIC    — role aliases; components consume ONLY these.
+ * Refining the design = editing a primitive; every consumer cascades.
+ *
+ * Accessibility contract (WCAG 2.2 AA, verified):
+ *   text ≥ 4.5:1 · large/UI ≥ 3:1 against its surface. See §8 of
+ *   design-review/uploads/mcpwn-design-system.md. Ratios in comments are
+ *   measured against --surface-base / --surface-panel.
+ * ========================================================================= */
 :root {
   color-scheme: dark;
-  --bg: #0a0f1e;
-  --fg: #e6edf3;
-  --accent: #67e8f9;
-  --muted: #9fb0c3;
+
+  /* ---- Tier 1 · primitives ------------------------------------------- */
+
+  /* Navy / surface — deep blue-black, never pure black */
+  --navy-950: #05080b; /* app base   */
+  --navy-900: #0a0f15;
+  --navy-850: #101823; /* panel fill */
+  --navy-800: #17212d; /* raised     */
+  --line-base: #1c2a36; /* hairline  */
+
+  /* Cyan — nominal */
+  --cyan-100: #b6ecf4; /* readout / high-value mono */
+  --cyan-300: #54d4e6; /* core   */
+  --cyan-500: #2e93a6;
+  --cyan-700: #2b6b7d; /* dim / line-emphasis */
+  --cyan-900: #14343d;
+
+  /* Amber — caution */
+  --amber-200: #f4ce8c;
+  --amber-400: #ebb561; /* core */
+  --amber-600: #a9803e;
+  --amber-800: #6b542e;
+
+  /* Red — breach */
+  --red-200: #f58ea0; /* breach text on dark (8.0:1) — was the stray #F58EA0 */
+  --red-400: #ed576e; /* core */
+  --red-600: #b23a4c;
+  --red-800: #8c2133;
+
+  /* Ink — text / neutral. Lower tiers raised to clear AA (see header). */
+  --ink-100: #d3e2ea; /* 13.7:1 — hi      */
+  --ink-300: #99b8c7; /*  8.7:1 — body    */
+  --ink-500: #8199ab; /*  6.1:1 — muted (was #708C9E; stepped up to keep a
+                          visible tier above the AA-corrected faint)        */
+  --ink-700: #6e8a9c; /*  5.0:1 — faint / micro-labels (was #47606C @ 2.7:1,
+                          which FAILED AA; raised so every label is legible) */
+  --ink-800: #3a4d57; /*  2.1:1 — was the stray #3a4d57. INACTIVE ONLY:
+                          not-yet-reached timeline nodes (WCAG 1.4.3 exempts
+                          inactive components). Never for active text.       */
+
+  /* ---- Tier 2 · semantic aliases ------------------------------------- */
+
+  /* Surfaces */
+  --surface-base: var(--navy-950);
+  --surface-panel: color-mix(in srgb, var(--navy-850) 90%, transparent);
+  --surface-solid: var(--navy-850);
+  --surface-raised: var(--navy-800);
+  --line: var(--line-base);
+  --line-emphasis: var(--cyan-700);
+
+  /* Text */
+  --text-hi: var(--ink-100);
+  --text: var(--ink-300);
+  --text-muted: var(--ink-500);
+  --text-faint: var(--ink-700); /* AA-safe label tier */
+  --text-readout: var(--cyan-100); /* mono values */
+  --text-breach: var(--red-200); /* semantic breach text */
+  --text-pending: var(--ink-800); /* inactive/not-reached only */
+
+  /* Tri-state status — always paired with an icon + label, never color-only */
+  --status-nominal: var(--cyan-300);
+  --status-caution: var(--amber-400);
+  --status-breach: var(--red-400);
+  --glow-nominal: 0 0 12px color-mix(in srgb, var(--cyan-300) 35%, transparent);
+  --glow-caution: 0 0 12px color-mix(in srgb, var(--amber-400) 35%, transparent);
+  --glow-breach: 0 0 16px color-mix(in srgb, var(--red-400) 45%, transparent);
+
+  /* Focus — one ring, used everywhere */
+  --focus-ring: var(--cyan-300);
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 2px;
+
+  /* Spacing — 8-pt scale (self-documenting px names) */
+  --sp-2: 2px;
+  --sp-4: 4px;
+  --sp-8: 8px;
+  --sp-12: 12px;
+  --sp-16: 16px;
+  --sp-20: 20px;
+  --sp-24: 24px;
+  --sp-32: 32px;
+  --sp-40: 40px;
+  --sp-48: 48px;
+  --sp-64: 64px;
+
+  /* Radii */
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-lg: 8px;
+  --radius-pill: 999px;
+
+  /* Motion — durations & the emphasized easing (design-system §6) */
+  --motion-fast: 120ms;
+  --motion-base: 200ms;
+  --motion-slow: 360ms;
+  --motion-sweep: 1200ms;
+  --ease-emphasized: cubic-bezier(0.2, 0, 0, 1);
+
+  /* Type */
+  --font-mono: 'Geist Mono', ui-monospace, 'SF Mono', monospace;
+  --font-sans: 'Geist', Inter, system-ui, -apple-system, sans-serif;
+
+  /* ---- Back-compat aliases (existing skeleton components) ------------- */
+  --bg: var(--surface-base);
+  --fg: var(--text-hi);
+  --accent: var(--status-nominal);
+  --muted: var(--text-muted);
+  --panel: var(--surface-panel);
+  --border: var(--line);
+  --danger: var(--status-breach);
 }
 
 body {
-  background-color: var(--bg);
-  color: var(--fg);
-  font-family:
-    ui-sans-serif,
-    system-ui,
-    -apple-system,
-    'Segoe UI',
-    Roboto,
-    Helvetica,
-    Arial,
-    sans-serif;
+  background-color: var(--surface-base);
+  color: var(--text);
+  font-family: var(--font-sans);
+}
+
+/* =========================================================================
+ * Focus — one visible ring on every interactive element (design-system §8).
+ * :focus-visible so pointer users don't see rings but keyboard users always
+ * do. Applied globally because inline styles can't express focus-visible.
+ * ========================================================================= */
+:where(a, button, input, select, textarea, [tabindex], [role='button']):focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+  border-radius: var(--radius-md);
+}
+
+/* =========================================================================
+ * Motion — CWV-safe (transform/opacity only, GPU-composited). Every reveal
+ * enhances an already-visible resting state: if animations are disabled the
+ * element simply shows at its final style, never blank.
+ * ========================================================================= */
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: perspective(1400px) translate3d(0, 12px, -48px);
+  }
+  to {
+    opacity: 1;
+    transform: perspective(1400px) translate3d(0, 0, 0);
+  }
+}
+@keyframes verdict-in {
+  from {
+    opacity: 0;
+    transform: perspective(1200px) translate3d(0, 10px, -24px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes breach-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 8px color-mix(in srgb, var(--red-400) 45%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 22px color-mix(in srgb, var(--red-400) 90%, transparent);
+  }
+}
+
+/* Dimensional panel entrance — panels push/open toward the viewer */
+.panel-in {
+  animation: panel-in var(--motion-slow) var(--ease-emphasized) both;
+  will-change: transform, opacity;
+}
+.verdict-in {
+  animation: verdict-in var(--motion-slow) var(--ease-emphasized) both;
+  will-change: transform, opacity;
+}
+
+/* Reduced motion / low-power: no push/zoom/pulse — resting state is final and
+ * fully visible, per design-system §6 ("instant state"). */
+@media (prefers-reduced-motion: reduce) {
+  .panel-in,
+  .verdict-in {
+    animation: none;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
 }

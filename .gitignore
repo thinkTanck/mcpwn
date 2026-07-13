@@ -31,7 +31,10 @@ next-env.d.ts
 # committed (heavy). Personal settings + local tool state stay out of the repo.
 .claude/skills/
 .claude/settings.local.json
-.impeccable/
+# Impeccable: keep the shared detector config (committed, reviewable rationale);
+# machine-local consent + hook cache stay out.
+.impeccable/*
+!.impeccable/config.json
 
 # misc
 *.pem
