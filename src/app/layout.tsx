@@ -3,11 +3,10 @@ import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 
 /**
- * Fonts are tuned for the LCP budget. `display: 'optional'` + `preload: false`
- * paints text immediately in next/font's metric-matched fallback and does NOT
- * swap Geist in on the first (uncached) load — so a slow web-font fetch can't
- * re-time text LCP past the 2.5s budget. Geist upgrades on subsequent cached
- * loads. Paired with the server-rendered shell, LCP tracks the fast first paint.
+ * `display: 'swap'` with next/font's metric-matched fallback: text paints
+ * immediately in the size-adjusted fallback (fonts also arrive in ~85ms), so the
+ * web font never gates first paint. Paired with the server-rendered shell, the
+ * LCP content isn't blocked on hydration either.
  */
 const geistSans = Geist({ subsets: ['latin'], display: 'swap', variable: '--font-geist-sans' });
 const geistMono = Geist_Mono({
