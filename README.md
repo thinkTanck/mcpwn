@@ -173,7 +173,7 @@ trailer; the app screens sit behind it. Live BYOK runs are gated by sign-in.
 | Route            | Screen                                         |
 | ---------------- | ---------------------------------------------- |
 | `/`              | Home / landing — pitch + sample trailer + CTAs |
-| `/sign-in`       | Sign-in — gates live runs (per-account caps)   |
+| `/sign-in`       | Sign-in — Supabase Auth email magic-link       |
 | `/connect`       | Run Setup — sample mode, or BYOK live (target) |
 | `/runs/[id]`     | Live Attack Replay (the hero)                  |
 | `/leaderboard`   | Robustness leaderboard heatmap                 |
@@ -188,8 +188,11 @@ trailer; the app screens sit behind it. Live BYOK runs are gated by sign-in.
 - **ESLint 9** (held; the ESLint 10 bump is tracked) + **Prettier**.
 - **Vitest 4** for unit/integration; **Playwright 1.61** + **@axe-core/playwright**
   for e2e and accessibility; **Lighthouse CI** for Core Web Vitals budgets.
-- **Neon Postgres** behind a repository port, with an in-memory adapter for tests
-  (later phase).
+- **Supabase Postgres** behind a repository port (the postgres adapter is
+  provider-agnostic — any Postgres via `DATABASE_URL`), with an in-memory adapter
+  for tests (later phase).
+- **Supabase Auth** — email magic-link sign-in (optional GitHub/Google OAuth) —
+  gating live runs (later phase).
 - **Node 22**; deployed on **Vercel**.
 
 ## Quickstart

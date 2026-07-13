@@ -123,7 +123,7 @@ rect.c-bg-rect { fill: var(--bg); }
         <rect x="712" y="408" width="120" height="60" rx="6" class="c-mask"/>
         <rect x="712" y="408" width="120" height="60" rx="6" class="c-database" stroke-width="1.5"/>
         <text x="772" y="436" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Persistence</text>
-        <text x="772" y="452" class="t-muted" font-size="9" text-anchor="middle">memory + Neon</text>
+        <text x="772" y="452" class="t-muted" font-size="9" text-anchor="middle">memory + Supabase</text>
 
         <rect x="878" y="408" width="120" height="60" rx="6" class="c-mask"/>
         <rect x="878" y="408" width="120" height="60" rx="6" class="c-backend" stroke-width="1.5"/>
