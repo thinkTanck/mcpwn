@@ -16,6 +16,12 @@ const eslintConfig = [
       'playwright-report/**',
       'test-results/**',
       'next-env.d.ts',
+      // Vendored / non-source (also absent from the CI checkout): design-tool
+      // exports, local skill bundles, and generated docs assets.
+      'design-review/**',
+      '.agents/**',
+      '.claude/**',
+      'docs/**',
     ],
   },
 ];
