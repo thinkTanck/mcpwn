@@ -1,0 +1,40 @@
+import Link from 'next/link';
+import { cn } from '@/lib/utils';
+import { isActive, type NavItem } from './nav-items';
+
+/**
+ * A single command-deck link with the active glow-bar + aria-current. A pure
+ * Server Component — `pathname` is passed in (read from the request header in
+ * AppShell), so no client `usePathname` is needed.
+ */
+export function NavLink({
+  item,
+  pathname,
+  labelClassName,
+}: {
+  item: NavItem;
+  pathname: string;
+  labelClassName?: string;
+}) {
+  const active = isActive(pathname, item);
+  return (
+    <Link
+      href={item.href}
+      aria-current={active ? 'page' : undefined}
+      className={cn(
+        'relative flex items-center gap-3 rounded-md px-3.5 py-3 font-mono text-xs tracking-[0.06em] transition-colors',
+        active ? 'bg-nominal/8 text-ink-hi' : 'text-ink-muted hover:bg-raised/70 hover:text-ink-hi',
+      )}
+    >
+      <span
+        aria-hidden="true"
+        className={cn(
+          'absolute bottom-2 left-[-12px] top-2 w-0.5 rounded-full',
+          active ? 'bg-nominal shadow-glow-nominal' : 'bg-transparent',
+        )}
+      />
+      <span className="shrink-0 opacity-90">{item.icon}</span>
+      <span className={labelClassName}>{item.label}</span>
+    </Link>
+  );
+}

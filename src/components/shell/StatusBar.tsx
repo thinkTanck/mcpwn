@@ -1,26 +1,14 @@
-'use client';
-
 import { ModeBadge, type Mode } from './ModeBadge';
+import { MobileDrawer } from './MobileDrawer';
 
-/** Top status bar (banner): hamburger (mobile) · reticle + wordmark · mode badge. */
-export function StatusBar({ mode = 'sample', onMenu }: { mode?: Mode; onMenu: () => void }) {
+/**
+ * Top status bar (banner). Fully server-rendered — the mobile drawer uses the
+ * native Popover API, so the shell ships no client JS and LCP stays fast.
+ */
+export function StatusBar({ pathname, mode = 'sample' }: { pathname: string; mode?: Mode }) {
   return (
-    <header className="relative z-[45] flex h-12 shrink-0 items-center gap-4 border-b border-line bg-gradient-to-b from-[rgba(16,24,35,0.75)] to-[rgba(5,8,11,0.4)] px-4 backdrop-blur-[6px]">
-      <button
-        type="button"
-        onClick={onMenu}
-        aria-label="Open command deck"
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-line text-ink hover:border-line-em hover:text-ink-hi min-[760px]:hidden"
-      >
-        <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true">
-          <g stroke="currentColor" strokeWidth="1.4" strokeLinecap="round">
-            <line x1="2" y1="4" x2="14" y2="4" />
-            <line x1="2" y1="8" x2="14" y2="8" />
-            <line x1="2" y1="12" x2="14" y2="12" />
-          </g>
-        </svg>
-      </button>
-
+    <header className="sticky top-0 z-[45] flex h-12 shrink-0 items-center gap-4 border-b border-line bg-gradient-to-b from-[rgba(16,24,35,0.75)] to-[rgba(5,8,11,0.4)] px-4 backdrop-blur-[6px]">
+      <MobileDrawer pathname={pathname} />
       <div className="flex items-center gap-2.5">
         <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" className="shrink-0">
           <circle cx="12" cy="12" r="9" fill="none" stroke="var(--line-emphasis)" strokeWidth="1" />
@@ -42,7 +30,6 @@ export function StatusBar({ mode = 'sample', onMenu }: { mode?: Mode; onMenu: ()
           SENTINEL FIELDS
         </span>
       </div>
-
       <div className="flex-1" />
       <ModeBadge mode={mode} />
     </header>

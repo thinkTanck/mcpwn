@@ -177,6 +177,12 @@ body {
   border-radius: var(--radius-md);
 }
 
+/* Native popover (mobile command deck) backdrop — dim + slight blur. */
+#mobile-deck::backdrop {
+  background: rgba(3, 5, 7, 0.6);
+  backdrop-filter: blur(2px);
+}
+
 /* =========================================================================
  * Motion — CWV-safe (transform/opacity only, GPU-composited). Every reveal
  * enhances an already-visible resting state: if animations are disabled the

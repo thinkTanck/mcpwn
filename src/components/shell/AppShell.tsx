@@ -1,20 +1,25 @@
-'use client';
-
-import { useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
+import { headers } from 'next/headers';
 import { Graticule } from './Graticule';
 import { StatusBar } from './StatusBar';
 import { CommandDeck } from './CommandDeck';
 
-/** The HUD frame: status bar + command deck + scrollable main. Owns drawer state. */
-export function AppShell({ children }: { children: ReactNode }) {
-  const [navOpen, setNavOpen] = useState(false);
+/**
+ * The HUD frame: status bar + command deck + main. A Server Component with NO
+ * client JS — the active nav comes from the `x-pathname` request header
+ * (middleware) and the mobile drawer is a native popover. Uses natural document
+ * flow with a sticky header/rail (not a fixed-height overflow container), which
+ * avoids the synchronous-layout cost that was delaying LCP.
+ */
+export async function AppShell({ children }: { children: ReactNode }) {
+  const pathname = (await headers()).get('x-pathname') ?? '/';
   return (
-    <div className="relative flex h-dvh flex-col overflow-hidden bg-base font-sans text-ink">
+    <div className="relative min-h-dvh bg-base font-sans text-ink">
       <Graticule />
-      <StatusBar onMenu={() => setNavOpen(true)} />
-      <div className="relative z-[4] flex min-h-0 flex-1">
-        <CommandDeck open={navOpen} onClose={() => setNavOpen(false)} />
-        <main className="relative min-w-0 flex-1 overflow-auto">{children}</main>
+      <StatusBar pathname={pathname} />
+      <div className="flex min-h-[calc(100dvh-3rem)]">
+        <CommandDeck pathname={pathname} />
+        <main className="relative min-w-0 flex-1">{children}</main>
       </div>
     </div>
   );
