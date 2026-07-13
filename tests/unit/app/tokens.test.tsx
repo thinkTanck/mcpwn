@@ -123,7 +123,12 @@ const surfacePanel = resolveColor('var(--surface-panel)', surfaceBase);
 
 describe('DTCG token layer (globals.css)', () => {
   it('defines every custom property referenced in globals.css (no undefined tokens)', () => {
-    const missing = tokenRefs(cssNoComments).filter((name) => !vars.has(name));
+    // Injected at runtime by next/font on <html> (with a font-stack fallback in
+    // the --font-* declarations), so not defined in the :root token block.
+    const externallyProvided = new Set(['--font-geist-sans', '--font-geist-mono']);
+    const missing = tokenRefs(cssNoComments).filter(
+      (name) => !vars.has(name) && !externallyProvided.has(name),
+    );
     expect(missing).toEqual([]);
   });
 

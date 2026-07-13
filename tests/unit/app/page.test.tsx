@@ -1,14 +1,14 @@
 import { render, screen } from '@testing-library/react';
-import Home from '@/app/page';
+import Home from '@/app/(hud)/page';
 
-describe('Home (landing page)', () => {
+describe('Home (placeholder)', () => {
   it('renders the level-1 MCPwn heading', () => {
     render(<Home />);
     expect(screen.getByRole('heading', { level: 1, name: 'MCPwn' })).toBeInTheDocument();
   });
 
-  it('shows the CI-first skeleton status readout', () => {
+  it('shows the bring-your-own-agent eyebrow', () => {
     render(<Home />);
-    expect(screen.getByText(/ci-first skeleton/i)).toBeInTheDocument();
+    expect(screen.getByText(/bring your own mcp agent/i)).toBeInTheDocument();
   });
 });

@@ -112,9 +112,9 @@
   --motion-sweep: 1200ms;
   --ease-emphasized: cubic-bezier(0.2, 0, 0, 1);
 
-  /* Type */
-  --font-mono: 'Geist Mono', ui-monospace, 'SF Mono', monospace;
-  --font-sans: 'Geist', Inter, system-ui, -apple-system, sans-serif;
+  /* Type — next/font sets --font-geist-*; these stacks fall back gracefully. */
+  --font-mono: var(--font-geist-mono), 'Geist Mono', ui-monospace, 'SF Mono', monospace;
+  --font-sans: var(--font-geist-sans), 'Geist', Inter, system-ui, -apple-system, sans-serif;
 
   /* ---- Back-compat aliases (existing skeleton components) ------------- */
   --bg: var(--surface-base);
@@ -124,6 +124,40 @@
   --panel: var(--surface-panel);
   --border: var(--line);
   --danger: var(--status-breach);
+}
+
+/* =========================================================================
+ * Tailwind bridge — expose the DTCG semantic tokens as Tailwind v4 utilities.
+ * `inline` references the tokens above (no re-declared vars, no recursion), so
+ * `bg-panel` / `text-ink` / `border-line` / `text-breach` / `shadow-glow-breach`
+ * / `font-mono` all resolve to the same cascading token. Components consume
+ * these utilities; the token layer stays the single source of truth.
+ * ========================================================================= */
+@theme inline {
+  --color-base: var(--surface-base);
+  --color-panel: var(--surface-panel);
+  --color-solid: var(--surface-solid);
+  --color-raised: var(--surface-raised);
+  --color-line: var(--line);
+  --color-line-em: var(--line-emphasis);
+
+  --color-ink-hi: var(--text-hi);
+  --color-ink: var(--text);
+  --color-ink-muted: var(--text-muted);
+  --color-ink-faint: var(--text-faint);
+  --color-readout: var(--text-readout);
+  --color-breach-text: var(--text-breach);
+
+  --color-nominal: var(--status-nominal);
+  --color-caution: var(--status-caution);
+  --color-breach: var(--status-breach);
+
+  --shadow-glow-nominal: var(--glow-nominal);
+  --shadow-glow-caution: var(--glow-caution);
+  --shadow-glow-breach: var(--glow-breach);
+
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
 }
 
 body {
