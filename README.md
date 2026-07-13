@@ -1,13 +1,30 @@
 # MCPwn
 
-> Red-team your MCP-tool-using AI agents against the OWASP Top 10 for Agentic Applications (2026) — with a live attack replay, a per-model robustness leaderboard, and engineer-ready fix reports.
+> **Bring your own MCP agent → live red-team it against the OWASP Top 10 for Agentic Applications (2026) → get a report from a detector whose accuracy is _measured_** (leakage-separated precision/recall). With a live attack replay, a per-model robustness leaderboard, and engineer-ready fix reports.
 
 ## What MCPwn is
 
 MCPwn is a standalone, deployed web app that red-teams an MCP-tool-using agent
-against the **OWASP Top 10 for Agentic Applications (2026)**. It runs constructed
-attacks against a target agent, detects whether the agent was compromised, and
-presents the results three ways:
+against the **OWASP Top 10 for Agentic Applications (2026)**. The competitive
+product: **bring your own MCP agent → live red-team it against the Core-5 → get a
+trustworthy report from a detector whose accuracy is _measured_** (leakage-separated
+precision/recall, not asserted). The verdict is trustworthy precisely because it
+comes from the detector config whose accuracy was actually measured.
+
+**Two access modes:**
+
+- **Sample playback** (the trailer) — a no-key, curated **real** run you can step
+  through immediately, so the tool proves itself before you connect anything.
+- **Live BYOK red-teaming** (the tool) — you **bring your own MCP agent**
+  (endpoint + key; _you_ pay target inference) and run it against the Core-5. The
+  **judge is the fixed, validated, operator-provided detector — LOCKED** and never
+  user-swappable, because the measured accuracy only holds for the validated judge
+  config. Live runs are **gated** (sign-in + per-account caps) with a cheap
+  validated judge, so operator judge cost stays a few cents per run. **BYOK keys
+  are used server-side only, over HTTPS, never logged, and never persisted in
+  plaintext.**
+
+Either way, results are presented three ways:
 
 - **Live attack replay** (the hero) — step through a run's timeline; the
   compromising step is highlighted with the detector's rationale pinned to it.
@@ -15,8 +32,8 @@ presents the results three ways:
 - **Findings / fix reports** — engineer-ready remediation write-ups.
 
 The app is model- and target-agnostic: external access sits behind domain-named
-ports whose HTTP adapters validate their own credentials lazily, so the offline
-app boots with none.
+ports (`McpTargetPort`, `JudgeModelPort`) whose HTTP adapters validate their own
+credentials lazily, so the offline app boots with none.
 
 ## Current status
 
@@ -147,6 +164,20 @@ comparing detector verdicts against the held-out ground truth on constructed
 fixtures only. Live runs are unlabeled — which is exactly why the detector exists.
 
 ![Leakage separation — the detector is blind (Trace + goal only); the held-out GroundTruth flows only to the eval / scorer, never to the detector, RunResult, or UI](docs/diagrams/leakage-dataflow.svg)
+
+### Routes
+
+A **Home / landing** (`/`) is the front door — the pitch plus the sample-run
+trailer; the app screens sit behind it. Live BYOK runs are gated by sign-in.
+
+| Route            | Screen                                         |
+| ---------------- | ---------------------------------------------- |
+| `/`              | Home / landing — pitch + sample trailer + CTAs |
+| `/sign-in`       | Sign-in — gates live runs (per-account caps)   |
+| `/connect`       | Run Setup — sample mode, or BYOK live (target) |
+| `/runs/[id]`     | Live Attack Replay (the hero)                  |
+| `/leaderboard`   | Robustness leaderboard heatmap                 |
+| `/findings/[id]` | Findings / fix report                          |
 
 ## Stack
 
