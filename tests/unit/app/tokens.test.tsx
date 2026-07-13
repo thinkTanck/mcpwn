@@ -21,6 +21,12 @@ import ErrorBoundary from '@/app/error';
 // Vitest runs with cwd at the project root (see vitest.config.ts).
 const read = (rel: string) => readFileSync(join(process.cwd(), rel), 'utf8');
 
+/** Narrow away `undefined` from optional lookups (tsconfig noUncheckedIndexedAccess). */
+function must<T>(value: T | undefined | null, message: string): T {
+  if (value === undefined || value === null) throw new Error(message);
+  return value;
+}
+
 const css = read('src/app/globals.css');
 // Strip block comments (they carry token values in trailing notes) before parse.
 const cssNoComments = css.replace(/\/\*[\s\S]*?\*\//g, '');
@@ -30,11 +36,11 @@ const cssNoComments = css.replace(/\/\*[\s\S]*?\*\//g, '');
 /** Parse `--name: value;` declarations from the :root block. */
 function parseRootVars(source: string): Map<string, string> {
   const block = source.match(/:root\s*\{([\s\S]*?)\}/);
-  if (!block) throw new Error(':root block not found in globals.css');
+  const body = must(block?.[1], ':root block not found in globals.css');
   const vars = new Map<string, string>();
-  for (const decl of block[1].split(';')) {
+  for (const decl of body.split(';')) {
     const m = decl.match(/^\s*(--[\w-]+)\s*:\s*(.+?)\s*$/s);
-    if (m) vars.set(m[1], m[2].trim());
+    if (m && m[1] && m[2]) vars.set(m[1], m[2].trim());
   }
   return vars;
 }
@@ -43,7 +49,11 @@ const vars = parseRootVars(cssNoComments);
 
 /** Every `var(--x)` reference anywhere in a source string. */
 const tokenRefs = (source: string): string[] => [
-  ...new Set([...source.matchAll(/var\(\s*(--[\w-]+)/g)].map((m) => m[1])),
+  ...new Set(
+    [...source.matchAll(/var\(\s*(--[\w-]+)/g)]
+      .map((m) => m[1])
+      .filter((v): v is string => Boolean(v)),
+  ),
 ];
 
 // --- color resolution + WCAG ----------------------------------------------
@@ -69,15 +79,16 @@ function resolveColor(value: string, base: RGB): RGB {
   const v = value.trim();
 
   const varRef = v.match(/^var\(\s*(--[\w-]+)\s*(?:,\s*(.+))?\)$/s);
-  if (varRef) {
+  if (varRef && varRef[1]) {
     const name = varRef[1];
-    if (vars.has(name)) return resolveColor(vars.get(name)!, base);
+    const defined = vars.get(name);
+    if (defined !== undefined) return resolveColor(defined, base);
     if (varRef[2]) return resolveColor(varRef[2], base);
     throw new Error(`undefined token referenced: ${name}`);
   }
 
   const mix = v.match(/^color-mix\(\s*in srgb\s*,\s*(.+?)\s+([\d.]+)%\s*,\s*transparent\s*\)$/s);
-  if (mix) {
+  if (mix && mix[1] && mix[2]) {
     const fg = resolveColor(mix[1], base);
     const p = parseFloat(mix[2]) / 100;
     return [
@@ -138,7 +149,9 @@ describe('DTCG token layer (globals.css)', () => {
   it('exposes the full 8-pt --sp-* spacing scale in px', () => {
     const sp = [...vars.keys()].filter((k) => /^--sp-\d+$/.test(k));
     expect(sp.length).toBeGreaterThanOrEqual(8);
-    for (const k of sp) expect(vars.get(k), `${k} is a px value`).toMatch(/^\d+px$/);
+    for (const k of sp) {
+      expect(must(vars.get(k), `${k} is a px value`)).toMatch(/^\d+px$/);
+    }
     // 8-pt base anchor present and correct.
     expect(vars.get('--sp-8')).toBe('8px');
     expect(vars.get('--sp-16')).toBe('16px');
@@ -146,9 +159,9 @@ describe('DTCG token layer (globals.css)', () => {
 
   it('registers a global :focus-visible ring driven by the focus token', () => {
     const rule = cssNoComments.match(/:focus-visible[^{]*\{([^}]*)\}/);
-    expect(rule, ':focus-visible rule present').toBeTruthy();
-    expect(rule![1]).toMatch(/outline/);
-    expect(rule![1]).toMatch(/var\(--focus-ring\)/);
+    const decls = must(rule?.[1], ':focus-visible rule present');
+    expect(decls).toMatch(/outline/);
+    expect(decls).toMatch(/var\(--focus-ring\)/);
     expect(vars.has('--focus-ring')).toBe(true);
   });
 });
