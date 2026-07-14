@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { headers } from 'next/headers';
+import { getDataSource } from '@/data/source';
 import { Graticule } from './Graticule';
 import { StatusBar } from './StatusBar';
 import { CommandDeck } from './CommandDeck';
@@ -12,13 +13,14 @@ import { CommandDeck } from './CommandDeck';
  * avoids the synchronous-layout cost that was delaying LCP.
  */
 export async function AppShell({ children }: { children: ReactNode }) {
-  const pathname = (await headers()).get('x-pathname') ?? '/';
+  const [headerList, fleet] = await Promise.all([headers(), getDataSource().getFleetStatus()]);
+  const pathname = headerList.get('x-pathname') ?? '/';
   return (
     <div className="relative min-h-dvh bg-base font-sans text-ink">
       <Graticule />
-      <StatusBar pathname={pathname} />
-      <div className="flex min-h-[calc(100dvh-3rem)]">
-        <CommandDeck pathname={pathname} />
+      <StatusBar pathname={pathname} fleet={fleet} />
+      <div className="flex min-h-[calc(100dvh-62px)]">
+        <CommandDeck pathname={pathname} fleet={fleet} />
         <main className="relative min-w-0 flex-1">{children}</main>
       </div>
     </div>

@@ -1,4 +1,5 @@
 import type { RunResult } from '@/contract';
+import { bandFor } from '@/lib/hud/bands';
 import { asi06Run } from './fixtures/asi06-trace';
 import { leaderboardFixture } from './fixtures/leaderboard';
 import { findingsFixture } from './fixtures/findings';
@@ -33,11 +34,27 @@ export type FixReport = {
   rationale: string;
 };
 
+/**
+ * Fleet health for the command-deck FLEET STATUS — each run's verdict tallied
+ * into the tri-state (nominal = not compromised · caution = compromised Low/Med
+ * · breach = compromised High/Critical). `source` carries provenance so the UI
+ * never conflates the curated sample with an account's measured runs.
+ */
+export type FleetStatus = {
+  source: 'sample' | 'measured';
+  nominal: number;
+  caution: number;
+  breach: number;
+  total: number;
+  empty: boolean;
+};
+
 export interface DataSource {
   getRun(id: string): Promise<RunResult | null>;
   listRuns(): Promise<RunResult[]>;
   getLeaderboard(): Promise<Leaderboard>;
   getFixReport(id: string): Promise<FixReport | null>;
+  getFleetStatus(): Promise<FleetStatus>;
 }
 
 /** Canonical id for the curated sample run; `'sample'` is accepted as an alias. */
@@ -60,6 +77,17 @@ class InMemoryDataSource implements DataSource {
   getFixReport(id: string): Promise<FixReport | null> {
     const wanted = resolveId(id);
     return Promise.resolve(findingsFixture.runId === wanted ? findingsFixture : null);
+  }
+
+  async getFleetStatus(): Promise<FleetStatus> {
+    // Sample fleet: tally the curated leaderboard cells by tri-state band
+    // (nominal ≥.80 · caution ≥.50 · breach <.50). A measured adapter would
+    // instead tally the account's real run verdicts and report source:'measured'.
+    const lb = await this.getLeaderboard();
+    const cells = lb.rows.flatMap((row) => row.cells);
+    const tally = { nominal: 0, caution: 0, breach: 0 };
+    for (const cell of cells) tally[bandFor(cell.robustness)] += 1;
+    return { source: 'sample', ...tally, total: cells.length, empty: cells.length === 0 };
   }
 }
 
