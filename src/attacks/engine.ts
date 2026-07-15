@@ -136,7 +136,7 @@ export interface AttackDef {
 // ── registry (attacks self-register via defineAttack; files stay disjoint) ──
 const registry = new Map<Category, AttackModule>();
 
-/** The canonical Core-5 codes in scope — the registry's expected set. */
+/** The canonical Core-7 codes in scope — the registry's expected set. */
 export const ATTACK_CODES: readonly Category[] = CategorySchema.options;
 
 /**

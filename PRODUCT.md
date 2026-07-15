@@ -21,7 +21,7 @@ Security engineers, red-teamers, and AI-safety practitioners evaluating how robu
 
 ## Purpose
 
-Red-team an MCP agent against the Core-5 OWASP Agentic categories and make the outcome legible. Four surfaces: **Run Setup** (targeting console), **Live Attack Replay** (the hero — a scrubby step timeline with the compromise step badged and the detector rationale pinned), **Robustness Leaderboard** (per-model × per-category heatmap), and **Findings / fix-reports** (case files). The UI renders **observable data only** — the held-out ground truth never reaches it (leakage separation).
+Red-team an MCP agent against the Core-7 OWASP Agentic categories and make the outcome legible. Five surfaces: **Run Setup** (targeting console), **Live Attack Replay** (the hero — a scrubby step timeline with the compromise step badged and the detector rationale pinned), **Robustness Leaderboard** (per-model × per-category heatmap), **Findings / fix-reports** (case files), and **Threat Model / Coverage** (which of the ten OWASP categories are measured — Core-7 covered, ASI07/08/09 marked not-measurable). The UI renders **observable data only** — the held-out ground truth never reaches it (leakage separation).
 
 ## Brand personality
 

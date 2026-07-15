@@ -95,7 +95,7 @@ rect.c-bg-rect { fill: var(--bg); }
         <rect x="44" y="242" width="112" height="58" rx="6" class="c-frontend" stroke-width="1.5"/>
         <text x="100" y="263" class="t-primary" font-size="10" font-weight="600" text-anchor="middle">Attack scenario</text>
         <text x="100" y="279" class="t-muted" font-size="7" text-anchor="middle">taskGoal + env</text>
-        <text x="100" y="289" class="t-frontend" font-size="7" text-anchor="middle">ASI01-10</text>
+        <text x="100" y="289" class="t-frontend" font-size="7" text-anchor="middle">Core-7</text>
 
         <rect x="44" y="470" width="112" height="58" rx="6" class="c-mask"/>
         <rect x="44" y="470" width="112" height="58" rx="6" class="c-security" stroke-width="1.5"/>

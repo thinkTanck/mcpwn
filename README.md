@@ -6,7 +6,7 @@
 
 MCPwn is a standalone, deployed web app that red-teams an MCP-tool-using agent
 against the **OWASP Top 10 for Agentic Applications (2026)**. The competitive
-product: **bring your own MCP agent → live red-team it against the Core-5 → get a
+product: **bring your own MCP agent → live red-team it against the Core-7 → get a
 trustworthy report from a detector whose accuracy is _measured_** (leakage-separated
 precision/recall, not asserted). The verdict is trustworthy precisely because it
 comes from the detector config whose accuracy was actually measured.
@@ -16,7 +16,7 @@ comes from the detector config whose accuracy was actually measured.
 - **Sample playback** (the trailer) — a no-key, curated **real** run you can step
   through immediately, so the tool proves itself before you connect anything.
 - **Live BYOK red-teaming** (the tool) — you **bring your own MCP agent**
-  (endpoint + key; _you_ pay target inference) and run it against the Core-5. The
+  (endpoint + key; _you_ pay target inference) and run it against the Core-7. The
   **judge is the fixed, validated, operator-provided detector — LOCKED** and never
   user-swappable, because the measured accuracy only holds for the validated judge
   config. Live runs are **gated** (sign-in + per-account caps) with a cheap
@@ -50,17 +50,32 @@ disciplined, pushed TDD increments**, module by module, in the order set out in
 [`plan.md`](plan.md). Nothing beyond the landing page is claimed as built yet;
 this README describes the target architecture and the pipeline that guards it.
 
-## Scope — Core-5 (OWASP Agentic Top 10 2026)
+## Scope — Core-7 (OWASP Agentic Top 10 2026)
 
-The first wave targets five of the ten categories:
+MCPwn covers **seven of the ten** categories:
 
 | Code  | Category                                               |
 | ----- | ------------------------------------------------------ |
 | ASI01 | Agent Goal Hijack                                      |
 | ASI02 | Tool Misuse and Exploitation                           |
+| ASI03 | Identity and Privilege Abuse                           |
 | ASI04 | Agentic Supply Chain Vulnerabilities                   |
+| ASI05 | Unexpected Code Execution (RCE)                        |
 | ASI06 | Memory & Context Poisoning                             |
 | ASI10 | Rogue Agents (v1: three bounded single-run signatures) |
+
+**Why seven, not ten — the measurability bar.** A category ships only if the
+compromise is **observable** in the agent's own `Trace` steps, inside **one
+bounded run**, **anchorable** to a single offending step (_"compromised at step N
+— or not"_), **and** has a **benign variant that scores not-compromised** —
+without that control we could measure recall but never precision. ASI07 (Insecure
+Inter-Agent Communication), ASI08 (Cascading Agent Failures), and ASI09
+(Human-Agent Trust Exploitation) don't clear the bar under the current single-run
+observable contract, so MCPwn doesn't claim to test them; the **Threat Model /
+Coverage** page (`/threats`) shows the full ten with the uncovered three marked
+_not measurable_ (a neutral state, never the breach red). The rationale is
+recorded in
+[ADR-0003](docs/adr/0003-core-7-scope-and-measurability-bar.md).
 
 ## Architecture
 
@@ -84,7 +99,7 @@ flowchart TD
     JMP(["JudgeModelPort"])
 
     %% ---- Modules 1..8 ----
-    M2["2. Attack engine"]
+    M2["2. Attack engine (Core-7)"]
     M1["1. MCP harness"]
     M3["3. Runner"]
     M4["4. Detector"]
@@ -170,14 +185,15 @@ fixtures only. Live runs are unlabeled — which is exactly why the detector exi
 A **Home / landing** (`/`) is the front door — the pitch plus the sample-run
 trailer; the app screens sit behind it. Live BYOK runs are gated by sign-in.
 
-| Route            | Screen                                         |
-| ---------------- | ---------------------------------------------- |
-| `/`              | Home / landing — pitch + sample trailer + CTAs |
-| `/sign-in`       | Sign-in — Supabase Auth email magic-link       |
-| `/connect`       | Run Setup — sample mode, or BYOK live (target) |
-| `/runs/[id]`     | Live Attack Replay (the hero)                  |
-| `/leaderboard`   | Robustness leaderboard heatmap                 |
-| `/findings/[id]` | Findings / fix report                          |
+| Route            | Screen                                                               |
+| ---------------- | -------------------------------------------------------------------- |
+| `/`              | Home / landing — pitch + sample trailer + CTAs                       |
+| `/sign-in`       | Sign-in — Supabase Auth email magic-link                             |
+| `/connect`       | Run Setup — sample mode, or BYOK live (target)                       |
+| `/runs/[id]`     | Live Attack Replay (the hero)                                        |
+| `/leaderboard`   | Robustness leaderboard heatmap                                       |
+| `/findings/[id]` | Findings / fix report                                                |
+| `/threats`       | Threat Model / Coverage — Core-7 covered, ASI07/08/09 not measurable |
 
 ## Stack
 
@@ -263,5 +279,9 @@ and every pull request to `main`**:
 - [`CLAUDE.md`](CLAUDE.md) — full architecture, stack, data contract, module map,
   and the Definition of Done.
 - [`plan.md`](plan.md) — the phased build order and current rebuild status.
-- [`docs/adr/`](docs/adr/) — Architecture Decision Records (Nygard format),
-  starting with [ADR-0001](docs/adr/0001-record-architecture-decisions.md).
+- [`docs/adr/`](docs/adr/) — Architecture Decision Records (Nygard format):
+  [ADR-0001](docs/adr/0001-record-architecture-decisions.md) (using ADRs),
+  [ADR-0002](docs/adr/0002-lighthouse-devtools-throttling.md) (Lighthouse CI
+  DevTools throttling — measured over simulated), and
+  [ADR-0003](docs/adr/0003-core-7-scope-and-measurability-bar.md) (Core-7 scope +
+  the measurability bar).
