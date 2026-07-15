@@ -3,7 +3,7 @@ import { SectionLabel } from '@/components/hud';
 /**
  * Home placeholder — the shell + a minimal hero so the route builds and the
  * command deck resolves. The full landing (measured-accuracy stat, sample
- * trailer, Core-5, CTAs) lands in feat/ui-home.
+ * trailer, Core-7, CTAs) lands in feat/ui-home.
  */
 export default function Home() {
   return (

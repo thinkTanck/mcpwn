@@ -4,7 +4,7 @@
  * Enumerates each registered attack × {malicious, benign} → {trace, groundTruth},
  * runs the detector on the observable TRACE + goal ONLY (never the groundTruth —
  * leakage separation), and scores verdict.compromised vs the held-out
- * groundTruth into precision/recall (aggregate + per Core-5 category). The
+ * groundTruth into precision/recall (aggregate + per Core-7 category). The
  * harness HOLDS the groundTruth purely to score; the detector never sees it.
  */
 import { getAttack, listAttackCodes, type AttackModule } from '@/attacks';
@@ -87,7 +87,7 @@ export async function evaluate(attacks: AttackModule[], detect: DetectorFn): Pro
   return report(records);
 }
 
-/** Evaluate over ALL registered attacks (the Core-5). */
+/** Evaluate over ALL registered attacks (the Core-7). */
 export function evaluateAll(detect: DetectorFn): Promise<EvalReport> {
   return evaluate(listAttackCodes().map(getAttack), detect);
 }
