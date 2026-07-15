@@ -2,9 +2,8 @@ name: CI
 
 on:
   push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+    branches: ['**']
+  pull_request: # unfiltered base — stacked PRs (base != main) get CI too
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
