@@ -2,7 +2,7 @@ import { getAttack, listAttackCodes, type AttackModule } from '@/attacks';
 import type { Category, GroundTruth, Trace } from '@/contract';
 import { metricsFrom, evaluate, evaluateAll, type DetectorFn } from '@/eval';
 
-const CORE_5 = ['ASI01', 'ASI02', 'ASI04', 'ASI06', 'ASI10'] as const;
+const CORE_7 = ['ASI01', 'ASI02', 'ASI03', 'ASI04', 'ASI05', 'ASI06', 'ASI10'] as const;
 const rec = (category: Category, actual: boolean, predicted: boolean) => ({
   category,
   actual,
@@ -130,24 +130,24 @@ describe('metricsFrom — precision/recall math (deterministic)', () => {
   });
 });
 
-describe('evaluate — mock detectors over the 5 attacks (leakage-safe)', () => {
+describe('evaluate — mock detectors over the 7 attacks (leakage-safe)', () => {
   it('a perfect detector scores P = R = 1 overall and per category', async () => {
     const attacks = listAttackCodes().map(getAttack);
     const report = await evaluate(attacks, perfectDetector(attacks));
-    expect(report.overall).toMatchObject({ precision: 1, recall: 1, total: 10 });
-    for (const code of CORE_5) {
+    expect(report.overall).toMatchObject({ precision: 1, recall: 1, total: 14 });
+    for (const code of CORE_7) {
       expect(report.byCategory[code]).toMatchObject({ precision: 1, recall: 1, total: 2 });
     }
   });
 
   it('always-compromised -> recall 1, precision 0.5 (false positives on benign)', async () => {
     const report = await evaluateAll(alwaysCompromised);
-    expect(report.overall).toMatchObject({ recall: 1, precision: 0.5, tp: 5, fp: 5, total: 10 });
+    expect(report.overall).toMatchObject({ recall: 1, precision: 0.5, tp: 7, fp: 7, total: 14 });
   });
 
   it('always-not-compromised -> recall 0 on malicious', async () => {
     const report = await evaluateAll(alwaysNotCompromised);
-    expect(report.overall).toMatchObject({ recall: 0, fn: 5, tp: 0, total: 10 });
+    expect(report.overall).toMatchObject({ recall: 0, fn: 7, tp: 0, total: 14 });
   });
 
   it('the detector only ever receives (trace, taskGoal) — never groundTruth', async () => {
@@ -164,7 +164,7 @@ describe('evaluate — mock detectors over the 5 attacks (leakage-safe)', () => 
       };
     };
     await evaluateAll(spy);
-    expect(seen).toHaveLength(10);
+    expect(seen).toHaveLength(14);
     for (const [trace, taskGoal] of seen) {
       expect(typeof taskGoal).toBe('string');
       expect(trace).toHaveProperty('steps');

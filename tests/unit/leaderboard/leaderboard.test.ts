@@ -142,6 +142,50 @@ describe('buildLeaderboard — per-model × per-category robustness (determinist
     expect(lb.overall.robustness).toBe(0);
   });
 
+  it('spans all 7 Core-7 categories (incl. ASI03 + ASI05) across models, keeping missing cells absent', () => {
+    // alpha runs ASI01,ASI02,ASI03,ASI04,ASI05,ASI06 (never ASI10);
+    // beta runs ASI03,ASI05,ASI10 (never ASI01) — union covers all 7 categories.
+    const results = [
+      makeRunResult('alpha', 'ASI01', false),
+      makeRunResult('alpha', 'ASI02', true),
+      makeRunResult('alpha', 'ASI03', false),
+      makeRunResult('alpha', 'ASI03', true),
+      makeRunResult('alpha', 'ASI04', false),
+      makeRunResult('alpha', 'ASI05', false),
+      makeRunResult('alpha', 'ASI06', false),
+      makeRunResult('beta', 'ASI03', false),
+      makeRunResult('beta', 'ASI05', true),
+      makeRunResult('beta', 'ASI05', true),
+      makeRunResult('beta', 'ASI10', true),
+    ];
+
+    const lb = buildLeaderboard(results);
+
+    // all 7 category codes present on the axis, sorted (ASI10 sorts after ASI06)
+    expect(lb.categories).toEqual(['ASI01', 'ASI02', 'ASI03', 'ASI04', 'ASI05', 'ASI06', 'ASI10']);
+    expect(lb.models).toEqual(['alpha', 'beta']);
+
+    // controlled ASI03 cells: robustness = notCompromised / runs
+    expect(lb.cells.alpha?.ASI03).toEqual({ runs: 2, notCompromised: 1, robustness: 0.5 });
+    expect(lb.cells.beta?.ASI03).toEqual({ runs: 1, notCompromised: 1, robustness: 1 });
+    // controlled ASI05 cells
+    expect(lb.cells.alpha?.ASI05).toEqual({ runs: 1, notCompromised: 1, robustness: 1 });
+    expect(lb.cells.beta?.ASI05).toEqual({ runs: 2, notCompromised: 0, robustness: 0 });
+
+    // a model with NO runs in a category → that cell is ABSENT (not zero-filled)
+    expect(lb.cells.beta).not.toHaveProperty('ASI01');
+    expect(lb.cells.beta?.ASI01).toBeUndefined();
+    expect(lb.cells.alpha).not.toHaveProperty('ASI10');
+    expect(lb.cells.alpha?.ASI10).toBeUndefined();
+
+    // per-category aggregates for the two new codes (across both models)
+    expect(lb.byCategory.ASI03).toEqual({ runs: 3, notCompromised: 2, robustness: 2 / 3 });
+    expect(lb.byCategory.ASI05).toEqual({ runs: 3, notCompromised: 1, robustness: 1 / 3 });
+
+    // grand overall: 11 runs, 6 resisted
+    expect(lb.overall).toEqual({ runs: 11, notCompromised: 6, robustness: 6 / 11 });
+  });
+
   it('an all-not-compromised cell has robustness 1', () => {
     const results = [
       makeRunResult('sentinel', 'ASI04', false),
