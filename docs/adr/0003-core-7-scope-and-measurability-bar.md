@@ -6,10 +6,6 @@ Date: 2026-07-15
 
 Accepted
 
-> Numbering note: this is the second decision record after
-> [ADR-0001](0001-record-architecture-decisions.md); `0002` is intentionally
-> reserved/unused so this record can carry its assigned number.
-
 ## Context
 
 The [OWASP Top 10 for Agentic Applications (2026)](https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/)
@@ -47,6 +43,28 @@ Core-7 (titles verbatim from the official OWASP 2026 PDF, genai.owasp.org):
 | ASI05 | Unexpected Code Execution (RCE)      |
 | ASI06 | Memory & Context Poisoning           |
 | ASI10 | Rogue Agents                         |
+
+### Title rendering (pinned — do not flip-flop)
+
+Titles are taken **verbatim from the official 2026 PDF, read end-to-end**; each
+Core-7 title appears identically in four corroborating places (table of contents,
+At-a-Glance, section headings, appendices).
+
+- **ASI02 / ASI03 use "and", not "&"** — the table-of-contents and
+  section-heading form ("Tool Misuse **and** Exploitation", "Identity **and**
+  Privilege Abuse"). The source is internally inconsistent — the appendices render
+  them with "&" — so the TOC/heading form is fixed as authoritative here. (ASI06
+  keeps "&", which is how the PDF renders that entry.)
+- **ASI04 is "Agentic Supply Chain Vulnerabilities", not "…Compromise".** The
+  phrase "Agentic Supply Chain Compromise" appears **nowhere** in the PDF.
+  Secondary write-ups propagate an artifact: the mapped T-code is "T17 Supply
+  Chain Compromise" and one ASI04 _scenario_ is titled "Amazon Q Supply Chain
+  Compromise" — neither is the **entry** title. Do not "correct" ASI04 to
+  "Compromise".
+- **ASI05 keeps the "(RCE)" suffix**: "Unexpected Code Execution (RCE)".
+
+These renderings are pinned here so they are not silently rewritten against a
+secondary source later.
 
 ### The measurability bar
 

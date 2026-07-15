@@ -280,6 +280,8 @@ and every pull request to `main`**:
   and the Definition of Done.
 - [`plan.md`](plan.md) — the phased build order and current rebuild status.
 - [`docs/adr/`](docs/adr/) — Architecture Decision Records (Nygard format):
-  [ADR-0001](docs/adr/0001-record-architecture-decisions.md) (using ADRs) and
+  [ADR-0001](docs/adr/0001-record-architecture-decisions.md) (using ADRs),
+  [ADR-0002](docs/adr/0002-lighthouse-devtools-throttling.md) (Lighthouse CI
+  DevTools throttling — measured over simulated), and
   [ADR-0003](docs/adr/0003-core-7-scope-and-measurability-bar.md) (Core-7 scope +
   the measurability bar).
