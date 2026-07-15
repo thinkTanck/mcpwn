@@ -20,6 +20,9 @@ export function NavLink({
   return (
     <Link
       href={item.href}
+      // Unbuilt routes stay visible in the deck but must not be prefetched, or
+      // Next would RSC-404 them on load. Fan-out PRs flip `available` per route.
+      prefetch={item.available ? undefined : false}
       aria-current={active ? 'page' : undefined}
       className={cn(
         'relative flex items-center gap-3 rounded-md px-3.5 py-3 font-mono text-xs tracking-[0.06em] transition-colors',
