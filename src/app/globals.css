@@ -43,13 +43,12 @@
   --red-600: #b23a4c;
   --red-800: #8c2133;
 
-  /* Ink — text / neutral. Lower tiers raised to clear AA (see header). */
-  --ink-100: #d3e2ea; /* 13.7:1 — hi      */
-  --ink-300: #99b8c7; /*  8.7:1 — body    */
-  --ink-500: #8199ab; /*  6.1:1 — muted (was #708C9E; stepped up to keep a
-                          visible tier above the AA-corrected faint)        */
-  --ink-700: #6e8a9c; /*  5.0:1 — faint / micro-labels (was #47606C @ 2.7:1,
-                          which FAILED AA; raised so every label is legible) */
+  /* Ink — text / neutral. Approved "Sentinel v2" values, lifted verbatim; the
+   * lower tiers clear AA (measured against --surface-base / --surface-panel). */
+  --ink-100: #d3e2ea; /* 13.7:1 — hi           (v2 --hi)    */
+  --ink-300: #99b8c7; /*  8.7:1 — body         (v2 --tx)    */
+  --ink-500: #708c9e; /*  5.7:1 base / 5.1:1 panel — muted  (v2 --mut)   */
+  --ink-700: #6a8798; /*  5.3:1 base / 4.8:1 panel — faint  (v2 --faint) */
   --ink-800: #3a4d57; /*  2.1:1 — was the stray #3a4d57. INACTIVE ONLY:
                           not-yet-reached timeline nodes (WCAG 1.4.3 exempts
                           inactive components). Never for active text.       */

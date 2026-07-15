@@ -1,6 +1,7 @@
 import { render, screen, within } from '@testing-library/react';
 import { AppShell } from '@/components/shell/AppShell';
 import { MobileDrawer } from '@/components/shell/MobileDrawer';
+import type { FleetStatus } from '@/data/source';
 
 // AppShell reads the active route from the x-pathname request header.
 vi.mock('next/headers', () => ({
@@ -8,6 +9,14 @@ vi.mock('next/headers', () => ({
 }));
 
 const DECK_LINKS = ['Home', 'Connect / Run', 'Live Replay', 'Leaderboard', 'Findings'];
+const sampleFleet: FleetStatus = {
+  source: 'sample',
+  nominal: 4,
+  caution: 7,
+  breach: 4,
+  total: 15,
+  empty: false,
+};
 
 describe('AppShell (server shell)', () => {
   it('exposes banner, navigation and main landmarks with the five deck links', async () => {
@@ -18,6 +27,9 @@ describe('AppShell (server shell)', () => {
     for (const name of DECK_LINKS) {
       expect(within(deck).getByRole('link', { name })).toBeInTheDocument();
     }
+    // FLEET STATUS is bound to the DataSource (sample leaderboard → 4/7/4).
+    expect(within(deck).getByText('4 nominal')).toBeInTheDocument();
+    expect(within(deck).getByText('7 caution')).toBeInTheDocument();
   });
 
   it('marks the active route (Home at "/") with aria-current="page"', async () => {
@@ -47,7 +59,7 @@ describe('AppShell (server shell)', () => {
 
 describe('MobileDrawer', () => {
   it('marks the active route inside the popover drawer', () => {
-    render(<MobileDrawer pathname="/leaderboard" />);
+    render(<MobileDrawer pathname="/leaderboard" fleet={sampleFleet} />);
     const nav = screen.getByRole('navigation', { name: 'Command deck (mobile)', hidden: true });
     expect(within(nav).getByRole('link', { name: 'Leaderboard', hidden: true })).toHaveAttribute(
       'aria-current',

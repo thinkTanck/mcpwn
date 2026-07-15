@@ -132,6 +132,28 @@ describe('DTCG token layer (globals.css)', () => {
     expect(missing).toEqual([]);
   });
 
+  it('lifts the approved "Sentinel v2" primitive ramps verbatim', () => {
+    const approved: Record<string, string> = {
+      '--navy-950': '#05080b',
+      '--navy-850': '#101823',
+      '--navy-800': '#17212d',
+      '--line-base': '#1c2a36',
+      '--cyan-100': '#b6ecf4',
+      '--cyan-300': '#54d4e6',
+      '--cyan-700': '#2b6b7d',
+      '--amber-400': '#ebb561',
+      '--red-200': '#f58ea0',
+      '--red-400': '#ed576e',
+      '--ink-100': '#d3e2ea',
+      '--ink-300': '#99b8c7',
+      '--ink-500': '#708c9e',
+      '--ink-700': '#6a8798',
+    };
+    for (const [name, hex] of Object.entries(approved)) {
+      expect(vars.get(name)?.toLowerCase(), name).toBe(hex);
+    }
+  });
+
   it('defines and resolves the back-compat aliases error.tsx depends on', () => {
     // The audit's "error.tsx token fix": these aliases must exist and bottom
     // out in a real color, incl. the previously-undefined --panel/--border/--danger.

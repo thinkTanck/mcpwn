@@ -1,6 +1,18 @@
 import type { ReactNode } from 'react';
 
-export type NavItem = { label: string; href: string; matchPrefix: string; icon: ReactNode };
+export type NavItem = {
+  label: string;
+  href: string;
+  matchPrefix: string;
+  icon: ReactNode;
+  /**
+   * Whether the destination route exists yet. Unbuilt routes are still shown in
+   * the deck (per the approved design) but render with prefetch disabled so the
+   * shell does not RSC-404 them on load. Each per-screen fan-out PR flips its
+   * own item to `available: true`.
+   */
+  available: boolean;
+};
 
 const stroke = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.3 } as const;
 
@@ -10,6 +22,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: 'Home',
     href: '/',
     matchPrefix: '/',
+    available: true,
     icon: (
       <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true">
         <g {...stroke}>
@@ -23,6 +36,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: 'Connect / Run',
     href: '/connect',
     matchPrefix: '/connect',
+    available: false,
     icon: (
       <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true">
         <g {...stroke}>
@@ -36,6 +50,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: 'Live Replay',
     href: '/runs/sample',
     matchPrefix: '/runs',
+    available: true,
     icon: (
       <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true">
         <polygon points="4,3 13,8 4,13" fill="currentColor" />
@@ -46,6 +61,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: 'Leaderboard',
     href: '/leaderboard',
     matchPrefix: '/leaderboard',
+    available: false,
     icon: (
       <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true">
         <g {...stroke}>
@@ -60,6 +76,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: 'Findings',
     href: '/findings/RG-0472',
     matchPrefix: '/findings',
+    available: false,
     icon: (
       <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true">
         <g {...stroke}>

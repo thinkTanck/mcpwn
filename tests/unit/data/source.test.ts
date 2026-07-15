@@ -64,4 +64,18 @@ describe('DataSource (in-memory)', () => {
     expect(report?.remediation).toHaveLength(5);
     expect(await ds.getFixReport('nope')).toBeNull();
   });
+
+  it('getFleetStatus tallies the leaderboard into a provenance-aware tri-state', async () => {
+    const fleet = await ds.getFleetStatus();
+    // Sample leaderboard: 15 cells → nominal ≥.80, caution ≥.50, breach <.50.
+    expect(fleet).toEqual({
+      source: 'sample',
+      nominal: 4,
+      caution: 7,
+      breach: 4,
+      total: 15,
+      empty: false,
+    });
+    expect(fleet.nominal + fleet.caution + fleet.breach).toBe(fleet.total);
+  });
 });

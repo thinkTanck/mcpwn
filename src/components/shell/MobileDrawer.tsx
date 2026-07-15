@@ -1,5 +1,7 @@
 import { NAV_ITEMS } from './nav-items';
 import { NavLink } from './NavLink';
+import { FleetStatus } from './FleetStatus';
+import type { FleetStatus as FleetStatusData } from '@/data/source';
 
 /**
  * Mobile command-deck: the hamburger + a drawer via the native HTML Popover API
@@ -7,7 +9,7 @@ import { NavLink } from './NavLink';
  * Server-rendered, so it adds no hydration cost to the shell. The button is
  * hidden ≥760px, where the persistent rail takes over.
  */
-export function MobileDrawer({ pathname }: { pathname: string }) {
+export function MobileDrawer({ pathname, fleet }: { pathname: string; fleet: FleetStatusData }) {
   return (
     <>
       <button
@@ -24,19 +26,26 @@ export function MobileDrawer({ pathname }: { pathname: string }) {
           </g>
         </svg>
       </button>
+      {/* No `display` utility on the popover itself: the native
+          `[popover]:not(:popover-open){display:none}` UA rule must win when it's
+          closed. The flex column lives on the inner wrapper. */}
       <div
         id="mobile-deck"
         popover="auto"
-        className="fixed bottom-0 left-0 top-12 m-0 h-auto w-[236px] border-r border-line-em bg-solid p-4 text-ink shadow-[0_0_40px_rgba(0,0,0,0.6)]"
+        className="fixed bottom-0 left-0 top-[62px] m-0 h-auto w-[236px] border-r border-line-em bg-solid p-4 text-ink shadow-[0_0_40px_rgba(0,0,0,0.6)]"
       >
-        <div className="px-3 pb-2.5 pt-1.5 font-mono text-[10px] tracking-[0.16em] text-ink-faint">
-          COMMAND DECK
+        <div className="flex h-full flex-col">
+          <div className="px-3 pb-2.5 pt-1.5 font-mono text-[10px] tracking-[0.16em] text-ink-faint">
+            COMMAND DECK
+          </div>
+          <nav aria-label="Command deck (mobile)" className="flex flex-col gap-1">
+            {NAV_ITEMS.map((item) => (
+              <NavLink key={item.href} item={item} pathname={pathname} />
+            ))}
+          </nav>
+          <div className="flex-1" />
+          <FleetStatus fleet={fleet} variant="full" />
         </div>
-        <nav aria-label="Command deck (mobile)" className="flex flex-col gap-1">
-          {NAV_ITEMS.map((item) => (
-            <NavLink key={item.href} item={item} pathname={pathname} />
-          ))}
-        </nav>
       </div>
     </>
   );
