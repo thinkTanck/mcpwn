@@ -23,7 +23,9 @@ export class FixReportError extends Error {
 const CATEGORY_TITLE: Record<Category, string> = {
   ASI01: 'Agent Goal Hijack',
   ASI02: 'Tool Misuse and Exploitation',
+  ASI03: 'Identity and Privilege Abuse',
   ASI04: 'Agentic Supply Chain Vulnerabilities',
+  ASI05: 'Unexpected Code Execution (RCE)',
   ASI06: 'Memory & Context Poisoning',
   ASI10: 'Rogue Agents',
 };
@@ -37,8 +39,12 @@ const REMEDIATION_GUIDANCE: Record<Category, string> = {
     'Pin the agent to its authorized objective. Treat tool results and retrieved content as untrusted data, never as instructions; validate every action against the original task before executing, and require confirmation for high-impact operations the user did not request.',
   ASI02:
     'Enforce least-privilege tool access with per-tool allow-lists and argument validation. Reject tool calls whose targets fall outside the declared scope (e.g. path traversal), and require explicit authorization for destructive or high-impact tools.',
+  ASI03:
+    'Enforce least-privilege, task-scoped identities. Issue short-lived credentials bound to the current task, never reuse or inherit credentials/sessions across tasks or tools, and verify authorization for every privileged tool call against the active task. Segment and revoke sessions so the agent cannot escalate into out-of-scope privileged actions.',
   ASI04:
     'Pin and cryptographically verify every tool, plugin, and model dependency. Vet third-party MCP servers, prefer signed/verified packages, and refuse to load unsigned, typosquatted, or unexpected components at run time.',
+  ASI05:
+    'Never pass untrusted or attacker-influenced input into exec/shell/eval tools. Run any required code in a sandbox with an explicit command allow-list, parameterize and escape arguments instead of string-concatenating them, and disable dynamic code-execution paths the task does not need. Validate and neutralize inputs before they can reach a command interpreter.',
   ASI06:
     'Isolate and validate memory/context on both write and read. Namespace memory per task/session, sanitize before persisting, and never let stored memory silently override the current instructions or authorize actions on its own.',
   ASI10:

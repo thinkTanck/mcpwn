@@ -142,7 +142,15 @@ describe('defineAttack + registry', () => {
 });
 
 describe('registry scope', () => {
-  it('ATTACK_CODES lists exactly the 5 Core-5 ASI codes', () => {
-    expect([...ATTACK_CODES].sort()).toEqual(['ASI01', 'ASI02', 'ASI04', 'ASI06', 'ASI10']);
+  it('ATTACK_CODES lists exactly the 7 Core-7 ASI codes', () => {
+    expect([...ATTACK_CODES].sort()).toEqual([
+      'ASI01',
+      'ASI02',
+      'ASI03',
+      'ASI04',
+      'ASI05',
+      'ASI06',
+      'ASI10',
+    ]);
   });
 });

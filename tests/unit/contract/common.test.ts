@@ -1,11 +1,11 @@
 import { CategorySchema, SeveritySchema, JsonValueSchema } from '@/contract';
 
-describe('CategorySchema — Core-5 (OWASP Agentic Top 10 2026)', () => {
-  it.each(['ASI01', 'ASI02', 'ASI04', 'ASI06', 'ASI10'])('accepts %s', (c) => {
+describe('CategorySchema — Core-7 (OWASP Agentic Top 10 2026)', () => {
+  it.each(['ASI01', 'ASI02', 'ASI03', 'ASI04', 'ASI05', 'ASI06', 'ASI10'])('accepts %s', (c) => {
     expect(CategorySchema.parse(c)).toBe(c);
   });
 
-  it.each(['ASI03', 'ASI05', 'ASI07', 'ASI08', 'ASI09', 'asi01', 'ASI1', ''])(
+  it.each(['ASI07', 'ASI08', 'ASI09', 'asi01', 'ASI1', ''])(
     'rejects out-of-scope/malformed %s',
     (c) => {
       expect(CategorySchema.safeParse(c).success).toBe(false);

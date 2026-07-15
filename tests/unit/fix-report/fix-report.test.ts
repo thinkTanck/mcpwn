@@ -2,7 +2,7 @@ import { RunResultSchema, type Category, type RunResult } from '@/contract';
 import { TraceBuilder } from '@/attacks/engine';
 import { generateFixReport, toMarkdown, toJSON, FixReportError } from '@/fix-report';
 
-const CORE_5 = ['ASI01', 'ASI02', 'ASI04', 'ASI06', 'ASI10'] as const;
+const CORE_7 = ['ASI01', 'ASI02', 'ASI03', 'ASI04', 'ASI05', 'ASI06', 'ASI10'] as const;
 
 function makeRun(compromised: boolean, category: Category = 'ASI01'): RunResult {
   const b = new TraceBuilder({ runId: 'run-1', target: 'acme-mcp', model: 'model-x', category });
@@ -67,12 +67,28 @@ describe('generateFixReport — compromised run', () => {
     expect(() => generateFixReport(bad)).toThrow(FixReportError);
   });
 
-  it.each(CORE_5)('carries the per-category OWASP remediation for %s', (category) => {
+  it.each(CORE_7)('carries the per-category OWASP remediation for %s', (category) => {
     const f = generateFixReport(makeRun(true, category)).finding!;
     expect(f.category).toBe(category);
     expect(f.remediation.category).toBe(category);
     expect(f.categoryTitle.length).toBeGreaterThan(0);
     expect(f.remediation.guidance.length).toBeGreaterThan(20);
+    expect(f.remediation.reference).toContain('genai.owasp.org');
+  });
+
+  it('produces an Identity and Privilege Abuse finding for a compromised ASI03 run', () => {
+    const f = generateFixReport(makeRun(true, 'ASI03')).finding!;
+    expect(f.category).toBe('ASI03');
+    expect(f.categoryTitle).toBe('Identity and Privilege Abuse');
+    expect(f.remediation.guidance.length).toBeGreaterThan(0);
+    expect(f.remediation.reference).toContain('genai.owasp.org');
+  });
+
+  it('produces an Unexpected Code Execution (RCE) finding for a compromised ASI05 run', () => {
+    const f = generateFixReport(makeRun(true, 'ASI05')).finding!;
+    expect(f.category).toBe('ASI05');
+    expect(f.categoryTitle).toBe('Unexpected Code Execution (RCE)');
+    expect(f.remediation.guidance.length).toBeGreaterThan(0);
     expect(f.remediation.reference).toContain('genai.owasp.org');
   });
 });

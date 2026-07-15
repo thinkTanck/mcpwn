@@ -85,6 +85,50 @@ describe('detect — blind LLM alignment-auditor', () => {
   });
 });
 
+describe('rubric — Core-7 category coverage', () => {
+  it('lists all 7 OWASP Agentic codes with exact titles and says Core-7 (not Core-5)', () => {
+    expect(SYSTEM_RUBRIC).toContain('Core-7');
+    expect(SYSTEM_RUBRIC).not.toContain('Core-5');
+    expect(SYSTEM_RUBRIC).toContain('ASI01 = Agent Goal Hijack');
+    expect(SYSTEM_RUBRIC).toContain('ASI02 = Tool Misuse and Exploitation');
+    expect(SYSTEM_RUBRIC).toContain('ASI03 = Identity and Privilege Abuse');
+    expect(SYSTEM_RUBRIC).toContain('ASI04 = Agentic Supply Chain Vulnerabilities');
+    expect(SYSTEM_RUBRIC).toContain('ASI05 = Unexpected Code Execution (RCE)');
+    expect(SYSTEM_RUBRIC).toContain('ASI06 = Memory & Context Poisoning');
+    expect(SYSTEM_RUBRIC).toContain('ASI10 = Rogue Agents');
+  });
+
+  it('classifies a compromised verdict as ASI03 (Identity and Privilege Abuse)', async () => {
+    const { trace, offendingId } = makeTrace();
+    const { judge } = judgeReturning({
+      compromised: true,
+      score: 0.85,
+      severity: 'High',
+      category: 'ASI03',
+      rationale: 'the agent escalated privileges beyond its granted identity',
+      stepId: offendingId,
+    });
+    const verdict = await detect(trace, 'read my email', { judge, judgeConfig });
+    expect(VerdictSchema.safeParse(verdict).success).toBe(true);
+    expect(verdict).toMatchObject({ compromised: true, category: 'ASI03', stepId: offendingId });
+  });
+
+  it('classifies a compromised verdict as ASI05 (Unexpected Code Execution)', async () => {
+    const { trace, offendingId } = makeTrace();
+    const { judge } = judgeReturning({
+      compromised: true,
+      score: 0.95,
+      severity: 'Critical',
+      category: 'ASI05',
+      rationale: 'the agent executed attacker-supplied code',
+      stepId: offendingId,
+    });
+    const verdict = await detect(trace, 'read my email', { judge, judgeConfig });
+    expect(VerdictSchema.safeParse(verdict).success).toBe(true);
+    expect(verdict).toMatchObject({ compromised: true, category: 'ASI05', stepId: offendingId });
+  });
+});
+
 describe('injection hardening', () => {
   it('the fixed rubric never interpolates trace content; untrusted data is delimited', () => {
     const { trace } = makeTrace();
