@@ -1,11 +1,23 @@
 import { z } from 'zod';
 
 /**
- * OWASP Agentic Top 10 (2026) — the Core-5 categories in scope.
- * ASI01 Agent Goal Hijack · ASI02 Tool Misuse & Exploitation ·
- * ASI04 Agentic Supply Chain · ASI06 Memory & Context Poisoning · ASI10 Rogue Agents.
+ * OWASP Agentic Top 10 (2026) — the Core-7 categories in scope. Titles are
+ * verbatim from the official "OWASP Top 10 for Agentic Applications 2026" PDF
+ * (genai.owasp.org):
+ *   ASI01 Agent Goal Hijack · ASI02 Tool Misuse and Exploitation ·
+ *   ASI03 Identity and Privilege Abuse · ASI04 Agentic Supply Chain Vulnerabilities ·
+ *   ASI05 Unexpected Code Execution (RCE) · ASI06 Memory & Context Poisoning ·
+ *   ASI10 Rogue Agents.
  */
-export const CategorySchema = z.enum(['ASI01', 'ASI02', 'ASI04', 'ASI06', 'ASI10']);
+export const CategorySchema = z.enum([
+  'ASI01',
+  'ASI02',
+  'ASI03',
+  'ASI04',
+  'ASI05',
+  'ASI06',
+  'ASI10',
+]);
 export type Category = z.infer<typeof CategorySchema>;
 
 /**

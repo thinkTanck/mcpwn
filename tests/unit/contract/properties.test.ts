@@ -1,7 +1,7 @@
 import fc from 'fast-check';
 import { StepSchema, TraceSchema, VerdictSchema, RunResultSchema } from '@/contract';
 
-const categoryArb = fc.constantFrom('ASI01', 'ASI02', 'ASI04', 'ASI06', 'ASI10');
+const categoryArb = fc.constantFrom('ASI01', 'ASI02', 'ASI03', 'ASI04', 'ASI05', 'ASI06', 'ASI10');
 const severityArb = fc.constantFrom('None', 'Low', 'Medium', 'High', 'Critical');
 const nonEmpty = fc.string({ minLength: 1, maxLength: 20 });
 const idArb = fc.string({ minLength: 1, maxLength: 12 });

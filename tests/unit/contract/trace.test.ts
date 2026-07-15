@@ -22,7 +22,7 @@ describe('TraceSchema — observable only', () => {
     expect(TraceSchema.safeParse({ ...validTrace, steps: [] }).success).toBe(true);
   });
 
-  it('rejects a category outside Core-5', () => {
+  it('rejects a category outside Core-7', () => {
     expect(TraceSchema.safeParse({ ...validTrace, category: 'ASI07' }).success).toBe(false);
   });
 

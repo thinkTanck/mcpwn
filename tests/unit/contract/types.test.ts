@@ -11,8 +11,10 @@ import type {
 } from '@/contract';
 
 describe('type-level contract (compile-time; enforced by tsc --noEmit)', () => {
-  it('Category is exactly the Core-5 union', () => {
-    expectTypeOf<Category>().toEqualTypeOf<'ASI01' | 'ASI02' | 'ASI04' | 'ASI06' | 'ASI10'>();
+  it('Category is exactly the Core-7 union', () => {
+    expectTypeOf<Category>().toEqualTypeOf<
+      'ASI01' | 'ASI02' | 'ASI03' | 'ASI04' | 'ASI05' | 'ASI06' | 'ASI10'
+    >();
   });
 
   it('Severity is exactly the CVSS v4 bands', () => {
