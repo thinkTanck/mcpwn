@@ -6,6 +6,14 @@
  * leakage separation), and scores verdict.compromised vs the held-out
  * groundTruth into precision/recall (aggregate + per Core-7 category). The
  * harness HOLDS the groundTruth purely to score; the detector never sees it.
+ *
+ * NOT A MEASUREMENT — SMOKE TEST ONLY: with one malicious + one benign variant
+ * per category (n = 2 per category), a reported P/R — e.g. 1.0 against a
+ * mock/oracle detector — only proves the harness runs and that each benign
+ * control is a genuine negative. It is NOT product accuracy and must NEVER be
+ * surfaced as such (UI, README, leaderboard, or any summary). Trustworthy
+ * measured P/R needs many realizations per category and the validated judge
+ * (Phase 8 — see plan.md's variant-count prerequisite).
  */
 import { getAttack, listAttackCodes, type AttackModule } from '@/attacks';
 import type { Category, Trace, Verdict } from '@/contract';

@@ -84,6 +84,14 @@ The Core-7 all clear the bar: each has a marker-free malicious trace with an
 anchored offending step **and** a benign control that scores not-compromised (the
 false-positive that makes precision measurable).
 
+> **The fixture P/R is a smoke test, not accuracy.** With one malicious + one
+> benign variant per category (n = 2), a P/R of 1.0 against a mock/oracle detector
+> only proves the harness works and that the benign control is a genuine negative
+> (the always-compromised baseline dropping to P 0.5 is the check). It is **not**
+> product accuracy and must **never** be surfaced as such. A trustworthy measured
+> number needs many realizations per category and the validated judge — tracked as
+> a Phase 8 prerequisite in plan.md.
+
 ### Why ASI07, ASI08, ASI09 are excluded (in OWASP's own terms)
 
 - **ASI07 — Insecure Inter-Agent Communication.** The compromise lives in
