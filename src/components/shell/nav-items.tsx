@@ -74,7 +74,7 @@ export const NAV_ITEMS: NavItem[] = [
   },
   {
     label: 'Findings',
-    href: '/findings/RG-0472',
+    href: '/findings/asi06-run',
     matchPrefix: '/findings',
     available: false,
     icon: (

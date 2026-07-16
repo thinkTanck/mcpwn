@@ -1,12 +1,16 @@
 import type { FixReport } from '../source';
 
-/** Engineer-ready fix report for the curated ASI06 sample run `RG-0472`. */
+/**
+ * Engineer-ready fix report for the ASI06 sample run `asi06-run` (the DataSource's
+ * `SAMPLE_RUN_ID`). Curated placeholder content; the offending `stepId` matches
+ * the ASI06 builder trace (`send_email` at `asi06-s11`), asserted by the tests.
+ */
 export const findingsFixture: FixReport = {
-  runId: 'RG-0472',
+  runId: 'asi06-run',
   category: 'ASI06',
   severity: 'High',
   compromised: true,
-  stepId: 's11',
+  stepId: 'asi06-s11',
   title: 'Memory poisoning → external exfiltration',
   offendingStep: {
     label: '#11 · tool_call send_email',
