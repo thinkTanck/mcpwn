@@ -22,9 +22,9 @@ describe('trace-view step colours', () => {
 
 describe('runs/[id] replay placeholder', () => {
   it('renders the run id inside a labelled replay region', async () => {
-    const ui = await RunReplay({ params: Promise.resolve({ id: 'RG-0472' }) });
+    const ui = await RunReplay({ params: Promise.resolve({ id: 'asi06-run' }) });
     render(ui);
     expect(screen.getByRole('region', { name: 'Live Attack Replay' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: /RG-0472/ })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /asi06-run/ })).toBeInTheDocument();
   });
 });
