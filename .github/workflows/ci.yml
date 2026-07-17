@@ -35,6 +35,9 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Design detect (impeccable — blocking anti-slop gate)
+        run: npx --yes impeccable@3.2.1 detect src/
+
       - name: Unit tests (coverage)
         run: npm run test:coverage
 

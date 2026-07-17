@@ -134,11 +134,15 @@
   --reading-measure: 68ch; /* 65–75ch cap */
   --reading-color: var(--text); /* ink-300 · 8.7:1 base */
   --reading-color-hi: var(--text-hi); /* ink-100 · 13.7:1 base */
-  --reading-body: 16px; /* FLOOR — prose is never smaller */
+  --reading-body: 17px; /* editorial target (16px is the AA floor, not the goal) */
   --reading-lead: 18px; /* lead paragraph / subhead */
   --reading-h3: 20px;
   --reading-h2: 28px;
-  --reading-h1: clamp(32px, 4.5vw, 44px);
+  /* Container-based (cqi), NOT vw: the text column resizes as the command deck
+   * collapses/expands, and cqi tracks that column while vw does not — vw is what
+   * overflowed the desktop headline while tablet looked fine. Requires a query
+   * container on the content column (see `.type-flow` / the shell <main>). */
+  --reading-h1: clamp(32px, 5cqi, 44px);
 
   /* Instrument — HUD telemetry (12–13px, never prose) */
   --instrument-font: var(--font-mono);
@@ -271,6 +275,14 @@ body {
   letter-spacing: var(--instrument-tracking-label);
   text-transform: uppercase;
   color: var(--instrument-color-faint);
+}
+
+/* Query container for the content column, so `--reading-h1`'s `cqi` resolves
+ * against the column width (which shrinks/grows as the command deck collapses),
+ * not the viewport. The shell <main> establishes it; a screen can add it to a
+ * narrower inner column to scale a heading to that column instead. */
+.type-flow {
+  container-type: inline-size;
 }
 
 /* =========================================================================
