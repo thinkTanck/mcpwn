@@ -1,1 +1,44 @@
-npm test && npm run build
+# Pre-push gate — validates the COMMIT(S) BEING PUSHED, in an isolated git
+# worktree, NEVER the working tree. So the gate matches exactly what lands on the
+# remote, uncommitted work is never touched or stashed, and a dirty tree (e.g. six
+# in-flight screens) can't make it cry wolf. Deliberately FAST (typecheck only, a
+# few seconds) so it is never worth bypassing with --no-verify: it catches the
+# tsc-regression class before the push round-trips to CI. CI — which runs on every
+# push — is the authoritative full gate (lint, typecheck, unit --coverage, build,
+# e2e + axe, Lighthouse, impeccable detect, audit); see CLAUDE.md. Fails CLOSED: a
+# broken pushed commit, or an infra error, blocks the push, never false assurance.
+set -eu
+
+zero='0000000000000000000000000000000000000000'
+root="$(pwd)"
+status=0
+checked=0
+
+git worktree prune 2>/dev/null || true
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ "$local_sha" = "$zero" ] && continue # branch deletion — nothing to validate
+  checked=1
+  wt="$(mktemp -d)/mcpwn-prepush"
+  if ! git worktree add --quiet --detach "$wt" "$local_sha"; then
+    echo "pre-push: could not create a worktree for $local_sha" >&2
+    exit 1
+  fi
+  # Reuse the repo's installed deps (no reinstall): symlink, or a Windows junction.
+  if ! ln -s "$root/node_modules" "$wt/node_modules" 2>/dev/null; then
+    cmd //c "mklink /J \"$(cygpath -w "$wt")\\node_modules\" \"$(cygpath -w "$root")\\node_modules\"" >/dev/null 2>&1 || {
+      echo "pre-push: could not link node_modules into the worktree" >&2
+      git worktree remove --force "$wt" 2>/dev/null || true
+      exit 1
+    }
+  fi
+  ( cd "$wt" && npm run typecheck ) || status=1
+  git worktree remove --force "$wt" 2>/dev/null || rm -rf "$wt"
+  [ "$status" -eq 0 ] || break
+done
+
+if [ "$checked" -eq 1 ] && [ "$status" -ne 0 ]; then
+  echo "pre-push: the pushed commit failed typecheck — push blocked." >&2
+  echo "          (this validated the COMMIT, not your working tree.)" >&2
+  exit 1
+fi
