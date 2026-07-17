@@ -42,6 +42,7 @@ A serious instrument, not a game. **Sentinel Fields**: a dark control-room base 
 - **Cyan-on-navy uniformity** — one accent on one background everywhere, so nothing has hierarchy or register.
 - **Thin-border panel soup** — every element the same 1px-bordered card (and never nested cards); elevation should be earned.
 - **Uniformly small mid-grey text** — no reading/instrument split; prose shrunk to HUD size so everything reads as telemetry and nothing reads as a sentence.
+- **Em dashes** — never in UI copy. Use a period, a comma, or a colon.
 
 ## Design principles
 

@@ -115,23 +115,31 @@
   --font-mono: var(--font-geist-mono), 'Geist Mono', ui-monospace, 'SF Mono', monospace;
   --font-sans: var(--font-geist-sans), 'Geist', Inter, system-ui, -apple-system, sans-serif;
 
-  /* ---- Type roles — TWO REGISTERS (Wave C typeset) -------------------
-   * The two registers are DIFFERENT type systems, paired on a contrast axis
-   * (humanist sans vs. monospace), deliberately non-interchangeable:
+  /* ---- Type roles — THREE ROLES (Wave C typeset) ---------------------
+   * Three deliberately non-interchangeable systems, kept measurably distinct:
    *
-   *   READING (prose)  — every sentence a human reads. Sans, 16px FLOOR,
-   *     line-height 1.6, measure capped 65–75ch, colors --text / --text-hi.
-   *   INSTRUMENT (HUD) — telemetry ONLY: readouts, labels, chips, metadata,
-   *     provenance. Mono, 12–13px, tracked, colors --text-muted / --text-faint.
+   *   READING (prose)   — every sentence a human reads. Sans, 17px body (16px is
+   *     the AA floor, not the target), line-height 1.6, --text / --text-hi.
+   *   INSTRUMENT (chrome) — telemetry ONLY: labels, chips, metadata, cues, column
+   *     and row headers. Mono, 12–13px, tracked, --text-muted / --text-faint.
+   *   DISPLAY (focal data) — values that ARE the visual focus: leaderboard cell
+   *     values + OVERALL, hero stats, the replay step numeral. Display scale
+   *     15/20/28/40; FAMILY PER THE FROZEN DESIGN (the role does not pin one).
    *
-   * Prose never renders at instrument size; telemetry never carries a sentence.
-   * Every colour below clears WCAG AA on --surface-base AND --surface-panel
-   * (asserted in tests/unit/app/tokens.test.tsx). */
+   * THE PRINCIPLE: the frozen design (design-review/MCPwn Sentinel v2.dc.html) is
+   * the REFERENCE. These roles DESCRIBE it; they never redesign it. If a role and
+   * the design disagree, the design wins and the role is wrong — flag it, do not
+   * "fix" the design. (ADR-0004.)
+   *
+   * Prose never renders at instrument size; telemetry never carries a sentence;
+   * a focal number is never chrome. Every colour below clears WCAG AA on
+   * --surface-base AND --surface-panel (asserted in tests/unit/app/tokens.test.tsx). */
 
-  /* Reading — prose */
+  /* Reading — prose. NOTE: no role-level measure cap. A 65–75ch cap on the role
+   * fought the frozen design's own column widths and produced dead side-margins:
+   * the design owns layout width, the role owns type. (ADR-0004.) */
   --reading-font: var(--font-sans);
   --reading-line: 1.6;
-  --reading-measure: 68ch; /* 65–75ch cap */
   --reading-color: var(--text); /* ink-300 · 8.7:1 base */
   --reading-color-hi: var(--text-hi); /* ink-100 · 13.7:1 base */
   --reading-body: 17px; /* editorial target (16px is the AA floor, not the goal) */
@@ -154,6 +162,25 @@
   --instrument-readout: var(--text-readout); /* cyan-100 mono values */
   --instrument-label: 12px; /* labels, chips, metadata, provenance (floor) */
   --instrument-base: 13px; /* readouts */
+
+  /* Display — the THIRD role. Data values that ARE the visual focus: the number
+   * is the thing being read, not chrome around it. Leaderboard cell values + the
+   * OVERALL column, hero stats, the replay step numeral. Distinct from INSTRUMENT
+   * (telemetry chrome) and READING (sentences).
+   *
+   * FAMILY IS PER THE FROZEN DESIGN — the role does NOT pin one. The design is
+   * the reference and the role only describes it: the Home hero counters are sans
+   * in the frozen design, the leaderboard readouts are mono. Pinning DISPLAY to
+   * mono rewrote the design's sans numerals, which is the role overruling the
+   * reference. It must not. (See ADR-0004.) */
+  --display-line: 1.05;
+  --display-weight: 500;
+  --display-tracking: -0.01em;
+  --display-color: var(--text-readout); /* cyan-100 · high-value mono */
+  --display-sm: 15px; /* heatmap cell value */
+  --display-md: 20px; /* OVERALL column */
+  --display-lg: 28px;
+  --display-xl: 40px; /* hero counter */
 
   /* ---- Back-compat aliases (existing skeleton components) ------------- */
   --bg: var(--surface-base);
@@ -215,7 +242,6 @@ body {
   font-size: var(--reading-body);
   line-height: var(--reading-line);
   color: var(--reading-color);
-  max-inline-size: var(--reading-measure);
   text-wrap: pretty;
 }
 .reading-lead {
@@ -223,7 +249,6 @@ body {
   font-size: var(--reading-lead);
   line-height: 1.5;
   color: var(--reading-color-hi);
-  max-inline-size: var(--reading-measure);
   text-wrap: pretty;
 }
 .reading-h1 {
@@ -275,6 +300,36 @@ body {
   letter-spacing: var(--instrument-tracking-label);
   text-transform: uppercase;
   color: var(--instrument-color-faint);
+}
+
+/* DISPLAY role — data values that are the visual focus (mono display scale). */
+/* No font-family here on purpose: the frozen design owns the family (sans hero
+ * counters, mono readouts). The role carries the SCALE + weight/rhythm only. */
+.display,
+.display-md,
+.display-lg,
+.display-xl {
+  font-weight: var(--display-weight);
+  line-height: var(--display-line);
+  letter-spacing: var(--display-tracking);
+  font-variant-numeric: tabular-nums;
+}
+/* Default colour at ZERO specificity (:where), so a tri-state band colour on the
+ * element (a leaderboard cell reading breach/caution) overrides it without !important. */
+:where(.display, .display-md, .display-lg, .display-xl) {
+  color: var(--display-color);
+}
+.display {
+  font-size: var(--display-sm);
+}
+.display-md {
+  font-size: var(--display-md);
+}
+.display-lg {
+  font-size: var(--display-lg);
+}
+.display-xl {
+  font-size: var(--display-xl);
 }
 
 /* Query container for the content column, so `--reading-h1`'s `cqi` resolves
