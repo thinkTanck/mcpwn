@@ -178,6 +178,7 @@ describe('DTCG token layer (globals.css)', () => {
       '--reading-color-hi',
       '--instrument-color',
       '--instrument-color-faint',
+      '--display-color',
     ]) {
       const fg = resolveColor(`var(${token})`, surfaceBase);
       expect(contrast(fg, surfaceBase), `${token} on --surface-base`).toBeGreaterThanOrEqual(4.5);
@@ -219,6 +220,34 @@ describe('DTCG token layer (globals.css)', () => {
     expect(h1, `${h1} must not use vw — the deck-collapse overflow bug`).not.toMatch(/vw/);
     // The container is established on the shell <main> via .type-flow.
     expect(cssNoComments).toMatch(/\.type-flow\s*\{[^}]*container-type:\s*inline-size/);
+  });
+
+  it('DISPLAY (focal data values) is a display scale whose FAMILY the design owns', () => {
+    expect(vars.get('--display-sm')).toBe('15px'); // heatmap cell value
+    expect(vars.get('--display-md')).toBe('20px'); // OVERALL column
+    expect(vars.get('--display-lg')).toBe('28px');
+    expect(vars.get('--display-xl')).toBe('40px'); // hero counter
+    // The role must NOT pin a family. The frozen design owns it (sans hero
+    // counters, mono readouts); pinning mono rewrote the design. See ADR-0004.
+    expect(vars.has('--display-font'), 'DISPLAY must not pin a font-family').toBe(false);
+  });
+
+  it('the THREE roles are distinct systems, not one mush', () => {
+    // READING is the only sans register; INSTRUMENT is mono chrome; DISPLAY is
+    // separated by SCALE (its family follows the design, so it cannot be the axis).
+    expect(must(vars.get('--reading-font'), 'reading')).toContain('sans');
+    expect(must(vars.get('--instrument-font'), 'instrument')).toContain('mono');
+    const px = (name: string) => parseFloat(must(vars.get(name), name));
+    // DISPLAY starts above the INSTRUMENT ceiling, so a focal value can never be
+    // mistaken for a label, and prose never reaches down into either.
+    expect(px('--display-sm')).toBeGreaterThan(px('--instrument-base'));
+    expect(px('--reading-body')).toBeGreaterThan(px('--instrument-base'));
+  });
+
+  it('READING pins no measure cap — the frozen design owns layout width', () => {
+    // A 65–75ch role-level cap fought the design's columns (dead side-margins).
+    expect(vars.has('--reading-measure'), 'READING must not pin a measure').toBe(false);
+    expect(cssNoComments).not.toMatch(/max-inline-size:\s*var\(--reading-measure\)/);
   });
 
   it('exposes the full 8-pt --sp-* spacing scale in px', () => {
