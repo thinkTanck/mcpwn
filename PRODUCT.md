@@ -9,7 +9,12 @@
 
 ## Register
 
-**Product.** Design serves the tool: MCPwn is app UI (a security control room / dashboard), not a marketing surface. Optimize for clarity, system status, and operator trust — not persuasion.
+**Product (default).** MCPwn is app UI — a security control room — so most screens serve the tool: clarity, system status, and operator trust over persuasion.
+
+**Per-screen register** (Impeccable runs brand vs product by different rules, so each screen declares which):
+
+- **BRAND** — `/` (Home) and `/sign-in`. The front door: the pitch, the _measured-detector_ claim, the first impression. Design carries the message here; it may be expressive.
+- **PRODUCT** — `/connect`, `/runs/[id]` (Live Attack Replay), `/leaderboard`, `/findings/[id]`, and `/threats`. The instrument surfaces: legible, data-dense, trustworthy. Design serves the readout, never decorates it.
 
 ## Platform
 
@@ -33,13 +38,17 @@ A serious instrument, not a game. **Sentinel Fields**: a dark control-room base 
 - Gratuitous scanlines, CRT glitch, neon-for-neon's-sake, or motion that distracts from the readout.
 - **Color-only status** — a red glow with no label or icon.
 - Light-gray body text on a tinted near-white (the classic low-contrast failure).
+- **AI-generated dark dashboard** — the generic "dark SaaS admin" reflex; a look you could guess from the category alone.
+- **Cyan-on-navy uniformity** — one accent on one background everywhere, so nothing has hierarchy or register.
+- **Thin-border panel soup** — every element the same 1px-bordered card (and never nested cards); elevation should be earned.
+- **Uniformly small mid-grey text** — no reading/instrument split; prose shrunk to HUD size so everything reads as telemetry and nothing reads as a sentence.
 
 ## Design principles
 
 - **Tri-state status is the core signal:** cyan (normal) · amber (caution/elevated) · red (breach/compromise). Status is always **glow _plus_ a label and/or icon — never color alone.** The glow palette lives in the DTCG primitive token tier (a theme swap, not a rebuild).
 - **Restrained-alive motion:** a playhead sweep, nodes lighting as it passes, a soft glow-pulse on the active/compromise node, the verdict easing in. GPU-cheap CSS transforms/opacity only (CWV-safe). Serious, not gamified.
 - **Legibility first:** monospace readouts, generous negative space, one clear focal point per screen (the compromise step on Replay; the worst cell on the Leaderboard).
-- **The HUD language carries across all four screens** so the tool reads as one system.
+- **The HUD language carries across every screen** so the tool reads as one system.
 
 ## Accessibility
 

@@ -165,12 +165,51 @@ describe('DTCG token layer (globals.css)', () => {
     }
   });
 
-  it('--text-faint and --text-muted clear WCAG 2.2 AA (>=4.5:1) on base and panel', () => {
-    for (const token of ['--text-faint', '--text-muted']) {
+  it('every active text role clears WCAG 2.2 AA (>=4.5:1) on base AND panel', () => {
+    // --text-pending is inactive-only (WCAG 1.4.3 exempts not-reached/disabled), excluded.
+    for (const token of [
+      '--text',
+      '--text-hi',
+      '--text-muted',
+      '--text-faint',
+      '--text-readout',
+      '--text-breach',
+      '--reading-color',
+      '--reading-color-hi',
+      '--instrument-color',
+      '--instrument-color-faint',
+    ]) {
       const fg = resolveColor(`var(${token})`, surfaceBase);
       expect(contrast(fg, surfaceBase), `${token} on --surface-base`).toBeGreaterThanOrEqual(4.5);
       expect(contrast(fg, surfacePanel), `${token} on --surface-panel`).toBeGreaterThanOrEqual(4.5);
     }
+  });
+
+  it('no READING (prose) size role resolves below the 16px floor', () => {
+    const pxMin = (value: string): number => {
+      const pxs = [...value.matchAll(/(\d+(?:\.\d+)?)px/g)].map((m) =>
+        parseFloat(must(m[1], 'px')),
+      );
+      if (pxs.length === 0) throw new Error(`no px value in reading size: ${value}`);
+      return Math.min(...pxs);
+    };
+    for (const token of [
+      '--reading-body',
+      '--reading-lead',
+      '--reading-h3',
+      '--reading-h2',
+      '--reading-h1',
+    ]) {
+      const v = must(vars.get(token), `${token} defined`);
+      expect(pxMin(v), `${token} (${v}) is below the 16px prose floor`).toBeGreaterThanOrEqual(16);
+    }
+  });
+
+  it('INSTRUMENT (telemetry) sizes are mono and within the 12–13px band', () => {
+    expect(vars.get('--instrument-label')).toBe('12px');
+    expect(vars.get('--instrument-base')).toBe('13px');
+    expect(must(vars.get('--reading-font'), 'reading font')).toContain('sans');
+    expect(must(vars.get('--instrument-font'), 'instrument font')).toContain('mono');
   });
 
   it('exposes the full 8-pt --sp-* spacing scale in px', () => {
