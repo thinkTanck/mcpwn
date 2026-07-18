@@ -26,8 +26,8 @@ MCPwn's entire thesis is _measured over asserted_ — the detector ships a
 leakage-separated P/R it actually measured, not a claimed one (see
 [ADR-0003](0003-core-7-scope-and-measurability-bar.md)). A CI performance gate
 that reports **estimated** vitals would be inconsistent with that stance, and it
-would diverge from how we spot-check performance during the build (real Chrome
-via the Chrome DevTools MCP).
+would diverge from the measured-not-asserted ethos the rest of the pipeline
+holds (real-Chrome CWV budgets in Lighthouse CI, `/impeccable audit`).
 
 ## Decision
 
@@ -48,8 +48,8 @@ measures Core Web Vitals from a real throttled run, not a Lantern simulation.
 **Positive**
 
 - CI's CWV numbers are **real measurements**, consistent with the project's
-  measured-not-asserted ethos and with the Chrome DevTools MCP real-Chrome checks
-  used during development.
+  measured-not-asserted ethos and with the real-Chrome verification
+  (`/impeccable audit`, `@axe-core/playwright`) used during development.
 - No threshold was softened to accommodate the method; a regression that pushes
   LCP over 2.5s still fails the gate.
 

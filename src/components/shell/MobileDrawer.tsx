@@ -35,7 +35,7 @@ export function MobileDrawer({ pathname, fleet }: { pathname: string; fleet: Fle
         className="fixed bottom-0 left-0 top-[62px] m-0 h-auto w-[236px] border-r border-line-em bg-solid p-4 text-ink shadow-[0_0_40px_rgba(0,0,0,0.6)]"
       >
         <div className="flex h-full flex-col">
-          <div className="px-3 pb-2.5 pt-1.5 font-mono text-[10px] tracking-[0.16em] text-ink-faint">
+          <div className="px-3 pb-2.5 pt-1.5 font-mono text-[12px] tracking-[0.16em] text-ink-faint">
             COMMAND DECK
           </div>
           <nav aria-label="Command deck (mobile)" className="flex flex-col gap-1">

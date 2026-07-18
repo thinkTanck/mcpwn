@@ -21,7 +21,7 @@ export function ModeBadge({ mode = 'sample' }: { mode?: Mode }) {
       />
       <span
         className={cn(
-          'font-mono text-[11px] font-medium tracking-[0.12em]',
+          'font-mono text-[12px] font-medium tracking-[0.12em]',
           live ? 'text-readout' : 'text-ink-muted',
         )}
       >

@@ -20,7 +20,7 @@
 - **CWV budgets @ p75:** LCP ≤ 2.5s, INP ≤ 200ms, CLS ≤ 0.1 (Lighthouse CI). a11y: **axe 0 serious/critical**.
 - **BYOK copy is locked:** key field masked; "Used server-side only, never stored." Detector shown **BLIND · LOCKED**, never user-swappable.
 - **Honest fixture labels:** leaderboard shows "Fixture data — placeholder, not a claimed benchmark"; Home accuracy "0.94 / 0.89 · leakage-separated · fixture, not a benchmark".
-- **Verification substitute:** Chrome DevTools MCP is not connected in this environment; a11y + CWV are verified by the CI gate (`@axe-core/playwright` + Lighthouse CI) and local Playwright. This substitution is called out in each PR.
+- **Verification:** a11y + CWV are verified by `/impeccable audit` plus the CI gate (`@axe-core/playwright` + Lighthouse CI real-Chrome budgets) and local Playwright. Stated per PR.
 
 ---
 
@@ -239,4 +239,4 @@ Each B task ends: RED (component + a11y) → GREEN → Impeccable pass → local
 
 **Type consistency:** `DataSource`, `Leaderboard*`, `FixReport`, `Band`, `bandFor/bandToken`, `SAMPLE_RUN_ID` defined once in A2/A3 and consumed unchanged by B4/B5/C. Fixture `RunResult` reuses the existing `@/contract` types (no `groundTruth`).
 
-**Verification note:** Chrome DevTools MCP unavailable here → CWV/a11y enforced by the CI gate (Lighthouse CI + @axe-core/playwright) and local Playwright; stated per PR.
+**Verification note:** CWV/a11y enforced by `/impeccable audit` plus the CI gate (Lighthouse CI real-Chrome budgets + @axe-core/playwright) and local Playwright; stated per PR.
