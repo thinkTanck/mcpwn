@@ -8,7 +8,7 @@ colors:
   caution-amber: '#ebb561'
   breach-red: '#ed576e'
   breach-text: '#f58ea0'
-  inert-slate: '#7c93a1'
+  inert-slate: '#708c9e'
   navy-base: '#05080b'
   navy-panel: '#101823'
   navy-raised: '#17212d'
@@ -153,7 +153,7 @@ A near-black navy field carrying a single functional accent trio (cyan, amber, r
 
 ### Tertiary
 
-- **Inert Slate** (#7c93a1): the neutral fourth state, "not measurable / out of scope" (the ASI07/08/09 rows on the coverage board). Desaturated, explicitly NOT a tri-state member, and never red.
+- **Inert Slate** (#708c9e, the ink-500 family): the neutral fourth state, "not measurable / out of scope" (the ASI07/08/09 rows on the coverage board). `--status-inert`, AA on base and panel, desaturated, explicitly NOT a tri-state member, no glow, and never red.
 
 ### Neutral
 

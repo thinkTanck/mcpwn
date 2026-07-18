@@ -8,7 +8,7 @@ vi.mock('next/headers', () => ({
   headers: async () => ({ get: (k: string) => (k === 'x-pathname' ? '/' : null) }),
 }));
 
-const DECK_LINKS = ['Home', 'Connect / Run', 'Live Replay', 'Leaderboard', 'Findings'];
+const DECK_LINKS = ['Home', 'Connect / Run', 'Live Replay', 'Leaderboard', 'Findings', 'Threats'];
 const sampleFleet: FleetStatus = {
   source: 'sample',
   nominal: 4,
@@ -19,7 +19,7 @@ const sampleFleet: FleetStatus = {
 };
 
 describe('AppShell (server shell)', () => {
-  it('exposes banner, navigation and main landmarks with the five deck links', async () => {
+  it('exposes banner, navigation and main landmarks with the six deck links', async () => {
     render(await AppShell({ children: <p>screen content</p> }));
     expect(screen.getByRole('banner')).toBeInTheDocument();
     expect(screen.getByRole('main')).toBeInTheDocument();

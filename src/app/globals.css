@@ -80,6 +80,12 @@
   --glow-caution: 0 0 12px color-mix(in srgb, var(--amber-400) 35%, transparent);
   --glow-breach: 0 0 16px color-mix(in srgb, var(--red-400) 45%, transparent);
 
+  /* Fourth state — INERT (neutral/muted, "not measurable"). NOT a tri-state
+   * member and NEVER red: red is reserved for an actual breach; an uncovered
+   * category is not a failing one (ADR-0003). Desaturated ink-500 family, AA on
+   * base AND panel (asserted in tokens.test), carries an icon + label, no glow. */
+  --status-inert: var(--ink-500); /* #708c9e · 5.7:1 base / 5.1:1 panel */
+
   /* Focus — one ring, used everywhere */
   --focus-ring: var(--cyan-300);
   --focus-ring-width: 2px;

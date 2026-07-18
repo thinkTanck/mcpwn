@@ -186,6 +186,22 @@ describe('DTCG token layer (globals.css)', () => {
     }
   });
 
+  it('the INERT fourth state clears AA on base AND panel and is never the breach red', () => {
+    // --status-inert labels "not measurable" categories (ASI07/08/09 on /threats).
+    // It carries icon + label + text, so it must clear AA as text, and it must
+    // never be red (ADR-0003: red is reserved for an actual breach).
+    const inert = resolveColor('var(--status-inert)', surfaceBase);
+    expect(contrast(inert, surfaceBase), '--status-inert on --surface-base').toBeGreaterThanOrEqual(
+      4.5,
+    );
+    expect(
+      contrast(inert, surfacePanel),
+      '--status-inert on --surface-panel',
+    ).toBeGreaterThanOrEqual(4.5);
+    const breach = resolveColor('var(--status-breach)', surfaceBase);
+    expect(inert, '--status-inert must not be the breach red').not.toEqual(breach);
+  });
+
   it('no READING (prose) size role resolves below the 16px floor', () => {
     const pxMin = (value: string): number => {
       const pxs = [...value.matchAll(/(\d+(?:\.\d+)?)px/g)].map((m) =>
