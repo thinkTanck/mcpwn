@@ -4,6 +4,7 @@ description: Dark control-room HUD for red-teaming MCP agents; tri-state status 
 colors:
   nominal-cyan: '#54d4e6'
   readout-cyan: '#b6ecf4'
+  line-emphasis-cyan: '#2b6b7d'
   caution-amber: '#ebb561'
   breach-red: '#ed576e'
   breach-text: '#f58ea0'
@@ -138,6 +139,7 @@ A near-black navy field carrying a single functional accent trio (cyan, amber, r
 
 - **Nominal Cyan** (#54d4e6): the "normal / nominal" status and the primary interactive accent. Focus rings, active nav, the leakage-barrier line-work, play controls. Never used as a decorative wash; its presence signals state or action.
 - **Readout Cyan** (#b6ecf4): the high-value monospace readout ink for the numbers and identifiers that ARE the focus (run ids, step readouts, the Display role's default color).
+- **Line-emphasis Cyan** (#2b6b7d): the dim cyan for emphasized hairlines, graticule line-work, and structural rings; a quiet structural accent, used at low alpha, never as a fill.
 
 ### Secondary
 
