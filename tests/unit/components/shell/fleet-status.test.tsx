@@ -5,9 +5,9 @@ import type { FleetStatus as FleetStatusData } from '@/data/source';
 const sample: FleetStatusData = {
   source: 'sample',
   nominal: 4,
-  caution: 7,
-  breach: 4,
-  total: 15,
+  caution: 11,
+  breach: 6,
+  total: 21,
   empty: false,
 };
 const empty: FleetStatusData = {
@@ -24,8 +24,8 @@ describe('FleetStatus', () => {
     render(<FleetStatus fleet={sample} />);
     const region = screen.getByRole('region', { name: 'Fleet status' });
     expect(within(region).getByText('4 nominal')).toBeInTheDocument();
-    expect(within(region).getByText('7 caution')).toBeInTheDocument();
-    expect(within(region).getByText('4 breach')).toBeInTheDocument();
+    expect(within(region).getByText('11 caution')).toBeInTheDocument();
+    expect(within(region).getByText('6 breach')).toBeInTheDocument();
     expect(within(region).getByText('sample')).toBeInTheDocument();
   });
 
@@ -38,7 +38,7 @@ describe('FleetStatus', () => {
   it('dots variant exposes the full tally as an accessible image name', () => {
     render(<FleetStatus fleet={sample} variant="dots" />);
     expect(
-      screen.getByRole('img', { name: /4 nominal · 7 caution · 4 breach/ }),
+      screen.getByRole('img', { name: /4 nominal · 11 caution · 6 breach/ }),
     ).toBeInTheDocument();
   });
 });
