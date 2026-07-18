@@ -36,7 +36,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: 'Connect / Run',
     href: '/connect',
     matchPrefix: '/connect',
-    available: false,
+    available: true,
     icon: (
       <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true">
         <g {...stroke}>
