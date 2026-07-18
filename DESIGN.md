@@ -23,6 +23,12 @@ typography:
     fontWeight: 500
     lineHeight: 1.05
     letterSpacing: '-0.01em'
+  masthead:
+    fontFamily: 'Geist Mono, ui-monospace, SF Mono, monospace'
+    fontSize: '21px'
+    fontWeight: 600
+    lineHeight: 1.1
+    letterSpacing: '0.09em'
   headline:
     fontFamily: 'Geist, Inter, system-ui, sans-serif'
     fontSize: 'clamp(32px, 5cqi, 44px)'
@@ -172,6 +178,7 @@ The system runs on THREE deliberately non-interchangeable roles. Prose never ren
 - **Title / Reading h2, h3** (600, 28px / 20px): section and panel titles.
 - **Body / Reading** (400, 17px, line-height 1.6): every sentence a human reads. 16px is the AA floor, not the target. The design owns the column width; the type role pins no measure cap.
 - **Label / Instrument** (400, 12 to 13px, letter-spacing 0.02em, uppercase micro-labels at 0.12em): telemetry ONLY. Labels, chips, metadata, cues, column and row headers, in Geist Mono.
+- **Masthead lockup** (600, 21px, letter-spacing 0.09em, Geist Mono): the dominant MCPwn wordmark in the top bar only. A single deliberate lockup at its own size (design system section 7), not a general step; it is the one place the brand mark asserts scale.
 
 ### Named Rules
 
