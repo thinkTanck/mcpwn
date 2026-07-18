@@ -16,18 +16,24 @@ vi.mock('next/link', () => ({
 }));
 
 describe('command-deck nav availability', () => {
-  it('marks the built routes (Home, Connect, Live Replay, Leaderboard) as available', () => {
+  it('marks the built routes as available', () => {
     const built = NAV_ITEMS.filter((i) => i.available).map((i) => i.href);
-    expect(built).toEqual(['/', '/connect', '/runs/sample', '/leaderboard']);
+    expect(built).toEqual(['/', '/connect', '/runs/sample', '/leaderboard', '/findings/asi06-run']);
   });
 
-  it('disables prefetch on not-yet-built routes so they do not RSC-404 on load', () => {
-    const findings = NAV_ITEMS.find((i) => i.href.startsWith('/findings'))!;
-    render(<NavLink item={findings} pathname="/" />);
-    expect(screen.getByRole('link', { name: 'Findings' })).toHaveAttribute(
-      'data-prefetch',
-      'false',
-    );
+  it('disables prefetch on a not-yet-built route so it does not RSC-404 on load', () => {
+    // Tests NavLink's contract for an unbuilt destination. Every deck route is
+    // built today, so this uses a synthetic unavailable item (the next such route
+    // is Threats).
+    const unbuilt = {
+      ...NAV_ITEMS[0]!,
+      label: 'Threats',
+      href: '/threats',
+      matchPrefix: '/threats',
+      available: false,
+    };
+    render(<NavLink item={unbuilt} pathname="/" />);
+    expect(screen.getByRole('link', { name: 'Threats' })).toHaveAttribute('data-prefetch', 'false');
   });
 
   it('leaves prefetch at the framework default for built routes', () => {
