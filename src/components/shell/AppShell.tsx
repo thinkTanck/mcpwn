@@ -21,7 +21,7 @@ export async function AppShell({ children }: { children: ReactNode }) {
       <StatusBar pathname={pathname} fleet={fleet} />
       <div className="flex min-h-[calc(100dvh-62px)]">
         <CommandDeck pathname={pathname} fleet={fleet} />
-        <main className="type-flow relative min-w-0 flex-1">{children}</main>
+        <main className="type-flow relative min-w-0 flex-1 overflow-x-clip">{children}</main>
       </div>
     </div>
   );
