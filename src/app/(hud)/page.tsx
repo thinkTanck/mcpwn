@@ -70,7 +70,7 @@ export default async function Home() {
   const { index: compromiseIndex, tool: offendingTool } = compromise(sample);
 
   return (
-    <div className="flex min-h-[calc(100dvh-62px)] items-center">
+    <div className="flex min-h-[calc(100dvh-62px)] items-start lg:items-center">
       <div className="mx-auto w-full max-w-[1240px] px-6 py-8">
         <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:gap-10">
           {/* ── left: pitch + stat + CTAs + trailer ── */}
@@ -100,12 +100,16 @@ export default async function Home() {
                   measured · leakage-separated fixture, not a benchmark
                 </span>
               </div>
-              <p className="flex flex-wrap items-baseline gap-x-2">
-                <CountUp value={SAMPLE_METRICS.precision} className="display-lg font-sans" />
-                <span className="instrument mr-4">precision</span>
-                <CountUp value={SAMPLE_METRICS.recall} className="display-lg font-sans" />
-                <span className="instrument">recall</span>
-              </p>
+              <div className="flex items-baseline gap-x-6">
+                <span className="whitespace-nowrap">
+                  <CountUp value={SAMPLE_METRICS.precision} className="display-lg font-sans" />
+                  <span className="instrument ml-2">precision</span>
+                </span>
+                <span className="whitespace-nowrap">
+                  <CountUp value={SAMPLE_METRICS.recall} className="display-lg font-sans" />
+                  <span className="instrument ml-2">recall</span>
+                </span>
+              </div>
             </div>
 
             {/* CTAs */}
