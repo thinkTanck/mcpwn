@@ -25,7 +25,7 @@ export function CoverageLegend() {
       </li>
       <li
         className="instrument inline-flex items-center gap-2"
-        style={{ color: 'var(--status-inert)', opacity: 0.7 }}
+        style={{ color: 'var(--status-inert)' }}
       >
         <CoverageIcon kind="addable" />
         <span>ADDABLE · reserved for future</span>

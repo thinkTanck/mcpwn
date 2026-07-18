@@ -29,7 +29,7 @@ export function ThreatEntry({ threat }: { threat: Threat }) {
       {/* Left rail — code · title · state badge */}
       <div className="flex flex-col gap-3">
         <span
-          className="font-mono text-[22px] leading-none tracking-tight"
+          className="font-mono text-[20px] leading-none tracking-tight"
           style={covered ? { color: 'var(--status-nominal)' } : stateStyle}
         >
           {threat.code}
@@ -37,7 +37,7 @@ export function ThreatEntry({ threat }: { threat: Threat }) {
         <h2 className="reading-h3 font-semibold">{threat.title}</h2>
         <span
           className={
-            'inline-flex w-fit items-center gap-2 rounded-full border px-2.5 py-1 font-mono text-[11px] uppercase tracking-[0.12em] ' +
+            'inline-flex w-fit items-center gap-2 rounded-full border px-2.5 py-1 font-mono text-[12px] uppercase tracking-[0.12em] ' +
             (covered
               ? 'border-line-em bg-nominal/5 text-nominal shadow-glow-nominal'
               : 'border-line')

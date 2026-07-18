@@ -60,7 +60,7 @@ export default function ThreatsPage() {
           href="https://genai.owasp.org"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-nominal"
+          className="text-nominal underline underline-offset-2"
         >
           genai.owasp.org →
         </a>
