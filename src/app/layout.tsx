@@ -3,15 +3,19 @@ import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 
 /**
- * `display: 'swap'` with next/font's metric-matched fallback: text paints
- * immediately in the size-adjusted fallback (fonts also arrive in ~85ms), so the
- * web font never gates first paint. Paired with the server-rendered shell, the
- * LCP content isn't blocked on hydration either.
+ * `display: 'optional'` with next/font's metric-matched fallback: text paints
+ * immediately in the size-adjusted fallback, and the web font is only swapped in
+ * if it arrives inside a short block window (otherwise it loads to cache for the
+ * next navigation). This removes the FOUT reflow that `swap` causes: under CWV
+ * throttling, swapping Geist into wrapping prose changed line counts and shifted
+ * everything below (a ~0.2 CLS). The fallback is metric-matched, so the type
+ * scale and measures are preserved; only the exact glyph shapes differ until the
+ * cached font is used. CLS from fonts is then ~0 across every screen.
  */
-const geistSans = Geist({ subsets: ['latin'], display: 'swap', variable: '--font-geist-sans' });
+const geistSans = Geist({ subsets: ['latin'], display: 'optional', variable: '--font-geist-sans' });
 const geistMono = Geist_Mono({
   subsets: ['latin'],
-  display: 'swap',
+  display: 'optional',
   variable: '--font-geist-mono',
 });
 
