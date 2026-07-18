@@ -20,11 +20,13 @@ describe('trace-view step colours', () => {
   });
 });
 
-describe('runs/[id] replay placeholder', () => {
-  it('renders the run id inside a labelled replay region', async () => {
+describe('runs/[id] replay', () => {
+  it('resolves the run and renders the operable replay bound to the run id', async () => {
     const ui = await RunReplay({ params: Promise.resolve({ id: 'asi06-run' }) });
     render(ui);
-    expect(screen.getByRole('region', { name: 'Live Attack Replay' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: /asi06-run/ })).toBeInTheDocument();
+    // Run id is surfaced (bound to the record, not a literal).
+    expect(screen.getByText('asi06-run')).toBeInTheDocument();
+    // The reliable base — the operable step timeline — is present.
+    expect(screen.getByRole('list', { name: /step timeline/i })).toBeInTheDocument();
   });
 });

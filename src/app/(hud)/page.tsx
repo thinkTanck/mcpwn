@@ -126,7 +126,6 @@ export default async function Home() {
                 </Link>
                 <Link
                   href="/connect"
-                  prefetch={false}
                   className="font-mono text-[13px] tracking-[0.06em] text-nominal hover:underline"
                 >
                   Connect your agent →
