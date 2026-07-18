@@ -16,15 +16,15 @@ vi.mock('next/link', () => ({
 }));
 
 describe('command-deck nav availability', () => {
-  it('marks only the built routes (Home, Live Replay) as available', () => {
+  it('marks the built routes (Home, Connect, Live Replay) as available', () => {
     const built = NAV_ITEMS.filter((i) => i.available).map((i) => i.href);
-    expect(built).toEqual(['/', '/runs/sample']);
+    expect(built).toEqual(['/', '/connect', '/runs/sample']);
   });
 
   it('disables prefetch on not-yet-built routes so they do not RSC-404 on load', () => {
-    const connect = NAV_ITEMS.find((i) => i.href === '/connect')!;
-    render(<NavLink item={connect} pathname="/" />);
-    expect(screen.getByRole('link', { name: 'Connect / Run' })).toHaveAttribute(
+    const leaderboard = NAV_ITEMS.find((i) => i.href === '/leaderboard')!;
+    render(<NavLink item={leaderboard} pathname="/" />);
+    expect(screen.getByRole('link', { name: 'Leaderboard' })).toHaveAttribute(
       'data-prefetch',
       'false',
     );
