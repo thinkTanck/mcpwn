@@ -25,7 +25,8 @@ describe('Home — landmarks & pitch', () => {
 
   it('states the measured-detector claim with honest fixture provenance', async () => {
     await renderHome();
-    expect(screen.getByText(/measured/i)).toBeInTheDocument();
+    // The pitch's emphasised claim: the detector accuracy was MEASURED.
+    expect(screen.getByText('MEASURED')).toBeInTheDocument();
     // Provenance must be honest: a fixture, not a claimed benchmark.
     expect(screen.getByText(/fixture, not a benchmark/i)).toBeInTheDocument();
   });

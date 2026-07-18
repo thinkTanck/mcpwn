@@ -31,7 +31,7 @@ export function SampleTrailer({
     <section aria-label="Sample run trailer" className="border-t border-line pt-4">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3">
-          <span className="inline-flex items-center gap-2 rounded-full border border-line-em bg-nominal/5 px-2.5 py-1 font-mono text-[11px] uppercase tracking-[0.12em] text-nominal shadow-glow-nominal">
+          <span className="inline-flex items-center gap-2 rounded-full border border-line-em bg-nominal/5 px-2.5 py-1 font-mono text-[12px] uppercase tracking-[0.12em] text-nominal shadow-glow-nominal">
             <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-nominal" />
             Sample run
           </span>

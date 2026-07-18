@@ -75,42 +75,36 @@ export default async function Home() {
         <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:gap-10">
           {/* ── left: pitch + stat + CTAs + trailer ── */}
           <section aria-labelledby="home-title" className="flex min-w-0 flex-col gap-4">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3">
-              <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-nominal">
-                Bring your own MCP agent
-              </span>
-              <span className="instrument-faint uppercase !tracking-[0.1em]">
-                OWASP Agentic Top-10
-              </span>
-            </div>
-
             <h1 id="home-title" className="reading-h1 max-w-[16ch]">
               Pwn your MCP agent before an attacker does. Trust the verdict.
             </h1>
 
-            <div className="border-t border-line pt-3">
-              <p className="reading max-w-[54ch]">
-                Most tools only <span className="text-ink-muted">guess</span> whether an agent was
-                compromised. We tested our detector against attacks with known outcomes and{' '}
-                <span className="readout">MEASURED</span> how accurate it is, so you can trust its
-                verdicts.
-              </p>
-            </div>
+            <p className="reading-lead max-w-[52ch]">
+              Bring your own MCP agent and red-team it against the OWASP Agentic Top 10.
+            </p>
 
-            {/* giant stat block — leakage-separated FIXTURE, labelled honestly */}
-            <div className="flex flex-wrap items-end gap-6 border-t border-line pt-3">
-              <div>
-                <CountUp value={SAMPLE_METRICS.precision} className="display-xl font-sans" />
-                <div className="micro-label mt-2 text-ink-muted">Precision</div>
+            <p className="reading max-w-[54ch]">
+              Most tools only <span className="text-ink-muted">guess</span> whether an agent was
+              compromised. We tested our detector against attacks with known outcomes and{' '}
+              <span className="readout">MEASURED</span> how accurate it is, so you can trust its
+              verdicts.
+            </p>
+
+            {/* Detector accuracy as a measured instrument READOUT, not a hero-metric
+                stat pair. Provenance leads; the numbers are the focal DISPLAY values
+                (they may animate as magnitudes) framed as data, not a marketing headline. */}
+            <div className="border-t border-line pt-3">
+              <div className="mb-2 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                <span className="micro-label text-nominal">Detector accuracy</span>
+                <span className="instrument-faint">
+                  measured · leakage-separated fixture, not a benchmark
+                </span>
               </div>
-              <div>
-                <CountUp value={SAMPLE_METRICS.recall} className="display-xl font-sans" />
-                <div className="micro-label mt-2 text-ink-muted">Recall</div>
-              </div>
-              <p className="instrument-faint min-w-[130px] flex-1 pb-1">
-                leakage-separated
-                <br />
-                fixture, not a benchmark
+              <p className="flex flex-wrap items-baseline gap-x-2">
+                <CountUp value={SAMPLE_METRICS.precision} className="display-lg font-sans" />
+                <span className="instrument mr-4">precision</span>
+                <CountUp value={SAMPLE_METRICS.recall} className="display-lg font-sans" />
+                <span className="instrument">recall</span>
               </p>
             </div>
 
