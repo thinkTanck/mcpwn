@@ -57,15 +57,15 @@ export function FleetStatus({
       )}
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-ink-faint">
+        <span className="font-mono text-[12px] uppercase tracking-[0.14em] text-ink-faint">
           Fleet status
         </span>
-        <span className="rounded-full border border-line px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.12em] text-ink-faint">
+        <span className="rounded-full border border-line px-1.5 py-0.5 font-mono text-[12px] uppercase tracking-[0.12em] text-ink-faint">
           {fleet.source}
         </span>
       </div>
       {fleet.empty ? (
-        <p className="font-mono text-[11px] leading-relaxed text-ink-faint">
+        <p className="font-mono text-[12px] leading-relaxed text-ink-faint">
           No runs yet — launch one to populate.
         </p>
       ) : (
@@ -76,7 +76,7 @@ export function FleetStatus({
                 aria-hidden="true"
                 className={cn('h-[7px] w-[7px] rounded-full', t.dot, t.glow)}
               />
-              <span className="font-mono text-[11px] text-ink-muted">
+              <span className="font-mono text-[12px] text-ink-muted">
                 {fleet[t.key]} {t.key}
               </span>
             </li>
