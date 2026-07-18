@@ -87,6 +87,20 @@ export const NAV_ITEMS: NavItem[] = [
       </svg>
     ),
   },
+  {
+    label: 'Threats',
+    href: '/threats',
+    matchPrefix: '/threats',
+    available: true,
+    icon: (
+      <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true">
+        <g {...stroke}>
+          <path d="M8 2l5 2v3.5c0 3-2.1 5-5 6.5-2.9-1.5-5-3.5-5-6.5V4z" />
+          <path d="M5.8 8l1.6 1.6L10.4 6.6" />
+        </g>
+      </svg>
+    ),
+  },
 ];
 
 export function isActive(pathname: string, item: NavItem): boolean {
