@@ -82,10 +82,7 @@ export function SignInPanel() {
     return (
       <div className="w-full max-w-[380px]" role="status" aria-live="polite">
         <div className="border-t border-line pt-7">
-          <p className="font-mono text-[12px] uppercase tracking-[0.18em] text-nominal">
-            Link sent
-          </p>
-          <h1 className="reading-h1 mt-3">Check your email.</h1>
+          <h1 className="reading-h1">Check your email.</h1>
           <p className="reading mt-3">
             We sent a one-time sign-in link to{' '}
             <span className="font-mono text-readout">{email || 'your inbox'}</span>. Open it within
@@ -109,8 +106,7 @@ export function SignInPanel() {
   return (
     <div className="w-full max-w-[380px]">
       <div className="border-t border-line pt-7">
-        <p className="font-mono text-[12px] uppercase tracking-[0.18em] text-nominal">Sign in</p>
-        <h1 className="reading-h1 mt-3">Continue to MCPwn.</h1>
+        <h1 className="reading-h1">Continue to MCPwn.</h1>
         <p className="reading mt-3">
           Sign-in gates live runs against your own agent, with a small free-run cap that keeps
           things fair and affordable. Sample playback stays open to everyone.
@@ -150,7 +146,7 @@ export function SignInPanel() {
           Email me a sign-in link
         </Button>
 
-        <p id={helpId} className="reading mt-1 flex items-start gap-2 text-[16px]">
+        <p id={helpId} className="reading mt-1 flex items-start gap-2">
           <LockIcon />
           <span>
             No password. We email a one-time link that expires in 15 minutes, so nothing to remember

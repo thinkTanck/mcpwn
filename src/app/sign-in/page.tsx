@@ -46,7 +46,7 @@ export default function SignIn() {
           />
           <circle cx="12" cy="12" r="2.2" fill="var(--status-nominal)" />
         </svg>
-        <span className="font-mono text-[19px] font-semibold tracking-[0.09em] text-ink-hi">
+        <span className="font-mono text-[20px] font-semibold tracking-[0.09em] text-ink-hi">
           MCP<span className="text-nominal">wn</span>
         </span>
       </Link>
