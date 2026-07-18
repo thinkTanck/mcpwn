@@ -27,9 +27,9 @@ describe('AppShell (server shell)', () => {
     for (const name of DECK_LINKS) {
       expect(within(deck).getByRole('link', { name })).toBeInTheDocument();
     }
-    // FLEET STATUS is bound to the DataSource (sample leaderboard → 4/7/4).
+    // FLEET STATUS is bound to the DataSource (Core-7 sample leaderboard → 4/11/6).
     expect(within(deck).getByText('4 nominal')).toBeInTheDocument();
-    expect(within(deck).getByText('7 caution')).toBeInTheDocument();
+    expect(within(deck).getByText('11 caution')).toBeInTheDocument();
   });
 
   it('marks the active route (Home at "/") with aria-current="page"', async () => {

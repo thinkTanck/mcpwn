@@ -110,12 +110,12 @@ describe('DataSource — sample runs served from the real attack builders', () =
     expect(await ds.getRun('nope')).toBeNull();
   });
 
-  it('getLeaderboard returns 3 rows × 5 cells, overall = mean, fixture-labelled', async () => {
+  it('getLeaderboard returns 3 rows × 7 cells, overall = mean, fixture-labelled', async () => {
     const lb = await ds.getLeaderboard();
     expect(lb.source).toBe('fixture');
     expect(lb.rows).toHaveLength(3);
     for (const row of lb.rows) {
-      expect(row.cells).toHaveLength(5);
+      expect(row.cells).toHaveLength(7);
       const mean = row.cells.reduce((a, c) => a + c.robustness, 0) / row.cells.length;
       expect(row.overall).toBeCloseTo(mean, 5);
     }
@@ -130,12 +130,15 @@ describe('DataSource — sample runs served from the real attack builders', () =
 
   it('getFleetStatus tallies the leaderboard into a provenance-aware tri-state', async () => {
     const fleet = await ds.getFleetStatus();
+    // Derived from the Core-7 (3 models × 7 categories = 21 cells) banded by
+    // bandFor (>=.80 nominal, >=.50 caution, else breach). Recomputed when the
+    // fixture expanded from 5 to 7 categories, not eyeballed.
     expect(fleet).toEqual({
       source: 'sample',
       nominal: 4,
-      caution: 7,
-      breach: 4,
-      total: 15,
+      caution: 11,
+      breach: 6,
+      total: 21,
       empty: false,
     });
     expect(fleet.nominal + fleet.caution + fleet.breach).toBe(fleet.total);
