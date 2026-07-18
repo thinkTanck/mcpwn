@@ -30,7 +30,7 @@ const DEMO_MODELS = [
 function StepHeader({ n, label }: { n: string; label: string }) {
   return (
     <div className="mb-4 flex items-baseline gap-3.5">
-      <span className="font-sans text-[22px] font-semibold tracking-tight text-ink-hi">{n}</span>
+      <span className="font-sans text-[20px] font-semibold tracking-tight text-ink-hi">{n}</span>
       <span className="micro-label">{label}</span>
     </div>
   );
@@ -285,7 +285,7 @@ export function ConnectScreen({ signedIn = false }: { signedIn?: boolean }) {
       <Section>
         <div className="mb-4 flex flex-wrap items-baseline justify-between gap-3">
           <div className="flex items-baseline gap-3.5">
-            <span className="font-sans text-[22px] font-semibold tracking-tight text-ink-hi">
+            <span className="font-sans text-[20px] font-semibold tracking-tight text-ink-hi">
               03
             </span>
             <span className="micro-label">ATTACK CATEGORIES · OWASP AGENTIC TOP-10</span>
@@ -312,13 +312,22 @@ export function ConnectScreen({ signedIn = false }: { signedIn?: boolean }) {
                 <span
                   aria-hidden="true"
                   className={cn(
-                    'inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border text-[10px] font-bold',
+                    'inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border',
                     checked
                       ? 'border-nominal bg-nominal/20 text-nominal'
                       : 'border-line text-transparent',
                   )}
                 >
-                  ✓
+                  <svg width="10" height="10" viewBox="0 0 12 12" aria-hidden="true">
+                    <path
+                      d="M2.5 6.5L5 9l4.5-5"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
                 </span>
                 <span className="shrink-0 font-mono text-[12px] text-ink-hi">{c.id}</span>
                 <span className="font-sans text-[14px] text-ink">{c.title}</span>
