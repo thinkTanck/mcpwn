@@ -126,6 +126,12 @@ export function StepTimeline({
                   className={cn(
                     'truncate font-mono text-[12px] uppercase tracking-[0.08em] lg:max-w-[7rem]',
                     breach ? 'text-breach-text' : 'text-ink-muted',
+                    // The desktop overlay row packs all steps into ~52px columns, so 13
+                    // always-on tags collide. Keep only the (static) BREACH tag there;
+                    // hiding the rest never toggles during playback (no CLS), and the
+                    // detail panel + hover tooltip carry the active step's label. Mobile
+                    // (vertical rail) has room and keeps every label.
+                    !breach && 'lg:hidden',
                   )}
                 >
                   {breach ? 'BREACH' : meta.tag}

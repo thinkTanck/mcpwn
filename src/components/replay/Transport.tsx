@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
  */
 function ctrlClass(disabled?: boolean): string {
   return cn(
-    'inline-flex h-9 min-w-9 items-center justify-center gap-1.5 rounded-md border border-line px-2.5 font-mono text-[12px] text-ink transition-colors',
+    'inline-flex h-11 min-w-11 items-center justify-center gap-1.5 rounded-md border border-line px-2.5 font-mono text-[12px] text-ink transition-colors',
     disabled
       ? 'cursor-not-allowed opacity-40'
       : 'hover:border-line-em hover:bg-nominal/[0.06] hover:text-ink-hi',

@@ -44,6 +44,22 @@ function desktopSnapshot(): boolean {
  */
 const SPEEDS = [0.5, 1, 2];
 
+/**
+ * The attack narrative per Core-7 category. The h1 must describe the run it is
+ * showing, never a single hardcoded storyline — a non-ASI06 run titled "memory
+ * poisoning to exfiltration" would misdescribe its own trace. Falls back to a
+ * neutral phrase if a future category arrives before its headline is written.
+ */
+const CATEGORY_HEADLINE: Record<string, string> = {
+  ASI01: 'agent goal hijack via indirect injection',
+  ASI02: 'tool misuse and path traversal',
+  ASI03: 'identity and privilege abuse',
+  ASI04: 'agentic supply-chain compromise',
+  ASI05: 'unexpected code execution',
+  ASI06: 'memory poisoning to exfiltration',
+  ASI10: 'rogue agent drift',
+};
+
 export function Replay({ run }: { run: RunResult }) {
   const steps = run.trace.steps;
   const total = steps.length;
@@ -108,7 +124,7 @@ export function Replay({ run }: { run: RunResult }) {
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
           <span className="micro-label text-nominal">Live Attack Replay</span>
           <h1 className="reading-h3 font-semibold text-ink-hi">
-            {run.category} memory poisoning to exfiltration
+            {run.category} {CATEGORY_HEADLINE[run.category] ?? 'attack replay'}
           </h1>
         </div>
         <p className="instrument">

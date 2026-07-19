@@ -2,6 +2,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Replay } from '@/components/replay';
 import { getDataSource } from '@/data/source';
+import { SAMPLE_VERDICTS } from '@/data/fixtures/sample-verdicts';
 import type { RunResult } from '@/contract';
 
 /**
@@ -45,6 +46,48 @@ describe('Replay — transport', () => {
     expect(screen.getByRole('button', { name: /next step/i })).toBeInTheDocument();
     expect(screen.getByRole('slider', { name: /scrub to step/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /playback speed/i })).toBeInTheDocument();
+  });
+});
+
+describe('Replay — header describes the run it shows', () => {
+  it('derives the h1 narrative from the run category, never a hardcoded storyline', async () => {
+    const run = await sampleRun();
+    render(<Replay run={run} />);
+    const heading = screen.getByRole('heading', { level: 1 });
+    // The category code leads the title and the narrative is the ASI06 storyline
+    // for the sample; a non-ASI06 run must not inherit "memory poisoning".
+    expect(heading).toHaveTextContent(run.category);
+    if (run.category !== 'ASI06') {
+      expect(heading).not.toHaveTextContent(/memory poisoning/i);
+    }
+  });
+});
+
+describe('Replay — fix-report off-ramp on the revealed verdict', () => {
+  it('links to the fix report for this run once the verdict unseals', async () => {
+    const run = await sampleRun();
+    if (!run.verdict.compromised || !run.verdict.stepId)
+      throw new Error('sample must be compromised');
+    const user = userEvent.setup();
+    render(<Replay run={run} />);
+
+    // Sealed: no off-ramp yet (it lives on the peak, not before it).
+    expect(screen.queryByRole('link', { name: /fix report/i })).not.toBeInTheDocument();
+
+    const idx = run.trace.steps.findIndex((s) => s.id === run.verdict.stepId);
+    const node = screen.getByRole('button', { name: new RegExp(`step ${idx + 1}:`, 'i') });
+    await user.click(node);
+
+    const link = screen.getByRole('link', { name: /fix report/i });
+    expect(link).toHaveAttribute('href', `/findings/${run.verdict.runId}`);
+  });
+});
+
+describe('sample verdicts — copy hygiene', () => {
+  it('carries no em dashes in any rationale (UI copy rule)', () => {
+    for (const [category, v] of Object.entries(SAMPLE_VERDICTS)) {
+      expect(v.rationale, `${category} rationale`).not.toMatch(/—/);
+    }
   });
 });
 
