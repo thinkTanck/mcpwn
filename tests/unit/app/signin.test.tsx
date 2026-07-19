@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import SignIn from '@/app/sign-in/page';
 
 /**
@@ -24,6 +25,23 @@ describe('Sign-in screen', () => {
   it('names the primary magic-link button', () => {
     render(<SignIn />);
     expect(screen.getByRole('button', { name: /email me a sign-in link/i })).toBeInTheDocument();
+  });
+
+  it('does not claim an email was sent (honest preview, no auth wiring yet)', async () => {
+    const user = userEvent.setup();
+    render(<SignIn />);
+    await user.type(screen.getByLabelText(/email/i), 'tester@example.com');
+    await user.click(screen.getByRole('button', { name: /email me a sign-in link/i }));
+    expect(screen.queryByText(/we sent/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/no email is sent in this preview/i)).toBeInTheDocument();
+  });
+
+  it('offers a keyless door to the sample run', () => {
+    render(<SignIn />);
+    expect(screen.getByRole('link', { name: /watch the sample run/i })).toHaveAttribute(
+      'href',
+      '/runs/sample',
+    );
   });
 
   it('has a single level-1 heading and no heading-order jump', () => {
