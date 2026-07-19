@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import SignIn from '@/app/sign-in/page';
 
 /**
@@ -36,5 +37,25 @@ describe('Sign-in screen', () => {
     ).toBeInTheDocument();
     // No h2/h3 appear before the h1 (no skipped/inverted levels).
     expect(screen.queryByRole('heading', { level: 3 })).not.toBeInTheDocument();
+  });
+
+  it('does not claim an email was sent (honest preview; auth is unwired)', async () => {
+    const user = userEvent.setup();
+    render(<SignIn />);
+    await user.type(screen.getByLabelText(/email/i), 'tester@example.com');
+    await user.click(screen.getByRole('button', { name: /email me a sign-in link/i }));
+    expect(screen.queryByText(/we sent/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/no email is sent in this preview/i)).toBeInTheDocument();
+  });
+
+  it('gives the promised sample a keyless door, and does not ship inert OAuth', () => {
+    render(<SignIn />);
+    expect(screen.getByRole('link', { name: /watch the sample run/i })).toHaveAttribute(
+      'href',
+      '/runs/sample',
+    );
+    // Unwired OAuth is disabled, not a silent no-op.
+    expect(screen.getByRole('button', { name: /continue with github/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /continue with google/i })).toBeDisabled();
   });
 });

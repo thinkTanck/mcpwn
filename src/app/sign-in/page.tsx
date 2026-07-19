@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { SignInPanel } from '@/components/signin/SignInPanel';
 
 export const metadata: Metadata = {
-  title: 'Sign in — MCPwn',
+  title: 'Sign in · MCPwn',
   description:
     'Sign in to MCPwn to live red-team your own MCP agent against the Core-7. Email magic-link sign-in gates live runs; sample playback stays open to everyone.',
 };
@@ -31,7 +31,7 @@ export default function SignIn() {
       <Link
         href="/"
         aria-label="MCPwn home"
-        className="relative mb-9 inline-flex items-center gap-2.5 rounded-md"
+        className="relative mb-9 inline-flex min-h-11 items-center gap-2.5 rounded-md"
       >
         <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" className="flex-none">
           <circle cx="12" cy="12" r="9" fill="none" stroke="var(--line-emphasis)" strokeWidth="1" />

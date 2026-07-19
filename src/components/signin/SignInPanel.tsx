@@ -1,6 +1,7 @@
 'use client';
 
 import { useId, useState } from 'react';
+import Link from 'next/link';
 import { Button } from '@/components/hud';
 
 /**
@@ -82,11 +83,15 @@ export function SignInPanel() {
     return (
       <div className="w-full max-w-[380px]" role="status" aria-live="polite">
         <div className="border-t border-line pt-7">
-          <h1 className="reading-h1">Check your email.</h1>
+          <span aria-hidden="true" className="mb-2 inline-flex text-nominal">
+            <EnvelopeIcon />
+          </span>
+          <h1 className="reading-h1">That is the flow.</h1>
           <p className="reading mt-3">
-            We sent a one-time sign-in link to{' '}
-            <span className="font-mono text-readout">{email || 'your inbox'}</span>. Open it within
-            15 minutes to continue. You can close this tab.
+            In the live app, a one-time sign-in link lands at{' '}
+            <span className="font-mono text-readout">{email || 'your inbox'}</span> and expires in
+            15 minutes. No email is sent in this preview; sign-in wiring ships with the hosted
+            release.
           </p>
         </div>
         <Button
@@ -111,6 +116,18 @@ export function SignInPanel() {
           Sign-in gates live runs against your own agent, with a small free-run cap that keeps
           things fair and affordable. Sample playback stays open to everyone.
         </p>
+      </div>
+
+      {/* Honest preview state: none of the sign-in paths are wired yet (Supabase
+          Auth is Phase 8), so the screen is labelled a preview rather than
+          asserting a send that never happens. */}
+      <div className="mt-4 flex items-center gap-2.5 rounded-md border border-line-em bg-nominal/5 px-3 py-2.5">
+        <span className="shrink-0 rounded border border-line-em px-1.5 py-0.5 font-mono text-[12px] uppercase tracking-[0.12em] text-nominal">
+          Preview
+        </span>
+        <span className="reading text-[14px] text-ink-muted">
+          Sign-in wiring ships with the hosted release; no email is sent yet.
+        </span>
       </div>
 
       <form
@@ -163,24 +180,37 @@ export function SignInPanel() {
         <span className="h-px flex-1 bg-line" />
       </div>
 
+      {/* OAuth is not wired yet (Phase 8); disabled rather than a silent no-op, so a
+          click never looks broken. The Preview banner above explains why. */}
       <div className="flex gap-2.5">
         <Button
           variant="ghost"
-          aria-label="Continue with GitHub"
-          className="flex-1 gap-2 border-line text-ink hover:border-line-em hover:bg-raised/50 hover:text-ink-hi"
+          disabled
+          aria-label="Continue with GitHub (available with the hosted release)"
+          className="flex-1 gap-2 border-line text-ink"
         >
           <GitHubIcon />
           GitHub
         </Button>
         <Button
           variant="ghost"
-          aria-label="Continue with Google"
-          className="flex-1 gap-2 border-line text-ink hover:border-line-em hover:bg-raised/50 hover:text-ink-hi"
+          disabled
+          aria-label="Continue with Google (available with the hosted release)"
+          className="flex-1 gap-2 border-line text-ink"
         >
           <GoogleIcon />
           Google
         </Button>
       </div>
+
+      {/* The copy promises the sample is open to everyone; give it a door. */}
+      <p className="reading mt-6 text-[14px] text-ink-muted">
+        Just exploring?{' '}
+        <Link href="/runs/sample" className="text-nominal hover:underline">
+          Watch the sample run
+        </Link>
+        , no sign-in needed.
+      </p>
     </div>
   );
 }
