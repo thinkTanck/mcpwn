@@ -269,6 +269,7 @@ body {
 .reading-h2 {
   font-family: var(--reading-font);
   font-size: var(--reading-h2);
+  font-weight: 600; /* DESIGN §type: Title / Reading h2, h3 are 600, not inherited body 400 */
   line-height: 1.2;
   color: var(--reading-color-hi);
   text-wrap: balance;
@@ -276,6 +277,7 @@ body {
 .reading-h3 {
   font-family: var(--reading-font);
   font-size: var(--reading-h3);
+  font-weight: 600; /* DESIGN §type: Title / Reading h2, h3 are 600 */
   line-height: 1.35;
   color: var(--reading-color-hi);
   text-wrap: balance;
