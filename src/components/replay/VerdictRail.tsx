@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import type { Verdict } from '@/contract';
 
@@ -97,6 +98,26 @@ export function VerdictRail({
         <p className="micro-label mb-1.5 text-nominal">Detector rationale</p>
         <p className="reading">{verdict.rationale}</p>
       </div>
+
+      {compromised && (
+        // The off-ramp to engineering: the fix report carries the copy/export.
+        <Link
+          href={`/findings/${verdict.runId}`}
+          className="inline-flex min-h-11 w-fit items-center gap-2 rounded-md border border-line-em bg-nominal/10 px-4 font-mono text-[12px] tracking-[0.06em] text-readout transition-colors hover:bg-nominal/20"
+        >
+          <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true">
+            <path
+              d="M4 2h6l3 3v9H4z"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.3"
+              strokeLinejoin="round"
+            />
+            <path d="M10 2v3h3" fill="none" stroke="currentColor" strokeWidth="1.3" />
+          </svg>
+          Open fix report →
+        </Link>
+      )}
     </aside>
   );
 }
