@@ -398,6 +398,16 @@ body {
   }
 }
 
+/* Boot splash — a fade OVER Home (Home paints first, under it; LCP unaffected). */
+@keyframes splash-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 /* Dimensional panel entrance — panels push/open toward the viewer */
 .panel-in {
   animation: panel-in var(--motion-slow) var(--ease-emphasized) both;
