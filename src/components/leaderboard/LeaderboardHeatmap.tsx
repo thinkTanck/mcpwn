@@ -57,8 +57,37 @@ export function LeaderboardHeatmap({
   const { categories, rows, source } = leaderboard;
   const runHref = (category: string) => `/runs/${runIdByCategory[category] ?? fallbackRunId}`;
 
+  // The design names "the worst cell" as this screen's focal point. Surface it
+  // explicitly (and make it a jump target) instead of leaving it to a serial
+  // scan of equal-weight cells.
+  const weakest = rows
+    .flatMap((row) => row.cells)
+    .reduce((min, c) => (c.robustness < min.robustness ? c : min));
+  const weakestBand = bandFor(weakest.robustness);
+  const weakestFull =
+    categories.find((cat) => cat.id === weakest.category)?.full ?? weakest.category;
+
   return (
     <figure className="m-0">
+      {/* Focal anchor — the single weakest cell, named and linked to its run, so
+          the primary task (find the weakest fast) has one obvious target. */}
+      <Link
+        href={runHref(weakest.category)}
+        aria-label={`Weakest: ${weakest.model} ${weakest.category} ${weakestFull}, robustness ${fmt(
+          weakest.robustness,
+        )}, ${bandToken(weakestBand).label}. Open run in Live Attack Replay.`}
+        className="mb-4 inline-flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-md border border-line-em bg-solid px-3.5 py-2.5 transition-colors hover:border-nominal/60 focus-visible:border-nominal/60"
+      >
+        <span className="micro-label">Weakest</span>
+        <span className={cn('display font-mono', TONE[weakestBand].value)}>
+          {fmt(weakest.robustness)}
+        </span>
+        <BandShape band={weakestBand} className={TONE[weakestBand].value} />
+        <span className="font-mono text-[13px] text-ink-hi">{weakest.model}</span>
+        <span className="font-mono text-[12px] text-ink-muted">
+          {weakest.category} · {weakestFull}
+        </span>
+      </Link>
       {/* Legend + provenance — INSTRUMENT telemetry (mono, terse). */}
       <figcaption className="mb-3 flex flex-wrap items-center gap-x-5 gap-y-2">
         <span className="flex items-center gap-2 font-mono text-[12px] tracking-[0.04em] text-ink-muted">

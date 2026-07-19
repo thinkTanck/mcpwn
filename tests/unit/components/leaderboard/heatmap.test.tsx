@@ -89,7 +89,16 @@ describe('LeaderboardHeatmap', () => {
 
   it('produces exactly models × categories drill-in cells (2 × 7 = 14)', () => {
     renderHeatmap();
-    expect(screen.getAllByRole('link')).toHaveLength(2 * CATS.length);
+    // Cell drill-ins live inside the scroll region; the separate focal "weakest"
+    // callout sits outside it, so scope the count to the region.
+    const region = screen.getByRole('region', { name: /heatmap/i });
+    expect(within(region).getAllByRole('link')).toHaveLength(2 * CATS.length);
+  });
+
+  it('surfaces the single weakest cell as a focal callout that links to its run', () => {
+    renderHeatmap();
+    const weakest = screen.getByRole('link', { name: /Weakest:.*Open run/i });
+    expect(weakest).toBeInTheDocument();
   });
 
   it('makes each cell the value-as-hero and names its band in text (never color-only)', () => {

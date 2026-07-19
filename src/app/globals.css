@@ -323,10 +323,19 @@ body {
   letter-spacing: var(--display-tracking);
   font-variant-numeric: tabular-nums;
 }
-/* Default colour at ZERO specificity (:where), so a tri-state band colour on the
- * element (a leaderboard cell reading breach/caution) overrides it without !important. */
-:where(.display, .display-md, .display-lg, .display-xl) {
-  color: var(--display-color);
+/* Default colour for DISPLAY values. Placed in @layer base (NOT unlayered) so a
+ * Tailwind `text-*` utility — which lives in @layer utilities — out-ranks it by
+ * layer order and a tri-state band colour (text-caution / text-breach-text on a
+ * leaderboard cell) actually overrides it, without !important. Unlayered here
+ * would beat every layered utility regardless of specificity, silently defeating
+ * the override (the `:where` zero-specificity alone is not enough under v4 layers). */
+@layer base {
+  .display,
+  .display-md,
+  .display-lg,
+  .display-xl {
+    color: var(--display-color);
+  }
 }
 .display {
   font-size: var(--display-sm);
