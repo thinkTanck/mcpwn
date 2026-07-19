@@ -13,7 +13,8 @@ import { CountUp } from './CountUp';
  * from the data (the repo fixture is 5 today; the Core-7 makes it 7). Tri-state
  * by threshold with THREE channels so a cell never reads by colour alone:
  * (1) a shape code (○ △ ◇), (2) the band label named in the cell's accessible
- * text, (3) the tinted value + glow. Each cell drills into its run's Replay.
+ * text, (3) the tinted value, plus the reserved breach glow on the single weakest
+ * cell (the screen's focal point). Each cell drills into its run's Replay.
  *
  * 2-D data can't reflow to a stacked list, so on narrow viewports it becomes a
  * horizontal-scroll heatmap with a sticky model column + a visible swipe cue
@@ -57,8 +58,38 @@ export function LeaderboardHeatmap({
   const { categories, rows, source } = leaderboard;
   const runHref = (category: string) => `/runs/${runIdByCategory[category] ?? fallbackRunId}`;
 
+  // The design names "the worst cell" as this screen's single focal point. Find it
+  // so it can be named, linked, and lit with the reserved breach glow.
+  const weakest = rows
+    .flatMap((row) => row.cells)
+    .reduce((min, c) => (c.robustness < min.robustness ? c : min));
+  const weakestBand = bandFor(weakest.robustness);
+  const weakestFull =
+    categories.find((cat) => cat.id === weakest.category)?.full ?? weakest.category;
+
   return (
     <figure className="m-0">
+      {/* Focal anchor — the single weakest cell, named + linked to its run, wearing
+          the breach glow the HUD reserves. Turns "find the weakest fast" into one
+          obvious target instead of a scan across equal-weight breach cells. */}
+      <Link
+        href={runHref(weakest.category)}
+        aria-label={`Weakest: ${weakest.model} ${weakest.category} ${weakestFull}, robustness ${fmt(
+          weakest.robustness,
+        )}, ${bandToken(weakestBand).label}. Open run in Live Attack Replay.`}
+        className="mb-4 inline-flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-md border border-breach/40 bg-breach/5 px-3.5 py-2.5 shadow-glow-breach transition-colors hover:border-breach/60"
+      >
+        <span className="micro-label text-breach-text">Weakest</span>
+        <span className={cn('display font-mono', TONE[weakestBand].value)}>
+          {fmt(weakest.robustness)}
+        </span>
+        <BandShape band={weakestBand} className={TONE[weakestBand].value} />
+        <span className="font-mono text-[13px] text-ink-hi">{weakest.model}</span>
+        <span className="font-mono text-[12px] text-ink-muted">
+          {weakest.category} · {weakestFull}
+        </span>
+      </Link>
+
       {/* Legend + provenance — INSTRUMENT telemetry (mono, terse). */}
       <figcaption className="mb-3 flex flex-wrap items-center gap-x-5 gap-y-2">
         <span className="flex items-center gap-2 font-mono text-[12px] tracking-[0.04em] text-ink-muted">
@@ -82,6 +113,14 @@ export function LeaderboardHeatmap({
           <span aria-hidden="true">&lt;.50</span>
           <span className="sr-only">breach, less than .50</span>
         </span>
+        {/* A visible, touch/keyboard-reachable path to the category names (the column
+            codes' full names + explanations live on the coverage board). */}
+        <Link
+          href="/threats"
+          className="font-mono text-[12px] tracking-[0.04em] text-nominal hover:underline"
+        >
+          Category names → Threats
+        </Link>
         <span className="ml-auto inline-flex items-center gap-2 rounded-full border border-line bg-solid px-2.5 py-1 font-mono text-[12px] uppercase tracking-[0.12em] text-ink-faint">
           <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-ink-faint" />
           SOURCE · {source}
@@ -175,6 +214,7 @@ export function LeaderboardHeatmap({
                       const label = bandToken(band).label;
                       const category = categories.find((cat) => cat.id === c.category);
                       const full = category ? category.full : c.category;
+                      const isWorst = c === weakest;
                       return (
                         <td
                           key={c.category}
@@ -184,8 +224,11 @@ export function LeaderboardHeatmap({
                             href={runHref(c.category)}
                             aria-label={`${row.model} · ${c.category} ${full}: robustness ${fmt(
                               c.robustness,
-                            )}, ${label}. Open run in Live Attack Replay.`}
-                            className="flex min-h-[52px] items-center justify-center px-2 py-3 transition-[filter] duration-150 hover:brightness-125 focus-visible:brightness-125"
+                            )}, ${label}${isWorst ? ', the weakest cell' : ''}. Open run in Live Attack Replay.`}
+                            className={cn(
+                              'flex min-h-[52px] items-center justify-center px-2 py-3 transition-[filter] duration-150 hover:brightness-125 focus-visible:brightness-125',
+                              isWorst && 'ring-2 ring-inset ring-breach/70 shadow-glow-breach',
+                            )}
                           >
                             <CellShapeAndValue robustness={c.robustness} />
                           </Link>
