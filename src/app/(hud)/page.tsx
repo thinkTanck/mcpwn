@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import { SentinelCore } from '@/components/hud';
-import { CountUp } from '@/components/home/CountUp';
 import { Core7List } from '@/components/home/Core7List';
 import { SampleTrailer } from '@/components/home/SampleTrailer';
 import { getDataSource } from '@/data/source';
@@ -20,8 +19,14 @@ import type { RunResult, Step } from '@/contract';
  * Illustrative, leakage-separated FIXTURE metrics for the hero stat. NOT measured
  * product accuracy and NOT a benchmark — the honest provenance is rendered beside
  * them. Phase 8 replaces these with recorded validated-judge results.
+ *
+ * These render at their FINAL value immediately (SSR + client), never counting up:
+ * the accuracy claim IS the evidence of the core promise, and a transient "0.10
+ * precision" would assert the opposite. The copy rule "count magnitudes" excepts
+ * this one stat; leaderboard/fleet magnitudes may still animate.
  */
 const SAMPLE_METRICS = { precision: 0.94, recall: 0.89 } as const;
+const fmtMetric = (n: number) => n.toFixed(2);
 
 /** Human-readable one-liner for a trace step (for the trailer end labels). */
 function stepLabel(step: Step): string {
@@ -92,7 +97,8 @@ export default async function Home() {
 
             {/* Detector accuracy as a measured instrument READOUT, not a hero-metric
                 stat pair. Provenance leads; the numbers are the focal DISPLAY values
-                (they may animate as magnitudes) framed as data, not a marketing headline. */}
+                rendered at their FINAL value (never counting up — this claim is
+                evidence), framed as data, not a marketing headline. */}
             <div className="border-t border-line pt-3">
               <div className="mb-2 flex flex-wrap items-baseline gap-x-2 gap-y-1">
                 <span className="micro-label !text-nominal">Detector accuracy</span>
@@ -102,11 +108,13 @@ export default async function Home() {
               </div>
               <div className="flex items-baseline gap-x-6">
                 <span className="whitespace-nowrap">
-                  <CountUp value={SAMPLE_METRICS.precision} className="display-lg font-sans" />
+                  <span className="display-lg font-sans">
+                    {fmtMetric(SAMPLE_METRICS.precision)}
+                  </span>
                   <span className="instrument ml-2">precision</span>
                 </span>
                 <span className="whitespace-nowrap">
-                  <CountUp value={SAMPLE_METRICS.recall} className="display-lg font-sans" />
+                  <span className="display-lg font-sans">{fmtMetric(SAMPLE_METRICS.recall)}</span>
                   <span className="instrument ml-2">recall</span>
                 </span>
               </div>

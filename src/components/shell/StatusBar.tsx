@@ -13,7 +13,7 @@ export function StatusBar({
   pathname,
   fleet,
   mode = 'sample',
-  meta = 'SENTINEL FIELDS',
+  meta,
 }: {
   pathname: string;
   fleet: FleetStatus;
