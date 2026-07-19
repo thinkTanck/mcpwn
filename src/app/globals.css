@@ -243,40 +243,45 @@ body {
  * role (`.reading`, `.instrument`, `.readout`, `.micro-label`) instead of raw
  * sizes, so a scale fix in the tokens above cascades everywhere.
  * ========================================================================= */
+/* Type-role classes carry FAMILY / SIZE / RHYTHM only. Their default COLOUR is
+ * declared once in `@layer base` below, NOT here, so a Tailwind `text-*` utility
+ * (which lives in `@layer utilities`) out-ranks it by layer order and a tri-state
+ * band colour or a nominal accent actually overrides the role default without
+ * `!important`. Declaring colour on the unlayered class silently beats EVERY
+ * layered utility regardless of specificity under Tailwind v4 cascade layers —
+ * the trap that killed `text-nominal` on micro-labels and band colours on DISPLAY. */
 .reading {
   font-family: var(--reading-font);
   font-size: var(--reading-body);
   line-height: var(--reading-line);
-  color: var(--reading-color);
   text-wrap: pretty;
 }
 .reading-lead {
   font-family: var(--reading-font);
   font-size: var(--reading-lead);
   line-height: 1.5;
-  color: var(--reading-color-hi);
   text-wrap: pretty;
 }
 .reading-h1 {
   font-family: var(--reading-font);
   font-size: var(--reading-h1);
+  font-weight: 600; /* DESIGN §type: Headline / Reading h1 is 600, not inherited body 400 */
   line-height: 1.1;
   letter-spacing: -0.02em;
-  color: var(--reading-color-hi);
   text-wrap: balance;
 }
 .reading-h2 {
   font-family: var(--reading-font);
   font-size: var(--reading-h2);
+  font-weight: 600; /* DESIGN §type: Title / Reading h2, h3 are 600 */
   line-height: 1.2;
-  color: var(--reading-color-hi);
   text-wrap: balance;
 }
 .reading-h3 {
   font-family: var(--reading-font);
   font-size: var(--reading-h3);
+  font-weight: 600;
   line-height: 1.35;
-  color: var(--reading-color-hi);
   text-wrap: balance;
 }
 .instrument {
@@ -284,20 +289,17 @@ body {
   font-size: var(--instrument-label);
   line-height: var(--instrument-line);
   letter-spacing: var(--instrument-tracking);
-  color: var(--instrument-color);
 }
 .instrument-faint {
   font-family: var(--instrument-font);
   font-size: var(--instrument-label);
   line-height: var(--instrument-line);
   letter-spacing: var(--instrument-tracking);
-  color: var(--instrument-color-faint);
 }
 .readout {
   font-family: var(--instrument-font);
   font-size: var(--instrument-base);
   line-height: var(--instrument-line);
-  color: var(--instrument-readout);
 }
 .micro-label {
   font-family: var(--instrument-font);
@@ -305,7 +307,6 @@ body {
   line-height: 1.2;
   letter-spacing: var(--instrument-tracking-label);
   text-transform: uppercase;
-  color: var(--instrument-color-faint);
 }
 
 /* DISPLAY role — data values that are the visual focus (mono display scale). */
@@ -320,10 +321,38 @@ body {
   letter-spacing: var(--display-tracking);
   font-variant-numeric: tabular-nums;
 }
-/* Default colour at ZERO specificity (:where), so a tri-state band colour on the
- * element (a leaderboard cell reading breach/caution) overrides it without !important. */
-:where(.display, .display-md, .display-lg, .display-xl) {
-  color: var(--display-color);
+
+/* Role default COLOURS — @layer base so `text-*` utilities out-rank them (see the
+ * note above the role classes). This is the systemic fix for the whole class of
+ * "role colour silently beats the utility" cascade bugs. */
+@layer base {
+  .reading {
+    color: var(--reading-color);
+  }
+  .reading-lead,
+  .reading-h1,
+  .reading-h2,
+  .reading-h3 {
+    color: var(--reading-color-hi);
+  }
+  .instrument {
+    color: var(--instrument-color);
+  }
+  .instrument-faint {
+    color: var(--instrument-color-faint);
+  }
+  .readout {
+    color: var(--instrument-readout);
+  }
+  .micro-label {
+    color: var(--instrument-color-faint);
+  }
+  .display,
+  .display-md,
+  .display-lg,
+  .display-xl {
+    color: var(--display-color);
+  }
 }
 .display {
   font-size: var(--display-sm);

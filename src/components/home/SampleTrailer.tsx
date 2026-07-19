@@ -40,10 +40,13 @@ export function SampleTrailer({
             exfiltration · {total} steps
           </span>
         </div>
+        {/* Ghost link, not a second filled primary: "Play ASI06 sample" in the hero
+            is the single dominant CTA; this sits on the labelled sample strip and
+            only needs to read as clickable, not compete. */}
         <Link
           href={watchHref}
           aria-label="Watch the ASI06 sample replay"
-          className="inline-flex items-center gap-2 rounded-md border border-nominal bg-nominal/10 px-4 py-2 font-mono text-[12px] tracking-[0.08em] text-readout transition-colors hover:bg-nominal/20"
+          className="inline-flex min-h-11 items-center gap-2 font-mono text-[12px] tracking-[0.08em] text-nominal transition-colors hover:underline"
         >
           <svg width="11" height="11" viewBox="0 0 12 12" aria-hidden="true">
             <polygon points="2,1 11,6 2,11" fill="currentColor" />
