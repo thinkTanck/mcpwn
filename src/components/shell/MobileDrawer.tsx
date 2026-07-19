@@ -16,7 +16,7 @@ export function MobileDrawer({ pathname, fleet }: { pathname: string; fleet: Fle
         type="button"
         popoverTarget="mobile-deck"
         aria-label="Open command deck"
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-line text-ink hover:border-line-em hover:text-ink-hi min-[760px]:hidden"
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-line text-ink hover:border-line-em hover:text-ink-hi min-[760px]:hidden"
       >
         <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true">
           <g stroke="currentColor" strokeWidth="1.4" strokeLinecap="round">
@@ -32,7 +32,7 @@ export function MobileDrawer({ pathname, fleet }: { pathname: string; fleet: Fle
       <div
         id="mobile-deck"
         popover="auto"
-        className="fixed bottom-0 left-0 top-[62px] m-0 h-auto w-[236px] border-r border-line-em bg-solid p-4 text-ink shadow-[0_0_40px_rgba(0,0,0,0.6)]"
+        className="fixed bottom-0 left-0 top-[62px] m-0 h-auto w-[236px] border-r border-line-em bg-solid p-4 text-ink shadow-[var(--shadow-drawer)]"
       >
         <div className="flex h-full flex-col">
           <div className="px-3 pb-2.5 pt-1.5 font-mono text-[12px] tracking-[0.16em] text-ink-faint">

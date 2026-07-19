@@ -6,7 +6,7 @@ export function Graticule() {
         className="absolute inset-0 opacity-50"
         style={{
           backgroundImage:
-            'linear-gradient(rgba(84,212,230,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(84,212,230,.03) 1px,transparent 1px)',
+            'linear-gradient(var(--graticule-line) 1px,transparent 1px),linear-gradient(90deg,var(--graticule-line) 1px,transparent 1px)',
           backgroundSize: '44px 44px',
           backgroundPosition: 'center',
         }}
@@ -14,7 +14,7 @@ export function Graticule() {
       <div
         className="absolute inset-0"
         style={{
-          background: 'radial-gradient(120% 90% at 50% -10%,rgba(43,107,125,.14),transparent 60%)',
+          background: 'radial-gradient(120% 90% at 50% -10%,var(--graticule-glow),transparent 60%)',
         }}
       />
     </div>

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import Link from 'next/link';
 import { ModeBadge, type Mode } from './ModeBadge';
 import { MobileDrawer } from './MobileDrawer';
 import type { FleetStatus } from '@/data/source';
@@ -21,9 +22,13 @@ export function StatusBar({
   meta?: ReactNode;
 }) {
   return (
-    <header className="sticky top-0 z-[45] flex h-[62px] shrink-0 items-center gap-4 border-b border-line bg-gradient-to-b from-[rgba(16,24,35,0.75)] to-[rgba(5,8,11,0.4)] px-[18px] backdrop-blur-[6px]">
+    <header className="sticky top-0 z-[45] flex h-[62px] shrink-0 items-center gap-4 border-b border-line bg-gradient-to-b from-[var(--scrim-header-top)] to-[var(--scrim-header-bottom)] px-[18px] backdrop-blur-[6px]">
       <MobileDrawer pathname={pathname} fleet={fleet} />
-      <div className="flex shrink-0 items-center gap-2.5">
+      <Link
+        href="/"
+        aria-label="MCPwn home"
+        className="flex shrink-0 items-center gap-2.5 rounded-md"
+      >
         <svg
           width="26"
           height="26"
@@ -46,7 +51,7 @@ export function StatusBar({
         <span className="font-mono text-[21px] font-semibold tracking-[0.09em] text-ink-hi">
           MCP<span className="text-nominal">wn</span>
         </span>
-      </div>
+      </Link>
       <div className="hidden h-[26px] w-px shrink-0 bg-line min-[760px]:block" />
       <div className="hidden min-w-0 flex-1 truncate font-mono text-[12.5px] tracking-[0.1em] text-ink-faint min-[760px]:block">
         {meta}
