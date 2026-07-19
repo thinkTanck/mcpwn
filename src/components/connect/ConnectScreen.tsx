@@ -51,6 +51,8 @@ function Field({
   onChange,
   describedBy,
   helper,
+  autoComplete,
+  inputMode,
 }: {
   label: string;
   optional?: boolean;
@@ -60,6 +62,8 @@ function Field({
   onChange: (v: string) => void;
   describedBy?: string;
   helper?: ReactNode;
+  autoComplete?: string;
+  inputMode?: 'text' | 'numeric' | 'url';
 }) {
   const id = useId();
   const helperId = describedBy ?? (helper ? `${id}-help` : undefined);
@@ -75,6 +79,8 @@ function Field({
         value={value}
         placeholder={placeholder}
         aria-describedby={helperId}
+        autoComplete={autoComplete}
+        inputMode={inputMode}
         onChange={(e) => onChange(e.target.value)}
         className="w-full rounded-md border border-line bg-base px-3 py-2.5 font-mono text-[13px] text-readout placeholder:text-ink-faint focus-visible:border-nominal"
       />
@@ -116,6 +122,9 @@ export function ConnectScreen({ signedIn = false }: { signedIn?: boolean }) {
   const live = mode === 'live';
   const showGate = live && !signedIn;
   const selectedCount = selected.size;
+  // A live run needs an endpoint, a key, and at least one category. Sample is a
+  // fixed playback, so it launches unconditionally (navigates to the replay).
+  const liveReady = endpoint.trim() !== '' && apiKey.trim() !== '' && selectedCount > 0;
 
   const toggleCategory = (id: Category) =>
     setSelected((prev) => {
@@ -130,7 +139,7 @@ export function ConnectScreen({ signedIn = false }: { signedIn?: boolean }) {
       {/* Header */}
       <p className="micro-label !text-nominal mb-2.5 tracking-[0.18em]">CONNECT / RUN</p>
       <h1 className="reading-h2 mb-2.5">Set up a red-team run.</h1>
-      <p className="reading mb-7">
+      <p className="reading-lead mb-7">
         Play a no-key sample, or connect your own MCP agent for a live run. Either way the same
         fixed, blind detector judges every trace.
       </p>
@@ -153,7 +162,7 @@ export function ConnectScreen({ signedIn = false }: { signedIn?: boolean }) {
                 aria-pressed={active}
                 onClick={() => setMode(m)}
                 className={cn(
-                  'min-h-9 flex-1 rounded-md border px-4 py-2.5 font-mono text-[12px] tracking-[0.08em] transition-colors',
+                  'min-h-11 flex-1 rounded-md border px-4 py-2.5 font-mono text-[12px] tracking-[0.08em] transition-colors',
                   active
                     ? 'border-nominal bg-nominal/10 text-readout shadow-glow-nominal'
                     : 'border-line bg-transparent text-ink-muted hover:border-line-em hover:text-ink',
@@ -164,6 +173,12 @@ export function ConnectScreen({ signedIn = false }: { signedIn?: boolean }) {
             );
           })}
         </div>
+        {/* Surface the live gate at the point of choice, before any secret is typed. */}
+        {showGate && (
+          <p className="reading mt-2.5 text-ink-muted">
+            Live runs require sign-in. Sample playback stays open with no key.
+          </p>
+        )}
       </Section>
 
       {/* 02 · Agent & detector */}
@@ -178,6 +193,9 @@ export function ConnectScreen({ signedIn = false }: { signedIn?: boolean }) {
                 <div className="flex flex-col gap-3.5">
                   <Field
                     label="MCP ENDPOINT"
+                    type="url"
+                    inputMode="url"
+                    autoComplete="off"
                     placeholder="https://your-agent.example/mcp"
                     value={endpoint}
                     onChange={setEndpoint}
@@ -185,6 +203,7 @@ export function ConnectScreen({ signedIn = false }: { signedIn?: boolean }) {
                   <Field
                     label="API KEY / TOKEN"
                     type="password"
+                    autoComplete="off"
                     placeholder="••••••••••••••••"
                     value={apiKey}
                     onChange={setApiKey}
@@ -220,7 +239,7 @@ export function ConnectScreen({ signedIn = false }: { signedIn?: boolean }) {
                         aria-checked={active}
                         onClick={() => setDemoModel(m.id)}
                         className={cn(
-                          'flex min-h-9 items-center gap-2.5 rounded-md border px-3 py-2.5 text-left transition-colors',
+                          'flex min-h-11 items-center gap-2.5 rounded-md border px-3 py-2.5 text-left transition-colors',
                           active
                             ? 'border-line-em bg-nominal/5'
                             : 'border-line hover:border-line-em',
@@ -269,14 +288,23 @@ export function ConnectScreen({ signedIn = false }: { signedIn?: boolean }) {
               Fixed, validated judge; never user-swappable. The measured accuracy only holds for
               this exact config.
             </p>
-            <div className="mt-4 flex gap-3.5">
-              <div className="flex-1">
-                <Field label="RUNS / CATEGORY" value={runs} onChange={setRuns} />
+            {/* RUNS/SEED parameterise a LIVE run; a curated sample is a fixed playback,
+                so they only render in live mode (they would be inert in sample). */}
+            {live && (
+              <div className="mt-4 flex gap-3.5">
+                <div className="flex-1">
+                  <Field
+                    label="RUNS / CATEGORY"
+                    inputMode="numeric"
+                    value={runs}
+                    onChange={setRuns}
+                  />
+                </div>
+                <div className="flex-1">
+                  <Field label="SEED" inputMode="numeric" value={seed} onChange={setSeed} />
+                </div>
               </div>
-              <div className="flex-1">
-                <Field label="SEED" value={seed} onChange={setSeed} />
-              </div>
-            </div>
+            )}
           </div>
         </div>
       </Section>
@@ -294,7 +322,11 @@ export function ConnectScreen({ signedIn = false }: { signedIn?: boolean }) {
             {selectedCount} selected
           </span>
         </div>
-        <div className="grid gap-2.5 md:grid-cols-2">
+        <div
+          className="grid gap-2.5 md:grid-cols-2"
+          role="group"
+          aria-label="Attack categories (OWASP Agentic Top 10)"
+        >
           {CORE7.map((c) => {
             const checked = selected.has(c.id);
             return (
@@ -384,14 +416,31 @@ export function ConnectScreen({ signedIn = false }: { signedIn?: boolean }) {
           </div>
         )}
         <div className="flex flex-wrap items-center gap-4">
-          <Button disabled={showGate} aria-disabled={showGate}>
-            <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
-              <polygon points="2,1 11,6 2,11" fill="currentColor" />
-            </svg>
-            {live ? 'LAUNCH LIVE RUN' : 'PLAY SAMPLE RUN'}
-          </Button>
+          {live ? (
+            <Button disabled={showGate || !liveReady} aria-disabled={showGate || !liveReady}>
+              <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+                <polygon points="2,1 11,6 2,11" fill="currentColor" />
+              </svg>
+              LAUNCH LIVE RUN
+            </Button>
+          ) : (
+            <Link
+              href="/runs/sample"
+              className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-md border border-nominal bg-nominal/10 px-5 py-3 font-mono text-[13px] tracking-[0.08em] text-readout shadow-glow-nominal transition-colors hover:bg-nominal/20"
+            >
+              <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+                <polygon points="2,1 11,6 2,11" fill="currentColor" />
+              </svg>
+              PLAY SAMPLE RUN
+            </Link>
+          )}
           <span className="instrument">→ streams into Live Attack Replay</span>
         </div>
+        {live && !showGate && selectedCount === 0 && (
+          <p className="reading mt-2.5 text-ink-muted">
+            Select at least one attack category to launch.
+          </p>
+        )}
       </div>
     </div>
   );
