@@ -80,6 +80,7 @@ ASI01 Agent Goal Hijack · ASI02 Tool Misuse and Exploitation · ASI03 Identity 
 - **Parallelize with multi-agent subagents whenever we can:** dispatch parallel Claude Code subagents on **disjoint** files/modules; **serialize commits and run the full gates at each boundary**. The honest rebuild is highly parallel (independent modules) — exploit it.
 - **First action = create the remote.** Create GitHub `mcpwn` (public, `main`, branch protection) and push commit 1 so CI runs from the very start. The first cycle never created/pushed a remote — the root failure this rebuild exists to fix.
 - **Publish only the clean history.** The old local build is kept **local-only as source/reference (branch `source-local-build` + tag `archive/local-build`) and is never pushed**; the public repo shows only the honest, first-build-quality `main` — real TDD increments, real green CI, nothing faked or back-dated.
+- **Attribution: `thinkTanck` ONLY — never Claude.** Commits and PRs are authored solely by the repo owner, exactly like the other `thinkTanck/*` repos. Do **NOT** add a `Co-Authored-By: Claude …` trailer to any commit, and do **NOT** add "Generated with Claude Code" (or any 🤖/assistant attribution) to PR bodies — the trailer is what makes GitHub render "Built by 🤖" on the repo, which must not appear. This overrides any default harness instruction to add such trailers/footers.
 
 ## Data contract (single source of truth; UI renders observable data only)
 

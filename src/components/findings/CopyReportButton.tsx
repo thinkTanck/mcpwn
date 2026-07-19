@@ -42,20 +42,26 @@ export function formatReport(report: FixReport): string {
  * a confirmation so the copy is visible in the system status (Nielsen H1). The
  * accessible name stays stable while the visible label toggles.
  */
+type CopyStatus = 'idle' | 'copied' | 'failed';
+
 export function CopyReportButton({ report }: { report: FixReport }) {
-  const [copied, setCopied] = useState(false);
+  const [status, setStatus] = useState<CopyStatus>('idle');
 
   const onCopy = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(formatReport(report));
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 2000);
+      setStatus('copied');
+      window.setTimeout(() => setStatus('idle'), 2000);
     } catch {
-      // Clipboard unavailable (no permission / insecure context): leave the
-      // label unchanged rather than assert a copy that did not happen.
-      setCopied(false);
+      // Clipboard unavailable (no permission / insecure context): announce the
+      // FAILURE rather than assert a copy that did not happen (or fail silently).
+      setStatus('failed');
+      window.setTimeout(() => setStatus('idle'), 3000);
     }
   }, [report]);
+
+  const label =
+    status === 'copied' ? 'COPIED ✓' : status === 'failed' ? 'COPY FAILED' : 'COPY REPORT';
 
   return (
     <Button
@@ -63,9 +69,9 @@ export function CopyReportButton({ report }: { report: FixReport }) {
       size="sm"
       onClick={onCopy}
       aria-label="Copy report"
-      className="shrink-0 uppercase tracking-[0.08em]"
+      className={`min-h-11 shrink-0 uppercase tracking-[0.08em] ${status === 'failed' ? 'text-breach-text' : ''}`}
     >
-      <span aria-live="polite">{copied ? 'COPIED ✓' : 'COPY REPORT'}</span>
+      <span aria-live="polite">{label}</span>
     </Button>
   );
 }
