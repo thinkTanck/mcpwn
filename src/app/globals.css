@@ -287,14 +287,14 @@ body {
   font-size: var(--instrument-label);
   line-height: var(--instrument-line);
   letter-spacing: var(--instrument-tracking);
-  color: var(--instrument-color);
+  /* colour is set in @layer base so a text-* tint utility can override it */
 }
 .instrument-faint {
   font-family: var(--instrument-font);
   font-size: var(--instrument-label);
   line-height: var(--instrument-line);
   letter-spacing: var(--instrument-tracking);
-  color: var(--instrument-color-faint);
+  /* colour is set in @layer base so a text-* tint utility can override it */
 }
 .readout {
   font-family: var(--instrument-font);
@@ -343,6 +343,12 @@ body {
     color: var(--instrument-readout);
   }
   .micro-label {
+    color: var(--instrument-color-faint);
+  }
+  .instrument {
+    color: var(--instrument-color);
+  }
+  .instrument-faint {
     color: var(--instrument-color-faint);
   }
 }
