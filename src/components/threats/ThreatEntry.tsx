@@ -74,7 +74,7 @@ export function ThreatEntry({ threat }: { threat: Threat }) {
           {covered && (
             <Link
               href="/runs/sample"
-              className="inline-flex min-h-6 items-center gap-2 rounded-md border border-line-em bg-nominal/10 px-3 py-1.5 font-mono text-[12px] tracking-[0.06em] text-readout"
+              className="inline-flex min-h-11 items-center gap-2 rounded-md border border-line-em bg-nominal/10 px-3 py-1.5 font-mono text-[12px] tracking-[0.06em] text-readout"
             >
               <svg width="11" height="11" viewBox="0 0 12 12" aria-hidden="true">
                 <polygon points="2,1 11,6 2,11" fill="currentColor" />
@@ -82,12 +82,20 @@ export function ThreatEntry({ threat }: { threat: Threat }) {
               WATCH A REAL RUN
             </Link>
           )}
+          {!covered && (
+            <Link
+              href="#measurability"
+              className="inline-flex min-h-11 items-center font-mono text-[12px] tracking-[0.04em] text-nominal hover:underline"
+            >
+              Measurability bar →
+            </Link>
+          )}
           <a
             href={threat.link}
             target="_blank"
             rel="noopener noreferrer"
             aria-label={`OWASP reference for ${threat.code} on genai.owasp.org`}
-            className="inline-flex min-h-6 items-center font-mono text-[12px] tracking-[0.04em] text-nominal"
+            className="inline-flex min-h-11 items-center font-mono text-[12px] tracking-[0.04em] text-nominal"
           >
             OWASP reference →
           </a>
