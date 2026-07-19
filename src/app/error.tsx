@@ -1,12 +1,21 @@
 'use client';
 
+import Link from 'next/link';
+
 /**
- * Route-segment error boundary. Next.js renders this in place of the segment's
- * UI when a Client/Server Component in the tree throws. It stays mounted inside
- * the root layout, so the fallback uses an <h2> rather than a page <h1>.
+ * Route-segment error boundary. Next renders this in place of the segment's UI
+ * when a Client/Server Component in the tree throws. It bubbles above the HUD
+ * shell (there is no error.tsx inside the (hud) group), so it paints its own
+ * full-screen frame rather than sitting inside the command deck.
  *
- * Accessibility: the container is a live region (role="alert") so assistive
- * technology announces the failure, and recovery is a single labelled button.
+ * Colour: a fault is a SYSTEM state, not a red-team signal. The tri-state
+ * cyan/amber/red is reserved for attack outcomes (red = an actual breach), so an
+ * app crash wears the neutral `--status-inert` plane (ADR-0003) — never
+ * breach-red, which would read as a false alarm in the product's own language.
+ * The one cyan note is the recovery action, an affordance and not a status.
+ *
+ * Accessibility: the panel is a live region (role="alert") so assistive tech
+ * announces the fault, and recovery is a single labelled control.
  */
 export default function Error({
   error,
@@ -16,33 +25,60 @@ export default function Error({
   reset: () => void;
 }) {
   return (
-    <main className="mx-auto flex min-h-dvh max-w-2xl flex-col justify-center gap-4 px-6 py-16">
+    <main className="relative flex min-h-dvh flex-col items-center justify-center overflow-hidden bg-base px-6 py-16 text-ink">
+      {/* Ambient inert glow — calm, not the cyan/red signal plane. */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 -z-10"
+        style={{
+          background:
+            'radial-gradient(120% 80% at 50% -10%,color-mix(in srgb,var(--status-inert) 12%,transparent),transparent 55%)',
+        }}
+      />
       <div
         role="alert"
-        className="flex flex-col gap-4 rounded-lg border border-[var(--border)] bg-[var(--panel)] p-6"
+        className="flex w-full max-w-md flex-col items-start gap-5 rounded-lg border border-line bg-panel p-8"
       >
-        <p className="font-mono text-xs uppercase tracking-[0.3em] text-[var(--danger,#ef4444)]">
-          <span aria-hidden="true">▸ </span>
-          fault detected
+        <span aria-hidden="true" className="text-inert" style={{ color: 'var(--status-inert)' }}>
+          <svg width="34" height="34" viewBox="0 0 32 32" fill="none">
+            <circle cx="16" cy="16" r="13" stroke="currentColor" strokeWidth="1.3" opacity="0.5" />
+            <path d="M16 9v8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+            <circle cx="16" cy="22" r="1.1" fill="currentColor" />
+          </svg>
+        </span>
+
+        <div className="flex flex-col gap-2">
+          <p className="micro-label" style={{ color: 'var(--status-inert)' }}>
+            System · Fault
+          </p>
+          <h2 className="reading-h3 font-semibold text-ink-hi">This view hit a fault</h2>
+        </div>
+
+        <p className="reading text-ink-muted">
+          An unexpected error interrupted this screen. Your run data is untouched. Retry the view,
+          or return to home.
         </p>
-        <h2 className="text-2xl font-semibold tracking-tight">Something went wrong</h2>
-        <p className="text-[var(--muted)]">
-          An unexpected error interrupted this view. Your run data is safe — you can retry this
-          step.
-        </p>
+
         {error.digest ? (
-          <p className="font-mono text-xs text-[var(--muted)]">
-            Reference: <span className="text-[var(--accent)]">{error.digest}</span>
+          <p className="font-mono text-[12px] text-ink-faint">
+            Reference <span className="text-readout">{error.digest}</span>
           </p>
         ) : null}
-        <div>
+
+        <div className="mt-1 flex flex-wrap items-center gap-3">
           <button
             type="button"
             onClick={reset}
-            className="rounded-md border border-[var(--accent)] px-4 py-2 font-mono text-sm text-[var(--accent)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--bg)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
+            className="inline-flex min-h-11 items-center rounded-md border border-line-em bg-nominal/10 px-4 font-mono text-[12px] tracking-[0.06em] text-readout transition-colors hover:bg-nominal/20"
           >
             Try again
           </button>
+          <Link
+            href="/"
+            className="inline-flex min-h-11 items-center font-mono text-[12px] tracking-[0.04em] text-ink-muted transition-colors hover:text-ink-hi"
+          >
+            Return home →
+          </Link>
         </div>
       </div>
     </main>
