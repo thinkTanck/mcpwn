@@ -300,7 +300,7 @@ body {
   font-family: var(--instrument-font);
   font-size: var(--instrument-base);
   line-height: var(--instrument-line);
-  color: var(--instrument-readout);
+  /* colour is set in @layer base so a text-* band utility can override it */
 }
 .micro-label {
   font-family: var(--instrument-font);
@@ -308,7 +308,7 @@ body {
   line-height: 1.2;
   letter-spacing: var(--instrument-tracking-label);
   text-transform: uppercase;
-  color: var(--instrument-color-faint);
+  /* colour is set in @layer base so a text-* tint utility can override it */
 }
 
 /* DISPLAY role — data values that are the visual focus (mono display scale). */
@@ -335,6 +335,15 @@ body {
   .display-lg,
   .display-xl {
     color: var(--display-color);
+  }
+  /* INSTRUMENT default colours, same reason: base layer so a `text-*` tint
+     utility (e.g. text-breach-text on a breach anchor, text-nominal on a cyan
+     section heading) out-ranks the role default instead of losing to it. */
+  .readout {
+    color: var(--instrument-readout);
+  }
+  .micro-label {
+    color: var(--instrument-color-faint);
   }
 }
 .display {

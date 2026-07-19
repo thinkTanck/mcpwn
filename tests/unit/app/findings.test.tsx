@@ -117,4 +117,17 @@ describe('Findings / fix report screen', () => {
     expect(screen.getByText('no-such-run')).toBeInTheDocument();
     expect(screen.getByRole('link')).toBeInTheDocument();
   });
+
+  it('keeps the report copy em-dash free (locked UI copy rule; also carried into the export)', async () => {
+    const { findingsFixture } = await import('@/data/fixtures/findings');
+    const strings = [
+      findingsFixture.title,
+      findingsFixture.impact,
+      findingsFixture.rootCause,
+      findingsFixture.rationale,
+      findingsFixture.offendingStep.label,
+      ...findingsFixture.remediation,
+    ];
+    for (const s of strings) expect(s).not.toMatch(/—/);
+  });
 });
