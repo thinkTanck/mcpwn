@@ -95,7 +95,7 @@ export default async function Home() {
                 (they may animate as magnitudes) framed as data, not a marketing headline. */}
             <div className="border-t border-line pt-3">
               <div className="mb-2 flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                <span className="micro-label text-nominal">Detector accuracy</span>
+                <span className="micro-label !text-nominal">Detector accuracy</span>
                 <span className="instrument-faint">
                   measured · leakage-separated fixture, not a benchmark
                 </span>
@@ -204,11 +204,11 @@ export default async function Home() {
                   />
                   <circle cx="8" cy="8" r="2" fill="currentColor" className="text-nominal" />
                 </svg>
-                <span className="micro-label !tracking-[0.1em] text-nominal">Leakage barrier</span>
+                <span className="micro-label !tracking-[0.1em] !text-nominal">Leakage barrier</span>
               </div>
             </div>
 
-            <Core7List runHref={runHref} />
+            <Core7List runHref={runHref} featuredId={sample.category} />
           </div>
         </div>
       </div>

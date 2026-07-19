@@ -244,6 +244,14 @@ Flat by default. Depth on the navy field is conveyed by tonal layering (base to 
 
 The recurring atom of the whole system: a small unit of `glow + colored dot/icon + mono label` that encodes nominal, caution, breach, or inert. It appears as timeline nodes, leaderboard cells, coverage-board rows, and fleet-status lines. It is the reason the HUD reads as one system.
 
+### Signature Component: the Live Attack Replay orbital timeline
+
+The hero. Typed step nodes ride a ring around a wireframe sentinel core (react-three-fiber + GSAP), the active node rotating to front as the playhead advances. The 3D core is a desktop / motion-on / WebGL enhancement layered over an always-present, operable step timeline (the reliable base for SSR, reduced-motion, no-WebGL, and mobile, where it is a vertical rail). One transport (play / pause / step / scrub / speed) drives one playhead; the step-detail panel has a fixed height so advancing never reflows the page; node tooltips render through a body portal so they escape the shell's clip; the detector verdict stays sealed until the playhead reaches the compromise step. Every node is a tri-state readout (glyph + tag + colour), never colour alone.
+
+### Signature Component: the first-visit boot splash
+
+A fade-over reveal, not a gate: absent from SSR, kicked on idle, so Home paints underneath and LCP is never blocked. Cold field → the r3f core assembles and settles → a reticle draws closed → a five-line readout resolves → SYSTEM ONLINE → the overlay eases away. CYAN ONLY (a boot screen is nominal). First-visit only (persisted), skippable, with a static resolved end frame for reduced-motion / no-WebGL / mobile.
+
 ## 6. Do's and Don'ts
 
 ### Do:
