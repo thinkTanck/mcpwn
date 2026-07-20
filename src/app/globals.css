@@ -429,6 +429,25 @@ body {
     transform: none;
   }
 }
+/* Boot splash — the overlay fades in, and its wireframe core assembles up. */
+@keyframes splash-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes boot-assemble {
+  from {
+    opacity: 0;
+    transform: scale(0.55);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
 @keyframes breach-pulse {
   0%,
   100% {
