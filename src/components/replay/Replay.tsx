@@ -2,37 +2,30 @@
 
 import { useEffect, useState } from 'react';
 import type { RunResult } from '@/contract';
-import { StepFocus } from './StepFocus';
-import { StepTimeline } from './StepTimeline';
+import { OrbitalStage } from './OrbitalStage';
 import { Transport } from './Transport';
 import { StepDetail } from './StepDetail';
 import { VerdictRail } from './VerdictRail';
 
 /**
- * Live Attack Replay (the hero). One playhead drives a single legible timeline:
- * a horizontal rail whose fill sweeps to the active step, a "now playing" focal
- * card that carries the current step's identity, and the detector verdict that
- * stays SEALED until the playhead reaches the compromise step. The rail shows
- * glyphs + numbers only (never 13 stacked captions), so playback reads clearly.
- * The step-detail panel has a fixed height, so advancing the playhead never
- * reflows the page (no CLS during playback). No WebGL, no 3D core.
+ * Live Attack Replay (the hero) — Sentinel v2 orbital. One playhead drives a
+ * clock-face of typed nodes: the sweep rotates to the active step, the centre
+ * carries the STEP numeral, and the detector verdict rail sits alongside with its
+ * rationale sealed until the playhead reaches the compromise step. The step-detail
+ * panel is fixed-height, so advancing never reflows the page (no CLS). SVG + CSS
+ * only — no WebGL.
  */
 const SPEEDS = [0.5, 1, 2];
 
-/**
- * The attack narrative per Core-7 category. The h1 must describe the run it is
- * showing, never a single hardcoded storyline — a non-ASI06 run titled "memory
- * poisoning to exfiltration" would misdescribe its own trace. Falls back to a
- * neutral phrase if a future category arrives before its headline is written.
- */
-const CATEGORY_HEADLINE: Record<string, string> = {
-  ASI01: 'agent goal hijack via indirect injection',
-  ASI02: 'tool misuse and path traversal',
-  ASI03: 'identity and privilege abuse',
-  ASI04: 'agentic supply-chain compromise',
-  ASI05: 'unexpected code execution',
-  ASI06: 'memory poisoning to exfiltration',
-  ASI10: 'rogue agent drift',
+/** The attack narrative per Core-7 category (titles match the design reference). */
+const CATEGORY_TITLE: Record<string, string> = {
+  ASI01: 'Agent Goal Hijack',
+  ASI02: 'Tool Misuse & Exploitation',
+  ASI03: 'Identity & Privilege Abuse',
+  ASI04: 'Agentic Supply Chain',
+  ASI05: 'Unexpected Code Execution',
+  ASI06: 'Memory & Context Poisoning',
+  ASI10: 'Rogue Agents',
 };
 
 export function Replay({ run }: { run: RunResult }) {
@@ -40,6 +33,8 @@ export function Replay({ run }: { run: RunResult }) {
   const total = steps.length;
   const compromiseIndex = steps.findIndex((s) => s.id === run.verdict.stepId);
   const compromiseStepNumber = compromiseIndex >= 0 ? compromiseIndex + 1 : null;
+  const offStep = compromiseIndex >= 0 ? steps[compromiseIndex] : null;
+  const offendingLabel = offStep && 'tool' in offStep ? offStep.tool : undefined;
 
   const [current, setCurrent] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -48,7 +43,6 @@ export function Replay({ run }: { run: RunResult }) {
 
   const atEnd = current >= total - 1;
 
-  // Autoplay: schedule the next step while playing; stop scheduling at the end.
   useEffect(() => {
     if (!playing || atEnd) return;
     const t = setTimeout(() => setCurrent((c) => Math.min(c + 1, total - 1)), 1100 / speed);
@@ -76,55 +70,64 @@ export function Replay({ run }: { run: RunResult }) {
     setCurrent(Math.max(0, Math.min(total - 1, i)));
   };
 
+  const title = CATEGORY_TITLE[run.category] ?? 'Attack replay';
+
   return (
-    <div className="flex min-h-[calc(100dvh-62px)] flex-col gap-4 px-6 py-6">
-      {/* Header — static identifiers, bound to the real run (never literals) */}
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <span className="micro-label text-nominal">Live Attack Replay</span>
-          <h1 className="reading-h3 font-semibold text-ink-hi">
-            {run.category} {CATEGORY_HEADLINE[run.category] ?? 'attack replay'}
-          </h1>
-        </div>
-        <p className="instrument">
+    <div className="flex min-h-[calc(100dvh-62px)] flex-col">
+      {/* Header — kicker, title, and the run subline (enlarged). */}
+      <header className="border-b border-line px-6 py-5 lg:px-8">
+        <p className="micro-label text-nominal">Live Attack Replay</p>
+        <h1 className="reading-h2 mt-2 font-semibold text-ink-hi">
+          {run.category} · {title}
+        </h1>
+        <p className="mt-2 font-mono text-[14px] text-ink-muted">
           run <span className="text-readout">{run.runId}</span>
           <span aria-hidden="true"> · </span>
-          <span className="text-readout">{total}</span> steps
+          <span className="text-readout">{total}</span> observable steps
           <span aria-hidden="true"> · </span>
-          {run.model}
+          offending step <span className="text-breach-text">#{compromiseStepNumber ?? '—'}</span>
+          <span aria-hidden="true"> · </span>
+          leakage barrier <span className="text-nominal">on</span>
         </p>
       </header>
 
-      {/* Stage (focal card + timeline rail) + verdict — co-visible */}
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[1.6fr_1fr] lg:items-stretch">
-        <div className="relative flex min-w-0 flex-col justify-between gap-6 rounded-lg border border-line bg-[radial-gradient(120%_120%_at_50%_20%,color-mix(in_srgb,var(--cyan-700)_10%,transparent),var(--surface-base)_72%)] p-5 lg:h-[336px]">
-          <StepFocus step={step} index={current} total={total} compromised={compromised} />
-          <StepTimeline
+      {/* Stage grid — orbital + transport + detail (left column) · verdict (right). */}
+      <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] lg:grid-rows-[auto_auto_minmax(0,1fr)]">
+        <div className="flex items-center justify-center px-6 py-6 lg:col-start-1 lg:row-start-1 lg:px-8">
+          <OrbitalStage
             steps={steps}
             current={current}
             compromiseIndex={compromiseIndex}
             onSelect={scrubTo}
           />
         </div>
-        <VerdictRail
-          verdict={run.verdict}
-          compromiseStepNumber={compromiseStepNumber}
-          revealed={revealed}
-        />
+
+        <div className="border-y border-line px-6 py-4 lg:col-start-1 lg:row-start-2 lg:px-8">
+          <Transport
+            current={current}
+            total={total}
+            playing={playing && !atEnd}
+            speed={speed}
+            onPlayToggle={playToggle}
+            onStep={stepBy}
+            onScrub={scrubTo}
+            onSpeed={() => setSpeedIdx((i) => (i + 1) % SPEEDS.length)}
+          />
+        </div>
+
+        <div className="min-h-0 px-6 py-5 lg:col-start-1 lg:row-start-3 lg:overflow-y-auto lg:px-8">
+          <StepDetail step={step} index={current} compromised={compromised} />
+        </div>
+
+        <div className="border-t border-line px-6 py-5 lg:col-start-2 lg:row-start-1 lg:row-span-3 lg:overflow-y-auto lg:border-l lg:border-t-0">
+          <VerdictRail
+            verdict={run.verdict}
+            compromiseStepNumber={compromiseStepNumber}
+            offendingLabel={offendingLabel}
+            revealed={revealed}
+          />
+        </div>
       </div>
-
-      <Transport
-        current={current}
-        total={total}
-        playing={playing && !atEnd}
-        speed={speed}
-        onPlayToggle={playToggle}
-        onStep={stepBy}
-        onScrub={scrubTo}
-        onSpeed={() => setSpeedIdx((i) => (i + 1) % SPEEDS.length)}
-      />
-
-      <StepDetail step={step} index={current} compromised={compromised} />
     </div>
   );
 }
