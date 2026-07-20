@@ -94,12 +94,27 @@ describe('ConnectScreen · Core-7 category checklist', () => {
 });
 
 describe('ConnectScreen · launch + sign-in gate', () => {
-  it('labels the launch button by mode', async () => {
+  it('links the sample launch to the replay and labels the live launch by mode', async () => {
     const user = userEvent.setup();
     render(<ConnectScreen />);
-    expect(screen.getByRole('button', { name: /PLAY SAMPLE RUN/i })).toBeInTheDocument();
+    // Sample is a fixed playback: the launch is a link straight to the replay.
+    expect(screen.getByRole('link', { name: /PLAY SAMPLE RUN/i })).toHaveAttribute(
+      'href',
+      '/runs/sample',
+    );
     await user.click(screen.getByRole('button', { name: /LIVE · bring your agent/i }));
     expect(screen.getByRole('button', { name: /LAUNCH LIVE RUN/i })).toBeInTheDocument();
+  });
+
+  it('disables the live launch until endpoint, key, and a category are provided', async () => {
+    const user = userEvent.setup();
+    render(<ConnectScreen signedIn />);
+    await user.click(screen.getByRole('button', { name: /LIVE · bring your agent/i }));
+    const launch = screen.getByRole('button', { name: /LAUNCH LIVE RUN/i });
+    expect(launch).toBeDisabled();
+    await user.type(screen.getByLabelText(/MCP ENDPOINT/i), 'https://a.example/mcp');
+    await user.type(screen.getByLabelText(/API KEY \/ TOKEN/i), 'sk-test');
+    expect(launch).toBeEnabled();
   });
 
   it('shows the amber sign-in gate only when live and signed-out', async () => {
