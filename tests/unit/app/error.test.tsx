@@ -26,4 +26,10 @@ describe('Error (route-segment error boundary)', () => {
 
     expect(screen.getByText(/abc123/)).toBeInTheDocument();
   });
+
+  it('offers a return-home off-ramp (the boundary bubbles above the command deck)', () => {
+    render(<ErrorBoundary error={new Error('boom')} reset={vi.fn()} />);
+    const home = screen.getByRole('link', { name: /return home/i });
+    expect(home).toHaveAttribute('href', '/');
+  });
 });
