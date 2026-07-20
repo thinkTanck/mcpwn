@@ -24,9 +24,11 @@ function bandColor(band: NodeBand, breach: boolean): string {
   return 'var(--ink-muted)';
 }
 function bandGlow(band: NodeBand, breach: boolean): string {
-  if (breach) return '0 0 16px rgba(237,87,110,.85)';
-  if (band === 'nominal') return '0 0 11px rgba(84,212,230,.55)';
-  if (band === 'caution') return '0 0 12px rgba(235,181,97,.5)';
+  // Route through the DTCG glow tokens (same pipeline as every other surface),
+  // not raw rgba — so a theme swap reaches the orbital too.
+  if (breach) return 'var(--glow-breach)';
+  if (band === 'nominal') return 'var(--glow-nominal)';
+  if (band === 'caution') return 'var(--glow-caution)';
   return 'none';
 }
 
@@ -51,10 +53,10 @@ export function OrbitalStage({
       ? 'var(--status-caution)'
       : 'var(--text-readout)';
   const numGlow = activeBreach
-    ? 'rgba(237,87,110,.5)'
+    ? 'color-mix(in srgb, var(--status-breach) 50%, transparent)'
     : active.type === 'task_complete'
-      ? 'rgba(235,181,97,.4)'
-      : 'rgba(84,212,230,.4)';
+      ? 'color-mix(in srgb, var(--status-caution) 42%, transparent)'
+      : 'color-mix(in srgb, var(--status-nominal) 42%, transparent)';
   const sweepDeg = (current / total) * 360 - 180;
 
   return (
@@ -126,7 +128,8 @@ export function OrbitalStage({
           width: '2px',
           height: `${R}%`,
           transform: `rotate(${sweepDeg}deg)`,
-          background: 'linear-gradient(180deg, rgba(84,212,230,0) 30%, rgba(84,212,230,.7))',
+          background:
+            'linear-gradient(180deg, transparent 30%, color-mix(in srgb, var(--status-nominal) 70%, transparent))',
         }}
       />
 
@@ -141,7 +144,9 @@ export function OrbitalStage({
           const left = 50 + R * Math.cos(a);
           const top = 50 + R * Math.sin(a);
           const size = breach ? 16 : 11;
-          const dotBg = reached ? bandColor(meta.band, breach) : 'rgba(71,96,108,.3)';
+          const dotBg = reached
+            ? bandColor(meta.band, breach)
+            : 'color-mix(in srgb, var(--ink-muted) 32%, transparent)';
           return (
             <li key={step.id}>
               <button
@@ -187,7 +192,8 @@ export function OrbitalStage({
       <div
         className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full px-9 py-6 text-center"
         style={{
-          background: 'radial-gradient(closest-side, rgba(5,8,11,.85) 40%, rgba(5,8,11,0))',
+          background:
+            'radial-gradient(closest-side, color-mix(in srgb, var(--surface-base) 88%, transparent) 40%, transparent)',
         }}
       >
         <div className="font-mono text-[12px] tracking-[0.18em] text-ink-muted">STEP</div>
