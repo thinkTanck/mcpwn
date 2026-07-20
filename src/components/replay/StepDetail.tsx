@@ -47,7 +47,13 @@ export function StepDetail({
         </span>
         <span className="reading text-ink">{meta.label}</span>
       </header>
-      <dl className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
+      {/* Focusable + labelled so a keyboard user can scroll a long payload
+          (several steps overflow the fixed 188px height): scrollable-region-focusable. */}
+      <dl
+        aria-label="Step payload"
+        tabIndex={0}
+        className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3"
+      >
         {rows.map((row) => (
           <div key={row.k} className="grid grid-cols-[5.5rem_minmax(0,1fr)] gap-3">
             <dt className="font-mono text-[12px] uppercase tracking-[0.08em] text-ink-faint">
