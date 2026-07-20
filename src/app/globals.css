@@ -86,6 +86,18 @@
    * base AND panel (asserted in tokens.test), carries an icon + label, no glow. */
   --status-inert: var(--ink-500); /* #708c9e · 5.7:1 base / 5.1:1 panel */
 
+  /* Chrome — ambient backdrop + translucent scrims. Every persistent shell
+   * surface (graticule, header, rail, drawer) reads through these so a primitive
+   * theme swap reaches the chrome too, instead of stopping at hardcoded rgba().
+   * Each value is a primitive at an alpha, never a fresh colour. */
+  --graticule-line: color-mix(in srgb, var(--cyan-300) 3%, transparent);
+  --graticule-glow: color-mix(in srgb, var(--cyan-700) 14%, transparent);
+  --scrim-header-top: color-mix(in srgb, var(--navy-850) 75%, transparent);
+  --scrim-header-bottom: color-mix(in srgb, var(--navy-950) 40%, transparent);
+  --scrim-deck-top: color-mix(in srgb, var(--navy-900) 60%, transparent);
+  --scrim-deck-bottom: color-mix(in srgb, var(--navy-950) 20%, transparent);
+  --shadow-drawer: 0 0 40px color-mix(in srgb, var(--navy-950) 60%, transparent);
+
   /* Focus — one ring, used everywhere */
   --focus-ring: var(--cyan-300);
   --focus-ring-width: 2px;

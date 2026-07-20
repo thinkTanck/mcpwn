@@ -17,11 +17,25 @@ export async function AppShell({ children }: { children: ReactNode }) {
   const pathname = headerList.get('x-pathname') ?? '/';
   return (
     <div className="relative min-h-dvh bg-base font-sans text-ink">
+      {/* Skip link (WCAG 2.4.1) — first focusable element, so a keyboard user can
+          bypass the six-item deck straight to content. Off-screen until focused. */}
+      <a
+        href="#main"
+        className="sr-only rounded-md border border-line-em bg-solid px-4 py-2 font-mono text-xs tracking-[0.06em] text-nominal focus:not-sr-only focus:absolute focus:left-4 focus:top-3 focus:z-[60]"
+      >
+        Skip to content
+      </a>
       <Graticule />
       <StatusBar pathname={pathname} fleet={fleet} />
       <div className="flex min-h-[calc(100dvh-62px)]">
         <CommandDeck pathname={pathname} fleet={fleet} />
-        <main className="type-flow relative min-w-0 flex-1 overflow-x-clip">{children}</main>
+        <main
+          id="main"
+          tabIndex={-1}
+          className="type-flow relative min-w-0 flex-1 overflow-x-clip focus:outline-none"
+        >
+          {children}
+        </main>
       </div>
     </div>
   );

@@ -24,8 +24,14 @@ export function NavLink({
       // Next would RSC-404 them on load. Fan-out PRs flip `available` per route.
       prefetch={item.available ? undefined : false}
       aria-current={active ? 'page' : undefined}
+      // The 72px icon-rail (760-1100px) hides the label and the icon is
+      // aria-hidden, so without this the link has no accessible name and a mouse
+      // user sees an unlabelled glyph. aria-label keeps the name at every width;
+      // title gives the icon-rail a hover tooltip.
+      aria-label={item.label}
+      title={item.label}
       className={cn(
-        'relative flex items-center gap-3 rounded-md px-3.5 py-3 font-mono text-xs tracking-[0.06em] transition-colors',
+        'relative flex items-center gap-3 rounded-md px-3.5 py-3.5 font-mono text-xs tracking-[0.06em] transition-colors',
         active ? 'bg-nominal/8 text-ink-hi' : 'text-ink-muted hover:bg-raised/70 hover:text-ink-hi',
       )}
     >
