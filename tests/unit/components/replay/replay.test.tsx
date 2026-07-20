@@ -63,21 +63,12 @@ describe('Replay — header describes the run it shows', () => {
   });
 });
 
-describe('Replay — fix-report off-ramp on the revealed verdict', () => {
-  it('links to the fix report for this run once the verdict unseals', async () => {
+describe('Replay — fix-report off-ramp', () => {
+  it('links to the fix report for this run', async () => {
     const run = await sampleRun();
-    if (!run.verdict.compromised || !run.verdict.stepId)
-      throw new Error('sample must be compromised');
-    const user = userEvent.setup();
     render(<Replay run={run} />);
-
-    // Sealed: no off-ramp yet (it lives on the peak, not before it).
-    expect(screen.queryByRole('link', { name: /fix report/i })).not.toBeInTheDocument();
-
-    const idx = run.trace.steps.findIndex((s) => s.id === run.verdict.stepId);
-    const node = screen.getByRole('button', { name: new RegExp(`step ${idx + 1}:`, 'i') });
-    await user.click(node);
-
+    // The verdict summary and the export are shown throughout (only the rationale
+    // prose is sealed), so the off-ramp is available from the start.
     const link = screen.getByRole('link', { name: /fix report/i });
     expect(link).toHaveAttribute('href', `/findings/${run.verdict.runId}`);
   });
@@ -91,7 +82,7 @@ describe('sample verdicts — copy hygiene', () => {
   });
 });
 
-describe('Replay — verdict sealed until the compromise step', () => {
+describe('Replay — rationale sealed until the compromise step', () => {
   it('seals the rationale at the start and reveals it once the compromise step is reached', async () => {
     const run = await sampleRun();
     if (!run.verdict.compromised || !run.verdict.stepId)
@@ -100,7 +91,7 @@ describe('Replay — verdict sealed until the compromise step', () => {
     render(<Replay run={run} />);
 
     // Sealed at step 0.
-    expect(screen.getByText(/verdict sealed/i)).toBeInTheDocument();
+    expect(screen.getByText(/rationale sealed/i)).toBeInTheDocument();
     expect(screen.queryByText(run.verdict.rationale)).not.toBeInTheDocument();
 
     // Scrub to the compromise step by selecting its timeline node.
@@ -109,7 +100,7 @@ describe('Replay — verdict sealed until the compromise step', () => {
     await user.click(node);
 
     // Rationale unsealed; the offending-step number is shown (static identifier).
-    expect(screen.queryByText(/verdict sealed/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/rationale sealed/i)).not.toBeInTheDocument();
     expect(screen.getByText(run.verdict.rationale)).toBeInTheDocument();
   });
 });

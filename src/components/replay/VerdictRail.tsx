@@ -5,119 +5,96 @@ import { cn } from '@/lib/utils';
 import type { Verdict } from '@/contract';
 
 /**
- * The detector verdict, PINNED to the compromise step. It stays SEALED until the
- * playhead reaches that step (verdict.stepId); revealing it before the run gets
- * there would spoil the anchor the replay exists to show. Once revealed, every
- * identifier is static: severity, score, and the offending-step number are facts,
- * not magnitudes, and never animate. The rationale is READING prose.
+ * The detector verdict rail (Sentinel v2). The verdict SUMMARY — outcome,
+ * category, severity, offending step — is shown throughout: this is a replay of a
+ * known run, and the point is to watch HOW it happened. Only the detailed
+ * RATIONALE prose is SEALED until the playhead reaches the compromise step
+ * (verdict.stepId), so the reveal still lands at the anchor. Every identifier is
+ * static — severity and the offending-step number are facts, never animated.
  */
 export function VerdictRail({
   verdict,
   compromiseStepNumber,
+  offendingLabel,
   revealed,
 }: {
   verdict: Verdict;
   /** 1-based step number of verdict.stepId, or null if the run is clean. */
   compromiseStepNumber: number | null;
+  /** Tool/label of the offending step, e.g. "send_email". */
+  offendingLabel?: string;
   revealed: boolean;
 }) {
   const compromised = verdict.compromised;
 
-  if (!revealed) {
-    return (
-      <aside
-        aria-label="Detector verdict"
-        className="flex h-full flex-col justify-center gap-3 rounded-lg border border-line bg-panel px-5 py-6 text-center"
-      >
-        <span aria-hidden="true" className="mx-auto text-ink-faint">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-            <rect
-              x="5"
-              y="10"
-              width="14"
-              height="10"
-              rx="2"
-              stroke="currentColor"
-              strokeWidth="1.4"
-            />
-            <path d="M8 10V7a4 4 0 0 1 8 0v3" stroke="currentColor" strokeWidth="1.4" />
-          </svg>
-        </span>
-        <p className="micro-label text-ink-faint">Verdict sealed</p>
-        <p className="reading text-ink-muted">
-          The detector&rsquo;s verdict unseals when the replay reaches the compromise step. Play on,
-          or scrub ahead.
-        </p>
-      </aside>
-    );
-  }
-
   return (
     <aside
       aria-label="Detector verdict"
-      className={cn(
-        'verdict-in flex h-full flex-col gap-3 rounded-lg border bg-panel px-5 py-5',
-        compromised ? 'border-breach/40' : 'border-nominal/40',
-      )}
+      className="flex h-full flex-col gap-0 overflow-y-auto rounded-lg border border-line bg-panel p-5"
     >
-      <div className="flex items-center gap-2.5">
-        <span
-          aria-hidden="true"
-          className={cn(
-            'inline-flex h-6 items-center gap-2 rounded-full border px-2.5 font-mono text-[12px] uppercase tracking-[0.1em]',
-            compromised
-              ? 'border-breach/50 text-breach-text shadow-glow-breach'
-              : 'border-nominal/50 text-nominal shadow-glow-nominal',
-          )}
-        >
-          <span
-            className={cn('h-1.5 w-1.5 rounded-full', compromised ? 'bg-breach' : 'bg-nominal')}
-          />
-          {compromised ? 'COMPROMISED' : 'NOT COMPROMISED'}
-        </span>
-      </div>
+      {/* Outcome pill */}
+      <span
+        className={cn(
+          'inline-flex w-fit items-center gap-2.5 rounded-full border px-3 py-1.5 font-mono text-[13px] tracking-[0.14em]',
+          compromised
+            ? 'border-breach/40 text-breach-text shadow-glow-breach'
+            : 'border-nominal/40 text-nominal shadow-glow-nominal',
+        )}
+      >
+        <span className={cn('h-2 w-2 rounded-full', compromised ? 'bg-breach' : 'bg-nominal')} />
+        {compromised ? 'COMPROMISED' : 'NOT COMPROMISED'}
+      </span>
 
-      <dl className="flex flex-wrap gap-x-6 gap-y-1 font-mono text-[13px]">
-        <div className="flex items-baseline gap-2">
-          <dt className="text-ink-faint">SEV</dt>
+      {/* Verdict summary — always visible */}
+      <p className="micro-label mt-5 border-t border-line pt-4 text-ink-faint">Detector verdict</p>
+      <dl className="mt-2 flex flex-col gap-2.5 font-mono text-[14px]">
+        <div className="flex items-baseline justify-between">
+          <dt className="text-ink-muted">category</dt>
+          <dd className="text-readout">{verdict.category}</dd>
+        </div>
+        <div className="flex items-baseline justify-between">
+          <dt className="text-ink-muted">severity</dt>
           <dd className="text-breach-text">{verdict.severity}</dd>
         </div>
         {compromised && compromiseStepNumber !== null && (
-          <div className="flex items-baseline gap-2">
-            <dt className="text-ink-faint">STEP</dt>
-            <dd className="text-readout">{String(compromiseStepNumber).padStart(2, '0')}</dd>
+          <div className="flex items-baseline justify-between gap-4">
+            <dt className="text-ink-muted">offending step</dt>
+            <dd className="text-right text-breach-text">
+              #{compromiseStepNumber}
+              {offendingLabel ? <span className="text-ink-muted"> {offendingLabel}</span> : null}
+            </dd>
           </div>
         )}
-        <div className="flex items-baseline gap-2">
-          <dt className="text-ink-faint">CATEGORY</dt>
-          <dd className="text-readout">{verdict.category}</dd>
-        </div>
       </dl>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <p className="micro-label mb-1.5 text-nominal">Detector rationale</p>
-        <p className="reading">{verdict.rationale}</p>
-      </div>
-
-      {compromised && (
-        // The off-ramp at the emotional peak: the fix report carries the copy/export.
-        <Link
-          href={`/findings/${verdict.runId}`}
-          className="inline-flex min-h-11 w-fit items-center gap-2 rounded-md border border-line-em bg-nominal/10 px-4 font-mono text-[12px] tracking-[0.06em] text-readout transition-colors hover:bg-nominal/20"
-        >
-          <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true">
-            <path
-              d="M4 2h6l3 3v9H4z"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.3"
-              strokeLinejoin="round"
-            />
-            <path d="M10 2v3h3" fill="none" stroke="currentColor" strokeWidth="1.3" />
-          </svg>
-          Open fix report →
-        </Link>
+      {/* Rationale — sealed until the compromise step is reached */}
+      {revealed ? (
+        <div className="verdict-in mt-4 rounded-md border border-breach/30 bg-breach/5 px-4 py-3.5">
+          <p className="micro-label mb-2 text-breach-text">Rationale</p>
+          <p className="reading text-ink">{verdict.rationale}</p>
+        </div>
+      ) : (
+        <div className="mt-4 rounded-md border border-dashed border-line-em px-4 py-3.5">
+          <p className="font-mono text-[13px] leading-relaxed text-ink-faint">
+            Rationale sealed · reach the compromise step to unseal.
+          </p>
+        </div>
       )}
+
+      {/* Off-ramp — the fix report carries the copy/export */}
+      <Link
+        href={`/findings/${verdict.runId}`}
+        className="mt-4 inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-line-em bg-nominal/10 px-4 font-mono text-[13px] tracking-[0.1em] text-nominal transition-colors hover:bg-nominal/20 hover:shadow-glow-nominal"
+      >
+        Export fix report →
+      </Link>
+
+      {/* Provenance — the honesty note */}
+      <p className="mt-5 border-t border-line pt-4 font-mono text-[13px] leading-relaxed text-ink-faint">
+        Detector is BLIND. It never sees the answer.
+        <br />
+        <span className="text-ink-muted">fixture, not a benchmark</span>
+      </p>
     </aside>
   );
 }

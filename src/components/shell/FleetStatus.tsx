@@ -72,11 +72,8 @@ export function FleetStatus({
         <ul className="flex flex-col gap-2">
           {TIERS.map((t) => (
             <li key={t.key} className="flex items-center gap-2">
-              <span
-                aria-hidden="true"
-                className={cn('h-[7px] w-[7px] rounded-full', t.dot, t.glow)}
-              />
-              <span className="font-mono text-[12px] text-ink-muted">
+              <span aria-hidden="true" className={cn('h-2 w-2 rounded-full', t.dot, t.glow)} />
+              <span className="font-mono text-[13px] text-ink-muted">
                 {fleet[t.key]} {t.key}
               </span>
             </li>
