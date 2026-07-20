@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
+import { BootSplash } from '@/components/splash/BootSplash';
 
 /**
  * `display: 'optional'` with next/font's metric-matched fallback: text paints
@@ -28,7 +29,12 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
-      <body className="min-h-dvh antialiased">{children}</body>
+      <body className="min-h-dvh antialiased">
+        {children}
+        {/* First-visit boot splash — a client fade-over that mounts after
+            hydration, so it never blocks Home's SSR paint or LCP. */}
+        <BootSplash />
+      </body>
     </html>
   );
 }
