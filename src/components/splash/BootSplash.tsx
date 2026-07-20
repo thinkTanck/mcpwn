@@ -93,13 +93,18 @@ export function BootSplash() {
     };
   }, [reduced]);
 
-  // Skip on any key or click while the splash is up.
+  // Skip on any key or click while the splash is up. Keydown is immediate; the
+  // click-anywhere skip is armed ~600ms later so an accidental early tap does not
+  // cut the intro before the trust lines land (the SKIP button is always live).
+  // A Tab press also dismisses, so focus can never wander to Home behind the
+  // overlay — no separate focus trap is needed for this transient screen.
   useEffect(() => {
     if (!active || stage === 'gone') return;
     const skip = () => finish();
     window.addEventListener('keydown', skip);
-    window.addEventListener('pointerdown', skip);
+    const arm = setTimeout(() => window.addEventListener('pointerdown', skip), 600);
     return () => {
+      clearTimeout(arm);
       window.removeEventListener('keydown', skip);
       window.removeEventListener('pointerdown', skip);
     };
@@ -196,7 +201,7 @@ export function BootSplash() {
             <div
               key={ln.label}
               className={cn(
-                'flex items-baseline gap-2 transition-opacity duration-300',
+                'flex flex-col gap-0.5 transition-opacity duration-300 sm:flex-row sm:items-baseline sm:gap-2',
                 shown ? 'opacity-100' : 'opacity-0',
               )}
             >
@@ -211,14 +216,15 @@ export function BootSplash() {
               </dt>
               {ln.value && (
                 <>
+                  {/* Dot leader: desktop only (stacks on mobile so the value never
+                      clips), and ink-faint so it clears AA even as pure decoration. */}
                   <span
                     aria-hidden="true"
-                    className="min-w-0 flex-1 truncate text-line-em"
-                    style={{ color: 'var(--line-emphasis)' }}
+                    className="hidden min-w-0 flex-1 truncate text-ink-faint sm:block"
                   >
                     ································································
                   </span>
-                  <dd className="shrink-0 text-readout">{ln.value}</dd>
+                  <dd className="text-readout sm:shrink-0">{ln.value}</dd>
                 </>
               )}
             </div>
