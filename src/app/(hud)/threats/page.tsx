@@ -30,8 +30,12 @@ export default function ThreatsPage() {
         fake a verdict.
       </p>
 
-      {/* The measurability bar — the rule the whole board is judged against. */}
-      <div className="mt-8 flex items-start gap-3 rounded-lg border border-line-em bg-nominal/5 px-5 py-4">
+      {/* The measurability bar — the rule the whole board is judged against.
+          Anchored so the not-measurable rows can link back to the definition (ADR-0003). */}
+      <div
+        id="measurability"
+        className="mt-8 flex scroll-mt-24 items-start gap-3 rounded-lg border border-line-em bg-nominal/5 px-5 py-4"
+      >
         <span className="mt-0.5 text-nominal">
           <CoverageIcon kind="covered" size={16} />
         </span>
