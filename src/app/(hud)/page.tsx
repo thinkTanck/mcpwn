@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import { SentinelCore } from '@/components/hud';
-import { CountUp } from '@/components/home/CountUp';
 import { Core7List } from '@/components/home/Core7List';
 import { SampleTrailer } from '@/components/home/SampleTrailer';
 import { getDataSource } from '@/data/source';
@@ -86,13 +85,13 @@ export default async function Home() {
             <p className="reading max-w-[54ch]">
               Most tools only <span className="text-ink-muted">guess</span> whether an agent was
               compromised. We tested our detector against attacks with known outcomes and{' '}
-              <span className="readout">MEASURED</span> how accurate it is, so you can trust its
-              verdicts.
+              <span className="font-semibold text-nominal">measured</span> how accurate it is, so
+              you can trust its verdicts.
             </p>
 
-            {/* Detector accuracy as a measured instrument READOUT, not a hero-metric
-                stat pair. Provenance leads; the numbers are the focal DISPLAY values
-                (they may animate as magnitudes) framed as data, not a marketing headline. */}
+            {/* Detector accuracy readout. Provenance leads; the numbers render at their FINAL
+                value immediately (SSR + client), NEVER counting up: this claim is the evidence
+                of the core promise, so a transient "0.00 precision" would assert the opposite. */}
             <div className="border-t border-line pt-3">
               <div className="mb-2 flex flex-wrap items-baseline gap-x-2 gap-y-1">
                 <span className="micro-label text-nominal">Detector accuracy</span>
@@ -102,11 +101,13 @@ export default async function Home() {
               </div>
               <div className="flex items-baseline gap-x-6">
                 <span className="whitespace-nowrap">
-                  <CountUp value={SAMPLE_METRICS.precision} className="display-lg font-sans" />
+                  <span className="display-lg font-sans">
+                    {SAMPLE_METRICS.precision.toFixed(2)}
+                  </span>
                   <span className="instrument ml-2">precision</span>
                 </span>
                 <span className="whitespace-nowrap">
-                  <CountUp value={SAMPLE_METRICS.recall} className="display-lg font-sans" />
+                  <span className="display-lg font-sans">{SAMPLE_METRICS.recall.toFixed(2)}</span>
                   <span className="instrument ml-2">recall</span>
                 </span>
               </div>

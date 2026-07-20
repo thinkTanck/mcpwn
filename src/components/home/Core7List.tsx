@@ -25,7 +25,7 @@ export function Core7List({ runHref }: { runHref: (id: string) => string }) {
             <Link
               href={runHref(c.id)}
               aria-label={`Watch the ${c.id} ${c.title} sample attack`}
-              className="group flex items-center gap-3 rounded-md border border-transparent px-2 py-2 transition-colors hover:border-line hover:bg-nominal/[0.06]"
+              className="group flex min-h-11 items-center gap-3 rounded-md border border-transparent px-2 py-2.5 transition-colors hover:border-line hover:bg-nominal/[0.06]"
             >
               <span
                 aria-hidden="true"
