@@ -79,9 +79,9 @@ export function BootSplash() {
         setStage('online');
         push(finish, 900);
       } else {
-        CONTACTS.forEach((_, i) => push(() => setLocked(i + 1), 900 + i * 300));
-        push(() => setStage('online'), 900 + N * 300 + 150);
-        push(finish, 900 + N * 300 + 900);
+        CONTACTS.forEach((_, i) => push(() => setLocked(i + 1), 700 + i * 240));
+        push(() => setStage('online'), 700 + N * 240 + 140);
+        push(finish, 700 + N * 240 + 800);
       }
     };
     let idle = 0;
@@ -103,11 +103,19 @@ export function BootSplash() {
     if (!active || stage === 'gone') return;
     const skip = () => finish();
     window.addEventListener('keydown', skip);
-    const arm = setTimeout(() => window.addEventListener('pointerdown', skip), 600);
+    // A deliberate tap or scroll means "let me read Home now" — armed ~600ms in so
+    // a stray early gesture does not cut the intro.
+    const arm = setTimeout(() => {
+      window.addEventListener('pointerdown', skip);
+      window.addEventListener('wheel', skip, { passive: true });
+      window.addEventListener('touchmove', skip, { passive: true });
+    }, 600);
     return () => {
       clearTimeout(arm);
       window.removeEventListener('keydown', skip);
       window.removeEventListener('pointerdown', skip);
+      window.removeEventListener('wheel', skip);
+      window.removeEventListener('touchmove', skip);
     };
   }, [active, stage]);
 
@@ -119,6 +127,7 @@ export function BootSplash() {
     <div
       role="status"
       aria-label="MCPwn booting"
+      aria-live="off"
       className={cn(
         'fixed inset-0 z-[100] flex flex-col items-center justify-center bg-base transition-opacity duration-[400ms] ease-out',
         fading ? 'opacity-0' : 'opacity-100 motion-safe:animate-[splash-in_320ms_ease-out]',
@@ -200,7 +209,7 @@ export function BootSplash() {
       {/* Readout */}
       <div className="mt-7 flex flex-col items-center gap-2 text-center font-mono">
         <div className="micro-label text-ink-faint">Target lock · Core-7</div>
-        <div className="text-[13px] tracking-[0.12em]" aria-live="polite">
+        <div className="text-[13px] tracking-[0.12em]">
           {online ? (
             <span className="text-readout">SYSTEM ONLINE</span>
           ) : (
@@ -211,6 +220,12 @@ export function BootSplash() {
           )}
         </div>
       </div>
+
+      {/* One terminal SR announcement — the overlay's aria-live is off so the
+          per-lock count does not churn a polite live region; only the end lands. */}
+      <span className="sr-only" aria-live="polite">
+        {online ? 'MCPwn ready. Core-7 signatures locked.' : ''}
+      </span>
 
       <button
         type="button"
