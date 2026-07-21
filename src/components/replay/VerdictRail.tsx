@@ -35,7 +35,7 @@ export function VerdictRail({
       {/* Outcome pill */}
       <span
         className={cn(
-          'inline-flex w-fit items-center gap-2.5 rounded-full border px-3 py-1.5 font-mono text-[13px] tracking-[0.14em]',
+          'inline-flex w-fit items-center gap-2.5 rounded-full border px-3 py-1.5 font-mono text-[14px] tracking-[0.14em]',
           compromised
             ? 'border-breach/40 text-breach-text shadow-glow-breach'
             : 'border-nominal/40 text-nominal shadow-glow-nominal',
@@ -47,7 +47,7 @@ export function VerdictRail({
 
       {/* Verdict summary — always visible */}
       <p className="micro-label mt-5 border-t border-line pt-4 text-ink-faint">Detector verdict</p>
-      <dl className="mt-2 flex flex-col gap-2.5 font-mono text-[14px]">
+      <dl className="mt-2 flex flex-col gap-2.5 font-mono text-[15px]">
         <div className="flex items-baseline justify-between">
           <dt className="text-ink-muted">category</dt>
           <dd className="text-readout">{verdict.category}</dd>
@@ -75,7 +75,7 @@ export function VerdictRail({
         </div>
       ) : (
         <div className="mt-4 rounded-md border border-dashed border-line-em px-4 py-3.5">
-          <p className="font-mono text-[13px] leading-relaxed text-ink-faint">
+          <p className="font-mono text-[14px] leading-relaxed text-ink-faint">
             Rationale sealed · reach the compromise step to unseal.
           </p>
         </div>
@@ -84,13 +84,13 @@ export function VerdictRail({
       {/* Off-ramp — the fix report carries the copy/export */}
       <Link
         href={`/findings/${verdict.runId}`}
-        className="mt-4 inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-line-em bg-nominal/10 px-4 font-mono text-[13px] tracking-[0.1em] text-nominal transition-colors hover:bg-nominal/20 hover:shadow-glow-nominal"
+        className="mt-4 inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-line-em bg-nominal/10 px-4 font-mono text-[14px] tracking-[0.1em] text-nominal transition-colors hover:bg-nominal/20 hover:shadow-glow-nominal"
       >
         Export fix report →
       </Link>
 
       {/* Provenance — the honesty note */}
-      <p className="mt-5 border-t border-line pt-4 font-mono text-[13px] leading-relaxed text-ink-faint">
+      <p className="mt-5 border-t border-line pt-4 font-mono text-[14px] leading-relaxed text-ink-faint">
         Detector is BLIND. It never sees the answer.
         <br />
         <span className="text-ink-muted">fixture, not a benchmark</span>

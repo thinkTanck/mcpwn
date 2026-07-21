@@ -60,7 +60,7 @@ export default function Error({
         </p>
 
         {error.digest ? (
-          <p className="font-mono text-[12px] text-ink-faint">
+          <p className="font-mono text-[13px] text-ink-faint">
             Reference <span className="text-readout">{error.digest}</span>
           </p>
         ) : null}
@@ -69,13 +69,13 @@ export default function Error({
           <button
             type="button"
             onClick={reset}
-            className="inline-flex min-h-11 items-center rounded-md border border-line-em bg-nominal/10 px-4 font-mono text-[12px] tracking-[0.06em] text-readout transition-colors hover:bg-nominal/20"
+            className="inline-flex min-h-11 items-center rounded-md border border-line-em bg-nominal/10 px-4 font-mono text-[13px] tracking-[0.06em] text-readout transition-colors hover:bg-nominal/20"
           >
             Try again
           </button>
           <Link
             href="/"
-            className="inline-flex min-h-11 items-center font-mono text-[12px] tracking-[0.04em] text-ink-muted transition-colors hover:text-ink-hi"
+            className="inline-flex min-h-11 items-center font-mono text-[13px] tracking-[0.04em] text-ink-muted transition-colors hover:text-ink-hi"
           >
             Return home →
           </Link>

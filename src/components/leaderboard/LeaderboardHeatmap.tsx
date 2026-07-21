@@ -38,7 +38,7 @@ function CellShapeAndValue({ robustness }: { robustness: number }) {
   const tone = TONE[band];
   return (
     <span className="flex flex-col items-center gap-1.5">
-      <span className={cn('display font-mono', tone.value)}>{fmt(robustness)}</span>
+      <span className={cn('display-md font-mono', tone.value)}>{fmt(robustness)}</span>
       <BandShape band={band} className={tone.value} />
     </span>
   );
@@ -80,33 +80,33 @@ export function LeaderboardHeatmap({
         className="mb-4 inline-flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-md border border-breach/40 bg-breach/5 px-3.5 py-2.5 shadow-glow-breach transition-colors hover:border-breach/60"
       >
         <span className="micro-label text-breach-text">Weakest</span>
-        <span className={cn('display font-mono', TONE[weakestBand].value)}>
+        <span className={cn('display-md font-mono', TONE[weakestBand].value)}>
           {fmt(weakest.robustness)}
         </span>
         <BandShape band={weakestBand} className={TONE[weakestBand].value} />
-        <span className="font-mono text-[13px] text-ink-hi">{weakest.model}</span>
-        <span className="font-mono text-[12px] text-ink-muted">
+        <span className="font-mono text-[14px] text-ink-hi">{weakest.model}</span>
+        <span className="font-mono text-[13px] text-ink-muted">
           {weakest.category} · {weakestFull}
         </span>
       </Link>
 
       {/* Legend + provenance — INSTRUMENT telemetry (mono, terse). */}
       <figcaption className="mb-3 flex flex-wrap items-center gap-x-5 gap-y-2">
-        <span className="flex items-center gap-2 font-mono text-[12px] tracking-[0.04em] text-ink-muted">
+        <span className="flex items-center gap-2 font-mono text-[13px] tracking-[0.04em] text-ink-muted">
           <span className="text-nominal">
             <BandShape band="nominal" />
           </span>
           <span aria-hidden="true">&#8805;.80</span>
           <span className="sr-only">nominal, greater than or equal to .80</span>
         </span>
-        <span className="flex items-center gap-2 font-mono text-[12px] tracking-[0.04em] text-ink-muted">
+        <span className="flex items-center gap-2 font-mono text-[13px] tracking-[0.04em] text-ink-muted">
           <span className="text-caution">
             <BandShape band="caution" />
           </span>
           .50 to .79
           <span className="sr-only">caution</span>
         </span>
-        <span className="flex items-center gap-2 font-mono text-[12px] tracking-[0.04em] text-ink-muted">
+        <span className="flex items-center gap-2 font-mono text-[13px] tracking-[0.04em] text-ink-muted">
           <span className="text-breach-text">
             <BandShape band="breach" />
           </span>
@@ -117,11 +117,11 @@ export function LeaderboardHeatmap({
             codes' full names + explanations live on the coverage board). */}
         <Link
           href="/threats"
-          className="font-mono text-[12px] tracking-[0.04em] text-nominal hover:underline"
+          className="font-mono text-[13px] tracking-[0.04em] text-nominal hover:underline"
         >
           Category names → Threats
         </Link>
-        <span className="ml-auto inline-flex items-center gap-2 rounded-full border border-line bg-solid px-2.5 py-1 font-mono text-[12px] uppercase tracking-[0.12em] text-ink-faint">
+        <span className="ml-auto inline-flex items-center gap-2 rounded-full border border-line bg-solid px-2.5 py-1 font-mono text-[13px] uppercase tracking-[0.12em] text-ink-faint">
           <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-ink-faint" />
           SOURCE · {source}
         </span>
@@ -144,7 +144,8 @@ export function LeaderboardHeatmap({
         Swipe · {categories.length} categories · model column stays pinned
       </p>
 
-      {/* Focusable, labelled 2-D scroll region + right-edge fade affordance. */}
+      {/* Focusable, labelled 2-D scroll region. No right-edge fade — it obscured
+          the OVERALL column when the table fits; the swipe cue above signals scroll. */}
       <div className="relative">
         <div
           role="region"
@@ -162,7 +163,7 @@ export function LeaderboardHeatmap({
                 <th
                   scope="col"
                   data-sticky="model"
-                  className="sticky left-0 z-20 min-w-[132px] border-b border-line bg-solid px-3.5 py-2.5 font-mono text-[12px] font-medium uppercase tracking-[0.12em] text-ink-faint"
+                  className="sticky left-0 z-20 min-w-[132px] border-b border-line bg-solid px-3.5 py-2.5 font-mono text-[13px] font-medium uppercase tracking-[0.12em] text-ink-faint"
                 >
                   Model
                 </th>
@@ -171,7 +172,7 @@ export function LeaderboardHeatmap({
                     key={c.id}
                     scope="col"
                     title={c.full}
-                    className="min-w-[86px] border-b border-l border-line px-2 py-2.5 text-center align-bottom font-mono text-[12px] font-medium tracking-[0.04em] text-ink"
+                    className="min-w-[86px] border-b border-l border-line px-2 py-2.5 text-center align-bottom font-mono text-[13px] font-medium tracking-[0.04em] text-ink"
                   >
                     <span aria-hidden="true">{c.id}</span>
                     <span className="sr-only">
@@ -181,7 +182,7 @@ export function LeaderboardHeatmap({
                 ))}
                 <th
                   scope="col"
-                  className="min-w-[104px] border-b border-l border-line px-3.5 py-2.5 text-right font-mono text-[12px] font-medium uppercase tracking-[0.12em] text-ink-faint"
+                  className="min-w-[104px] border-b border-l border-line px-3.5 py-2.5 text-right font-mono text-[13px] font-medium uppercase tracking-[0.12em] text-ink-faint"
                 >
                   Overall
                 </th>
@@ -206,7 +207,7 @@ export function LeaderboardHeatmap({
                             'bg-breach': overallBand === 'breach',
                           })}
                         />
-                        <span className="font-mono text-[13px] text-ink-hi">{row.model}</span>
+                        <span className="font-mono text-[14px] text-ink-hi">{row.model}</span>
                       </span>
                     </th>
                     {row.cells.map((c) => {
@@ -238,7 +239,7 @@ export function LeaderboardHeatmap({
                     <td className="border-b border-l border-line px-3.5 py-3 text-right">
                       <CountUp
                         value={row.overall}
-                        className={cn('display-md font-mono', TONE[overallBand].value)}
+                        className={cn('display-lg font-mono', TONE[overallBand].value)}
                       />
                     </td>
                   </tr>
@@ -247,11 +248,6 @@ export function LeaderboardHeatmap({
             </tbody>
           </table>
         </div>
-        {/* Right-edge gradient — a visual "more to the right" cue on overflow. */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-[color:var(--surface-base)] to-transparent"
-        />
       </div>
 
       <p className="micro-label mt-3.5">Cell → its run in Live Attack Replay</p>

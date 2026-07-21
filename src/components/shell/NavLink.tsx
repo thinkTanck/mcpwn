@@ -32,7 +32,7 @@ export function NavLink({
       title={item.label}
       className={cn(
         'relative flex items-center gap-3 rounded-md px-3.5 py-3.5 font-mono text-xs tracking-[0.06em] transition-colors',
-        active ? 'bg-nominal/8 text-ink-hi' : 'text-ink-muted hover:bg-raised/70 hover:text-ink-hi',
+        active ? 'bg-nominal/8 text-nominal' : 'text-ink-hi hover:bg-raised/70',
       )}
     >
       <span

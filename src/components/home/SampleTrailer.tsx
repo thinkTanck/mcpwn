@@ -31,7 +31,7 @@ export function SampleTrailer({
     <section aria-label="Sample run trailer" className="border-t border-line pt-4">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3">
-          <span className="inline-flex items-center gap-2 rounded-full border border-line-em bg-nominal/5 px-2.5 py-1 font-mono text-[12px] uppercase tracking-[0.12em] text-nominal shadow-glow-nominal">
+          <span className="inline-flex items-center gap-2 rounded-full border border-line-em bg-nominal/5 px-2.5 py-1 font-mono text-[13px] uppercase tracking-[0.12em] text-nominal shadow-glow-nominal">
             <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-nominal" />
             Sample run
           </span>
@@ -46,7 +46,7 @@ export function SampleTrailer({
         <Link
           href={watchHref}
           aria-label="Watch the ASI06 sample replay"
-          className="inline-flex min-h-11 items-center gap-2 font-mono text-[12px] tracking-[0.08em] text-nominal transition-colors hover:underline"
+          className="inline-flex min-h-11 items-center gap-2 font-mono text-[13px] tracking-[0.08em] text-nominal transition-colors hover:underline"
         >
           <svg width="11" height="11" viewBox="0 0 12 12" aria-hidden="true">
             <polygon points="2,1 11,6 2,11" fill="currentColor" />
@@ -83,7 +83,7 @@ export function SampleTrailer({
         })}
       </div>
 
-      <div className="mt-3 flex items-center justify-between gap-2 font-mono text-[12px] tracking-[0.04em] text-ink-faint">
+      <div className="mt-3 flex items-center justify-between gap-2 font-mono text-[13px] tracking-[0.04em] text-ink-faint">
         <span>
           {pad(1)} · {firstLabel}
         </span>

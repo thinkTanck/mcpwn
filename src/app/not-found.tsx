@@ -58,21 +58,21 @@ export default function NotFound() {
         <nav aria-label="Where to next" className="mt-1 flex w-full flex-col gap-2.5">
           <Link
             href="/"
-            className="inline-flex min-h-11 items-center justify-between rounded-md border border-line-em bg-nominal/10 px-4 font-mono text-[12px] tracking-[0.06em] text-readout transition-colors hover:bg-nominal/20"
+            className="inline-flex min-h-11 items-center justify-between rounded-md border border-line-em bg-nominal/10 px-4 font-mono text-[13px] tracking-[0.06em] text-readout transition-colors hover:bg-nominal/20"
           >
             <span>Home</span>
             <span aria-hidden="true">→</span>
           </Link>
           <Link
             href="/runs/sample"
-            className="inline-flex min-h-11 items-center justify-between rounded-md border border-line px-4 font-mono text-[12px] tracking-[0.04em] text-ink-muted transition-colors hover:border-line-em hover:text-ink-hi"
+            className="inline-flex min-h-11 items-center justify-between rounded-md border border-line px-4 font-mono text-[13px] tracking-[0.04em] text-ink-muted transition-colors hover:border-line-em hover:text-ink-hi"
           >
             <span>Watch the sample run</span>
             <span aria-hidden="true">→</span>
           </Link>
           <Link
             href="/connect"
-            className="inline-flex min-h-11 items-center justify-between rounded-md border border-line px-4 font-mono text-[12px] tracking-[0.04em] text-ink-muted transition-colors hover:border-line-em hover:text-ink-hi"
+            className="inline-flex min-h-11 items-center justify-between rounded-md border border-line px-4 font-mono text-[13px] tracking-[0.04em] text-ink-muted transition-colors hover:border-line-em hover:text-ink-hi"
           >
             <span>Connect your agent</span>
             <span aria-hidden="true">→</span>

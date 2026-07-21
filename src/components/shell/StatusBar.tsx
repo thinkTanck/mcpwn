@@ -34,7 +34,7 @@ export function StatusBar({
 }) {
   const sevBreach = runContext ? /^(critical|high)$/i.test(runContext.severity) : false;
   return (
-    <header className="sticky top-0 z-[45] flex h-[62px] shrink-0 items-center gap-4 border-b border-line bg-gradient-to-b from-[var(--scrim-header-top)] to-[var(--scrim-header-bottom)] px-[18px] backdrop-blur-[6px]">
+    <header className="sticky top-0 z-[45] flex h-[72px] shrink-0 items-center gap-4 border-b border-line bg-gradient-to-b from-[var(--scrim-header-top)] to-[var(--scrim-header-bottom)] px-[18px] backdrop-blur-[6px]">
       <MobileDrawer pathname={pathname} fleet={fleet} />
       <Link
         href="/"
@@ -42,8 +42,8 @@ export function StatusBar({
         className="flex shrink-0 items-center gap-2.5 rounded-md"
       >
         <svg
-          width="26"
-          height="26"
+          width="30"
+          height="30"
           viewBox="0 0 24 24"
           aria-hidden="true"
           className="shrink-0 animate-[spin_22s_linear_infinite]"
@@ -65,14 +65,14 @@ export function StatusBar({
         </span>
       </Link>
       <div className="hidden h-[26px] w-px shrink-0 bg-line min-[760px]:block" />
-      <div className="hidden shrink-0 font-mono text-[12.5px] tracking-[0.1em] text-ink-faint min-[760px]:block">
+      <div className="hidden shrink-0 font-mono text-[13.5px] tracking-[0.1em] text-ink-faint min-[760px]:block">
         {meta}
       </div>
 
       {runContext && (
         <>
           <div className="hidden h-[26px] w-px shrink-0 bg-line min-[1100px]:block" />
-          <div className="hidden min-w-0 truncate font-mono text-[12.5px] tracking-[0.06em] text-ink-muted min-[1100px]:block">
+          <div className="hidden min-w-0 truncate font-mono text-[13.5px] tracking-[0.06em] text-ink-muted min-[1100px]:block">
             RUN <span className="text-readout">{runContext.runId}</span>
             <span aria-hidden="true"> · </span>TARGET{' '}
             <span className="text-readout">{runContext.model}</span>
@@ -87,7 +87,7 @@ export function StatusBar({
         <div className="hidden items-center gap-3 min-[1100px]:flex">
           <span
             className={
-              'inline-flex items-center gap-2 rounded-full border px-2.5 py-1 font-mono text-[12px] tracking-[0.12em] ' +
+              'inline-flex items-center gap-2 rounded-full border px-2.5 py-1 font-mono text-[13px] tracking-[0.12em] ' +
               (runContext.compromised
                 ? 'border-breach/40 text-breach-text shadow-glow-breach'
                 : 'border-nominal/40 text-nominal shadow-glow-nominal')
@@ -101,7 +101,7 @@ export function StatusBar({
             />
             {runContext.compromised ? 'BREACH' : 'CLEAR'}
           </span>
-          <span className="whitespace-nowrap font-mono text-[12.5px] tracking-[0.06em] text-ink-faint">
+          <span className="whitespace-nowrap font-mono text-[13.5px] tracking-[0.06em] text-ink-faint">
             {runContext.category} · SEV{' '}
             <span className={sevBreach ? 'text-breach-text' : 'text-caution'}>
               {runContext.severity.toUpperCase()}

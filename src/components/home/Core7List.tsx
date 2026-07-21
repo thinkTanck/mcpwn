@@ -38,7 +38,7 @@ export function Core7List({ runHref }: { runHref: (id: string) => string }) {
                 <span className="instrument block">{c.id}</span>
                 <span className="block font-sans text-sm text-ink">{c.title}</span>
               </span>
-              <span className="flex shrink-0 items-center gap-1 font-mono text-[12px] tracking-[0.08em] text-nominal">
+              <span className="flex shrink-0 items-center gap-1 font-mono text-[13px] tracking-[0.08em] text-nominal">
                 Watch
                 <svg width="11" height="11" viewBox="0 0 12 12" aria-hidden="true">
                   <path
