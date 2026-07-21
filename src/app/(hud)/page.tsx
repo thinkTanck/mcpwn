@@ -118,7 +118,7 @@ export default async function Home() {
               <div className="flex flex-wrap items-center gap-5">
                 <Link
                   href="/runs/sample"
-                  className="inline-flex items-center gap-2 rounded-md border border-nominal bg-nominal/10 px-6 py-3 font-mono text-[13px] tracking-[0.08em] text-readout shadow-glow-nominal transition-colors hover:bg-nominal/20"
+                  className="inline-flex items-center gap-2 rounded-md border border-nominal bg-nominal/10 px-6 py-3 font-mono text-[14px] tracking-[0.08em] text-readout shadow-glow-nominal transition-colors hover:bg-nominal/20"
                 >
                   <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
                     <polygon points="2,1 11,6 2,11" fill="currentColor" />
@@ -127,7 +127,7 @@ export default async function Home() {
                 </Link>
                 <Link
                   href="/connect"
-                  className="font-mono text-[13px] tracking-[0.06em] text-nominal hover:underline"
+                  className="font-mono text-[14px] tracking-[0.06em] text-nominal hover:underline"
                 >
                   Connect your agent →
                 </Link>

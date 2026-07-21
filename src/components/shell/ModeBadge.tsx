@@ -8,20 +8,20 @@ export function ModeBadge({ mode = 'sample' }: { mode?: Mode }) {
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-2 rounded-full border px-2.5 py-1',
+        'inline-flex items-center gap-2 rounded-full border px-3 py-1.5',
         live ? 'border-nominal bg-nominal/10 shadow-glow-nominal' : 'border-line-em bg-nominal/5',
       )}
     >
       <span
         aria-hidden="true"
         className={cn(
-          'h-1.5 w-1.5 rounded-full',
+          'h-2 w-2 rounded-full',
           live ? 'bg-nominal shadow-glow-nominal' : 'border border-line-em',
         )}
       />
       <span
         className={cn(
-          'font-mono text-[12px] font-medium tracking-[0.12em]',
+          'font-mono text-[14px] font-medium tracking-[0.12em]',
           live ? 'text-readout' : 'text-ink-muted',
         )}
       >

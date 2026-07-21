@@ -77,14 +77,14 @@ export function Replay({ run }: { run: RunResult }) {
   const title = CATEGORY_TITLE[run.category] ?? 'Attack replay';
 
   return (
-    <div className="flex min-h-[calc(100dvh-62px)] flex-col">
+    <div className="flex min-h-[calc(100dvh-72px)] flex-col">
       {/* Header — kicker, title, and the run subline (enlarged). */}
       <header className="border-b border-line px-6 py-5 lg:px-8">
         <p className="micro-label text-nominal">Live Attack Replay</p>
         <h1 className="reading-h2 mt-2 font-semibold text-ink-hi">
           {run.category} · {title}
         </h1>
-        <p className="mt-2 font-mono text-[14px] text-ink-muted">
+        <p className="mt-2 font-mono text-[15px] text-ink-muted">
           run <span className="text-readout">{run.runId}</span>
           <span aria-hidden="true"> · </span>
           <span className="text-readout">{total}</span> observable steps
@@ -96,7 +96,7 @@ export function Replay({ run }: { run: RunResult }) {
       </header>
 
       {/* Stage grid — orbital + transport + detail (left column) · verdict (right). */}
-      <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] lg:grid-rows-[auto_auto_minmax(0,1fr)]">
+      <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_400px] lg:grid-rows-[auto_auto_minmax(0,1fr)]">
         <div className="flex items-center justify-center px-6 py-6 lg:col-start-1 lg:row-start-1 lg:px-8">
           <OrbitalStage
             steps={steps}
@@ -106,7 +106,7 @@ export function Replay({ run }: { run: RunResult }) {
           />
         </div>
 
-        <div className="flex flex-col gap-3 border-y border-line px-6 py-4 lg:col-start-1 lg:row-start-2 lg:px-8">
+        <div className="flex flex-col gap-3 border-y border-line px-6 py-4 lg:col-start-1 lg:col-end-3 lg:row-start-2 lg:px-8">
           <Transport
             current={current}
             total={total}
@@ -122,11 +122,11 @@ export function Replay({ run }: { run: RunResult }) {
           <StepLegend />
         </div>
 
-        <div className="min-h-0 px-6 py-5 lg:col-start-1 lg:row-start-3 lg:overflow-y-auto lg:px-8">
+        <div className="min-h-0 px-6 py-5 lg:col-start-1 lg:col-end-3 lg:row-start-3 lg:overflow-y-auto lg:px-8">
           <StepDetail step={step} index={current} compromised={compromised} />
         </div>
 
-        <div className="border-t border-line px-6 py-5 lg:col-start-2 lg:row-start-1 lg:row-span-3 lg:overflow-y-auto lg:border-l lg:border-t-0">
+        <div className="border-t border-line px-6 py-5 lg:col-start-2 lg:row-start-1 lg:overflow-y-auto lg:border-b lg:border-l lg:border-t-0">
           <VerdictRail
             verdict={run.verdict}
             compromiseStepNumber={compromiseStepNumber}

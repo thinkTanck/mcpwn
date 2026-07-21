@@ -28,7 +28,7 @@ export default async function LeaderboardPage() {
   return (
     <section
       aria-labelledby="leaderboard-heading"
-      className="type-flow mx-auto max-w-[1240px] px-6 py-10 sm:py-12"
+      className="type-flow mx-auto max-w-[1600px] px-6 py-10 sm:py-12"
     >
       <SectionLabel>Robustness Leaderboard</SectionLabel>
       <h1 id="leaderboard-heading" className="reading-h1 mt-3">

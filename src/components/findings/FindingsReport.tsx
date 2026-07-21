@@ -31,7 +31,7 @@ function SectionHeading({
  */
 export function FindingsReport({ report }: { report: FixReport }) {
   return (
-    <article aria-label="Fix report" className="mx-auto max-w-[940px] px-6 py-10 md:py-12">
+    <article aria-label="Fix report" className="mx-auto max-w-[1440px] px-6 py-10 md:py-12">
       {/* Header: title + status + provenance line, with the copy control */}
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">

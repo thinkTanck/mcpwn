@@ -82,10 +82,10 @@ function Field({
         autoComplete={autoComplete}
         inputMode={inputMode}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-md border border-line bg-base px-3 py-2.5 font-mono text-[13px] text-readout placeholder:text-ink-faint focus-visible:border-nominal"
+        className="w-full rounded-md border border-line bg-base px-3 py-2.5 font-mono text-[14px] text-readout placeholder:text-ink-faint focus-visible:border-nominal"
       />
       {helper && (
-        <div id={helperId} className="mt-2 flex items-center gap-2 font-sans text-[14px] text-ink">
+        <div id={helperId} className="mt-2 flex items-center gap-2 font-sans text-[15px] text-ink">
           {helper}
         </div>
       )}
@@ -135,7 +135,7 @@ export function ConnectScreen({ signedIn = false }: { signedIn?: boolean }) {
     });
 
   return (
-    <div className="type-flow mx-auto max-w-[1020px] px-6 py-10">
+    <div className="type-flow mx-auto max-w-[1440px] px-6 py-10">
       {/* Header */}
       <p className="micro-label !text-nominal mb-2.5 tracking-[0.18em]">CONNECT / RUN</p>
       <h1 className="reading-h2 mb-2.5">Set up a red-team run.</h1>
@@ -162,7 +162,7 @@ export function ConnectScreen({ signedIn = false }: { signedIn?: boolean }) {
                 aria-pressed={active}
                 onClick={() => setMode(m)}
                 className={cn(
-                  'min-h-11 flex-1 rounded-md border px-4 py-2.5 font-mono text-[12px] tracking-[0.08em] transition-colors',
+                  'min-h-11 flex-1 rounded-md border px-4 py-2.5 font-mono text-[13px] tracking-[0.08em] transition-colors',
                   active
                     ? 'border-nominal bg-nominal/10 text-readout shadow-glow-nominal'
                     : 'border-line bg-transparent text-ink-muted hover:border-line-em hover:text-ink',
@@ -252,8 +252,8 @@ export function ConnectScreen({ signedIn = false }: { signedIn?: boolean }) {
                             active ? 'bg-nominal shadow-glow-nominal' : 'bg-ink-faint',
                           )}
                         />
-                        <span className="font-mono text-[13px] text-ink-hi">{m.id}</span>
-                        <span className="ml-auto font-mono text-[12px] text-ink-muted">
+                        <span className="font-mono text-[14px] text-ink-hi">{m.id}</span>
+                        <span className="ml-auto font-mono text-[13px] text-ink-muted">
                           {m.note}
                         </span>
                       </button>
@@ -278,8 +278,8 @@ export function ConnectScreen({ signedIn = false }: { signedIn?: boolean }) {
                 <circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" strokeWidth="1.3" />
                 <circle cx="8" cy="8" r="2" fill="currentColor" />
               </svg>
-              <span className="font-mono text-[12px] tracking-[0.08em] text-nominal">BLIND</span>
-              <span className="ml-auto inline-flex items-center gap-1.5 font-mono text-[12px] tracking-[0.06em] text-ink-faint">
+              <span className="font-mono text-[13px] tracking-[0.08em] text-nominal">BLIND</span>
+              <span className="ml-auto inline-flex items-center gap-1.5 font-mono text-[13px] tracking-[0.06em] text-ink-faint">
                 <LockIcon />
                 LOCKED
               </span>
@@ -361,8 +361,8 @@ export function ConnectScreen({ signedIn = false }: { signedIn?: boolean }) {
                     />
                   </svg>
                 </span>
-                <span className="shrink-0 font-mono text-[12px] text-ink-hi">{c.id}</span>
-                <span className="font-sans text-[14px] text-ink">{c.title}</span>
+                <span className="shrink-0 font-mono text-[13px] text-ink-hi">{c.id}</span>
+                <span className="font-sans text-[15px] text-ink">{c.title}</span>
               </button>
             );
           })}
@@ -399,7 +399,7 @@ export function ConnectScreen({ signedIn = false }: { signedIn?: boolean }) {
               />
             </svg>
             <div className="min-w-[200px] flex-1">
-              <p className="font-mono text-[12px] tracking-[0.06em] text-caution">
+              <p className="font-mono text-[13px] tracking-[0.06em] text-caution">
                 SIGN IN TO RUN LIVE
               </p>
               <p className="reading mt-1">
@@ -409,7 +409,7 @@ export function ConnectScreen({ signedIn = false }: { signedIn?: boolean }) {
             </div>
             <Link
               href="/sign-in"
-              className="shrink-0 rounded-md border border-line-em bg-nominal/5 px-5 py-2.5 font-mono text-[12px] tracking-[0.08em] text-nominal transition-colors hover:bg-nominal/10 hover:shadow-glow-nominal"
+              className="shrink-0 rounded-md border border-line-em bg-nominal/5 px-5 py-2.5 font-mono text-[13px] tracking-[0.08em] text-nominal transition-colors hover:bg-nominal/10 hover:shadow-glow-nominal"
             >
               SIGN IN →
             </Link>
@@ -426,7 +426,7 @@ export function ConnectScreen({ signedIn = false }: { signedIn?: boolean }) {
           ) : (
             <Link
               href="/runs/sample"
-              className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-md border border-nominal bg-nominal/10 px-5 py-3 font-mono text-[13px] tracking-[0.08em] text-readout shadow-glow-nominal transition-colors hover:bg-nominal/20"
+              className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-md border border-nominal bg-nominal/10 px-5 py-3 font-mono text-[14px] tracking-[0.08em] text-readout shadow-glow-nominal transition-colors hover:bg-nominal/20"
             >
               <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
                 <polygon points="2,1 11,6 2,11" fill="currentColor" />

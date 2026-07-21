@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils';
+import { CountUp } from './CountUp';
 import type { FleetStatus as FleetStatusData } from '@/data/source';
 
 /**
@@ -57,23 +58,28 @@ export function FleetStatus({
       )}
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="font-mono text-[12px] uppercase tracking-[0.14em] text-ink-faint">
+        <span className="font-mono text-[14px] uppercase tracking-[0.14em] text-ink-faint">
           Fleet status
         </span>
-        <span className="rounded-full border border-line px-1.5 py-0.5 font-mono text-[12px] uppercase tracking-[0.12em] text-ink-faint">
+        <span className="rounded-full border border-line px-2 py-0.5 font-mono text-[13px] uppercase tracking-[0.12em] text-ink-faint">
           {fleet.source}
         </span>
       </div>
       {fleet.empty ? (
-        <p className="font-mono text-[12px] leading-relaxed text-ink-faint">
+        <p className="font-mono text-[14px] leading-relaxed text-ink-faint">
           No runs yet — launch one to populate.
         </p>
       ) : (
-        <ul className="flex flex-col gap-2">
+        <ul className="flex flex-col gap-2.5">
           {TIERS.map((t) => (
-            <li key={t.key} className="flex items-center gap-2">
-              <span aria-hidden="true" className={cn('h-2 w-2 rounded-full', t.dot, t.glow)} />
-              <span className="font-mono text-[13px] text-ink-muted">
+            <li key={t.key} className="flex items-center gap-2.5">
+              <span aria-hidden="true" className={cn('h-2.5 w-2.5 rounded-full', t.dot, t.glow)} />
+              {/* The visible count animates up; an sr-only copy carries the stable
+                  real value so a screen reader hears "4 nominal", not the tick. */}
+              <span aria-hidden="true" className="font-mono text-[15px] text-ink-muted">
+                <CountUp value={fleet[t.key]} className="tabular-nums text-ink-hi" /> {t.key}
+              </span>
+              <span className="sr-only">
                 {fleet[t.key]} {t.key}
               </span>
             </li>

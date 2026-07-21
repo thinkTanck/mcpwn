@@ -28,12 +28,12 @@ export function StepDetail({
       className="flex h-[188px] flex-col overflow-hidden rounded-lg border border-line bg-panel"
     >
       <header className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-line px-4 py-2.5">
-        <span className="font-mono text-[12px] tabular-nums text-ink-faint">
+        <span className="font-mono text-[13px] tabular-nums text-ink-faint">
           {String(index + 1).padStart(2, '0')}
         </span>
         <span
           className={cn(
-            'font-mono text-[12px] uppercase tracking-[0.1em]',
+            'font-mono text-[13px] uppercase tracking-[0.1em]',
             compromised
               ? 'text-breach-text'
               : meta.band === 'nominal'
@@ -56,11 +56,11 @@ export function StepDetail({
       >
         {rows.map((row) => (
           <div key={row.k} className="grid grid-cols-[5.5rem_minmax(0,1fr)] gap-3">
-            <dt className="font-mono text-[12px] uppercase tracking-[0.08em] text-ink-faint">
+            <dt className="font-mono text-[13px] uppercase tracking-[0.08em] text-ink-faint">
               {row.k}
             </dt>
             <dd className="min-w-0">
-              <pre className="whitespace-pre-wrap break-words font-mono text-[13px] leading-relaxed text-readout">
+              <pre className="whitespace-pre-wrap break-words font-mono text-[14px] leading-relaxed text-readout">
                 {row.v}
               </pre>
             </dd>

@@ -222,15 +222,15 @@ describe('DTCG token layer (globals.css)', () => {
     }
   });
 
-  it('INSTRUMENT (telemetry) sizes are mono and within the 12–13px band', () => {
-    expect(vars.get('--instrument-label')).toBe('12px');
-    expect(vars.get('--instrument-base')).toBe('13px');
+  it('INSTRUMENT (telemetry) sizes are mono and within the 13–14px band', () => {
+    expect(vars.get('--instrument-label')).toBe('13px');
+    expect(vars.get('--instrument-base')).toBe('14px');
     expect(must(vars.get('--reading-font'), 'reading font')).toContain('sans');
     expect(must(vars.get('--instrument-font'), 'instrument font')).toContain('mono');
   });
 
-  it('READING body is the 17px editorial target; h1 scales with the CONTAINER (cqi), never vw', () => {
-    expect(vars.get('--reading-body')).toBe('17px');
+  it('READING body is the 18px editorial target; h1 scales with the CONTAINER (cqi), never vw', () => {
+    expect(vars.get('--reading-body')).toBe('18px');
     const h1 = must(vars.get('--reading-h1'), '--reading-h1 defined');
     expect(h1, `${h1} must use a container unit (cqi/cqw), not the viewport`).toMatch(/cq[iwbh]/);
     expect(h1, `${h1} must not use vw — the deck-collapse overflow bug`).not.toMatch(/vw/);

@@ -19,7 +19,7 @@ export const metadata: Metadata = {
  */
 export default function ThreatsPage() {
   return (
-    <div className="type-flow mx-auto max-w-[1080px] px-6 py-12">
+    <div className="type-flow mx-auto max-w-[1440px] px-6 py-12">
       <SectionLabel>Threat Model · Coverage</SectionLabel>
 
       <h1 className="reading-h1 mt-3 max-w-[20ch]">What we test. And what we honestly can’t.</h1>

@@ -86,7 +86,7 @@ export function OrbitalStage({
   };
 
   return (
-    <div className="relative mx-auto aspect-square" style={{ width: 'min(100%, 480px, 56vh)' }}>
+    <div className="relative mx-auto aspect-square" style={{ width: 'min(100%, 430px, 50vh)' }}>
       {/* Particle core — the luminous centre, behind the numeral. */}
       <div className="pointer-events-none absolute inset-[22%]">
         <ReplayCore className="h-full w-full" />
@@ -163,7 +163,7 @@ export function OrbitalStage({
                   }}
                 />
                 <span
-                  className="font-mono text-[14px] tabular-nums tracking-[0.04em]"
+                  className="font-mono text-[15px] tabular-nums tracking-[0.04em]"
                   style={{
                     color: activeNode
                       ? 'var(--text-readout)'
@@ -188,11 +188,11 @@ export function OrbitalStage({
             'radial-gradient(closest-side, color-mix(in srgb, var(--surface-base) 82%, transparent) 45%, transparent)',
         }}
       >
-        <div className="font-mono text-[12px] tracking-[0.18em] text-ink-muted">STEP</div>
+        <div className="font-mono text-[13px] tracking-[0.18em] text-ink-muted">STEP</div>
         <div
           className="font-sans font-bold leading-none tabular-nums"
           style={{
-            fontSize: 'clamp(56px, 12vw, 76px)',
+            fontSize: 'clamp(48px, 10vw, 64px)',
             letterSpacing: '-0.03em',
             color: numColor,
             textShadow: `0 0 22px ${numGlow}`,
@@ -201,7 +201,7 @@ export function OrbitalStage({
           {String(current + 1).padStart(2, '0')}
         </div>
         <div
-          className="mt-1 font-mono text-[13px] tracking-[0.06em]"
+          className="mt-1 font-mono text-[14px] tracking-[0.06em]"
           style={{ color: activeBreach ? 'var(--text-breach)' : 'var(--text-muted)' }}
         >
           {activeBreach ? `${activeMeta.tag} · BREACH` : activeMeta.label}
@@ -220,7 +220,7 @@ export function OrbitalStage({
               transform: 'translate(-50%, -100%)',
             }}
             className={cn(
-              'pointer-events-none z-50 max-w-[15rem] rounded-md border bg-solid px-2.5 py-1.5 font-mono text-[12px] leading-snug shadow-glow-nominal',
+              'pointer-events-none z-50 max-w-[15rem] rounded-md border bg-solid px-2.5 py-1.5 font-mono text-[13px] leading-snug shadow-glow-nominal',
               tip.breach ? 'border-breach/50 text-breach-text' : 'border-line-em text-readout',
             )}
           >

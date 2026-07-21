@@ -160,7 +160,7 @@
   --reading-line: 1.6;
   --reading-color: var(--text); /* ink-300 · 8.7:1 base */
   --reading-color-hi: var(--text-hi); /* ink-100 · 13.7:1 base */
-  --reading-body: 17px; /* editorial target (16px is the AA floor, not the goal) */
+  --reading-body: 18px; /* editorial target (16px is the AA floor, not the goal) */
   --reading-lead: 18px; /* lead paragraph / subhead */
   --reading-h3: 20px;
   --reading-h2: 28px;
@@ -178,8 +178,8 @@
   --instrument-color: var(--text-muted); /* ink-500 · 5.7:1 base / 5.1:1 panel */
   --instrument-color-faint: var(--text-faint); /* ink-700 · 5.3:1 base / 4.8:1 panel */
   --instrument-readout: var(--text-readout); /* cyan-100 mono values */
-  --instrument-label: 12px; /* labels, chips, metadata, provenance (floor) */
-  --instrument-base: 13px; /* readouts */
+  --instrument-label: 13px; /* labels, chips, metadata, provenance (floor) */
+  --instrument-base: 14px; /* readouts */
 
   /* Display — the THIRD role. Data values that ARE the visual focus: the number
    * is the thing being read, not chrome around it. Leaderboard cell values + the

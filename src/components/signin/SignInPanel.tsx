@@ -122,10 +122,10 @@ export function SignInPanel() {
           Auth is Phase 8), so the screen is labelled a preview rather than
           asserting a send that never happens. */}
       <div className="mt-4 flex items-center gap-2.5 rounded-md border border-line-em bg-nominal/5 px-3 py-2.5">
-        <span className="shrink-0 rounded border border-line-em px-1.5 py-0.5 font-mono text-[12px] uppercase tracking-[0.12em] text-nominal">
+        <span className="shrink-0 rounded border border-line-em px-1.5 py-0.5 font-mono text-[13px] uppercase tracking-[0.12em] text-nominal">
           Preview
         </span>
-        <span className="reading text-[14px] text-ink-muted">
+        <span className="reading text-[15px] text-ink-muted">
           Sign-in wiring ships with the hosted release; no email is sent yet.
         </span>
       </div>
@@ -140,7 +140,7 @@ export function SignInPanel() {
         <div className="flex flex-col gap-2">
           <label
             htmlFor={emailId}
-            className="font-mono text-[12px] uppercase tracking-[0.12em] text-ink-faint"
+            className="font-mono text-[13px] uppercase tracking-[0.12em] text-ink-faint"
           >
             Email
           </label>
@@ -154,7 +154,7 @@ export function SignInPanel() {
             aria-describedby={helpId}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-md border border-line bg-base px-3 py-3 font-mono text-[13px] text-readout placeholder:text-ink-faint focus-visible:border-nominal"
+            className="w-full rounded-md border border-line bg-base px-3 py-3 font-mono text-[14px] text-readout placeholder:text-ink-faint focus-visible:border-nominal"
           />
         </div>
 
@@ -174,7 +174,7 @@ export function SignInPanel() {
 
       <div className="my-5 flex items-center gap-3" aria-hidden="true">
         <span className="h-px flex-1 bg-line" />
-        <span className="font-mono text-[12px] uppercase tracking-[0.14em] text-ink-faint">
+        <span className="font-mono text-[13px] uppercase tracking-[0.14em] text-ink-faint">
           Or continue with
         </span>
         <span className="h-px flex-1 bg-line" />
@@ -204,7 +204,7 @@ export function SignInPanel() {
       </div>
 
       {/* The copy promises the sample is open to everyone; give it a door. */}
-      <p className="reading mt-6 text-[14px] text-ink-muted">
+      <p className="reading mt-6 text-[15px] text-ink-muted">
         Just exploring?{' '}
         <Link href="/runs/sample" className="text-nominal hover:underline">
           Watch the sample run

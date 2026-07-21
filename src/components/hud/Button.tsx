@@ -19,7 +19,7 @@ const button = cva(
         destructive: 'border border-breach bg-breach/10 text-breach-text hover:bg-breach/20',
       },
       size: {
-        md: 'px-5 py-3 text-[13px]',
+        md: 'px-5 py-3 text-[14px]',
         sm: 'px-4 py-2 text-xs',
       },
     },

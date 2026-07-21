@@ -13,7 +13,7 @@ const ITEMS: { label: string; color: string }[] = [
 
 export function StepLegend() {
   return (
-    <ul className="flex flex-wrap items-center gap-x-5 gap-y-1.5 font-mono text-[12px] text-ink-muted">
+    <ul className="flex flex-wrap items-center gap-x-5 gap-y-1.5 font-mono text-[13px] text-ink-muted">
       {ITEMS.map((it) => (
         <li key={it.label} className="flex items-center gap-2">
           <span

@@ -43,3 +43,6 @@ yarn-debug.log*
 yarn-error.log*
 .DS_Store
 *.tsbuildinfo
+
+# Local design-review markups (not part of the app)
+site_revs/
