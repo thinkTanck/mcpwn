@@ -134,7 +134,7 @@ export function BootSplash() {
       )}
     >
       {/* Radar scope */}
-      <div className="relative h-[300px] w-[300px]">
+      <div className="relative aspect-square" style={{ width: 'min(90vw, 400px)' }}>
         {/* Range rings + crosshair graticule. */}
         <svg viewBox="0 0 300 300" aria-hidden="true" className="absolute inset-0 h-full w-full">
           <g fill="none" stroke="var(--line)">
@@ -174,7 +174,7 @@ export function BootSplash() {
               className="absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1"
               style={{ left: `${c.left}%`, top: `${c.top}%` }}
             >
-              <span className="relative flex h-4 w-4 items-center justify-center">
+              <span className="relative flex h-5 w-5 items-center justify-center">
                 {/* Lock bracket appears on acquisition. */}
                 <span
                   aria-hidden="true"
@@ -186,7 +186,7 @@ export function BootSplash() {
                   }}
                 />
                 <span
-                  className="h-2 w-2 rounded-full transition-all duration-200"
+                  className="h-2.5 w-2.5 rounded-full transition-all duration-200"
                   style={{
                     background: isLocked
                       ? 'var(--status-nominal)'
@@ -196,7 +196,7 @@ export function BootSplash() {
                 />
               </span>
               <span
-                className="font-mono text-[12px] tracking-[0.06em] text-nominal transition-opacity duration-200"
+                className="font-mono text-[14px] tracking-[0.06em] text-nominal transition-opacity duration-200"
                 style={{ opacity: isLocked ? 1 : 0 }}
               >
                 {c.code}
@@ -207,9 +207,9 @@ export function BootSplash() {
       </div>
 
       {/* Readout */}
-      <div className="mt-7 flex flex-col items-center gap-2 text-center font-mono">
+      <div className="mt-8 flex flex-col items-center gap-2.5 text-center font-mono">
         <div className="micro-label text-ink-faint">Target lock · Core-7</div>
-        <div className="text-[13px] tracking-[0.12em]">
+        <div className="text-[15px] tracking-[0.14em]">
           {online ? (
             <span className="text-readout">SYSTEM ONLINE</span>
           ) : (
