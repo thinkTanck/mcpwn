@@ -13,8 +13,24 @@ import { CommandDeck } from './CommandDeck';
  * avoids the synchronous-layout cost that was delaying LCP.
  */
 export async function AppShell({ children }: { children: ReactNode }) {
-  const [headerList, fleet] = await Promise.all([headers(), getDataSource().getFleetStatus()]);
+  const headerList = await headers();
   const pathname = headerList.get('x-pathname') ?? '/';
+  // On a run screen, fetch the run server-side so the status bar can show the
+  // run-context telemetry (RUN · TARGET · DETECTOR + outcome + severity).
+  const runId = /^\/runs\/([^/]+)/.exec(pathname)?.[1];
+  const [fleet, run] = await Promise.all([
+    getDataSource().getFleetStatus(),
+    runId ? getDataSource().getRun(runId) : Promise.resolve(null),
+  ]);
+  const runContext = run
+    ? {
+        runId: run.runId,
+        model: run.model,
+        category: run.verdict.category,
+        severity: run.verdict.severity,
+        compromised: run.verdict.compromised,
+      }
+    : undefined;
   return (
     <div className="relative min-h-dvh bg-base font-sans text-ink">
       {/* Skip link (WCAG 2.4.1) — first focusable element, so a keyboard user can
@@ -26,7 +42,7 @@ export async function AppShell({ children }: { children: ReactNode }) {
         Skip to content
       </a>
       <Graticule />
-      <StatusBar pathname={pathname} fleet={fleet} />
+      <StatusBar pathname={pathname} fleet={fleet} runContext={runContext} />
       <div className="flex min-h-[calc(100dvh-62px)]">
         <CommandDeck pathname={pathname} fleet={fleet} />
         <main

@@ -4,23 +4,35 @@ import { ModeBadge, type Mode } from './ModeBadge';
 import { MobileDrawer } from './MobileDrawer';
 import type { FleetStatus } from '@/data/source';
 
+/** Run-context telemetry shown in the status bar on a run screen. */
+export type RunContext = {
+  runId: string;
+  model: string;
+  category: string;
+  severity: string;
+  compromised: boolean;
+};
+
 /**
  * Top status bar (banner). Server-rendered — the mobile drawer is a native
  * popover, so the shell ships no client JS. Dominant MCPwn lockup + a one-line
- * condensing meta (truncates rather than wraps). A `meta` slot lets run screens
- * inject the RUN · TARGET · DETECTOR context later.
+ * condensing meta. On a run screen it also carries the RUN · TARGET · DETECTOR
+ * context and the outcome + severity (desktop only, so it never wraps).
  */
 export function StatusBar({
   pathname,
   fleet,
   mode = 'sample',
   meta = 'SENTINEL FIELDS',
+  runContext,
 }: {
   pathname: string;
   fleet: FleetStatus;
   mode?: Mode;
   meta?: ReactNode;
+  runContext?: RunContext;
 }) {
+  const sevBreach = runContext ? /^(critical|high)$/i.test(runContext.severity) : false;
   return (
     <header className="sticky top-0 z-[45] flex h-[62px] shrink-0 items-center gap-4 border-b border-line bg-gradient-to-b from-[var(--scrim-header-top)] to-[var(--scrim-header-bottom)] px-[18px] backdrop-blur-[6px]">
       <MobileDrawer pathname={pathname} fleet={fleet} />
@@ -53,10 +65,51 @@ export function StatusBar({
         </span>
       </Link>
       <div className="hidden h-[26px] w-px shrink-0 bg-line min-[760px]:block" />
-      <div className="hidden min-w-0 flex-1 truncate font-mono text-[12.5px] tracking-[0.1em] text-ink-faint min-[760px]:block">
+      <div className="hidden shrink-0 font-mono text-[12.5px] tracking-[0.1em] text-ink-faint min-[760px]:block">
         {meta}
       </div>
-      <div className="flex-1 min-[760px]:hidden" />
+
+      {runContext && (
+        <>
+          <div className="hidden h-[26px] w-px shrink-0 bg-line min-[1100px]:block" />
+          <div className="hidden min-w-0 truncate font-mono text-[12.5px] tracking-[0.06em] text-ink-muted min-[1100px]:block">
+            RUN <span className="text-readout">{runContext.runId}</span>
+            <span aria-hidden="true"> · </span>TARGET{' '}
+            <span className="text-readout">{runContext.model}</span>
+            <span aria-hidden="true"> · </span>DETECTOR <span className="text-nominal">BLIND</span>
+          </div>
+        </>
+      )}
+
+      <div className="flex-1" />
+
+      {runContext && (
+        <div className="hidden items-center gap-3 min-[1100px]:flex">
+          <span
+            className={
+              'inline-flex items-center gap-2 rounded-full border px-2.5 py-1 font-mono text-[12px] tracking-[0.12em] ' +
+              (runContext.compromised
+                ? 'border-breach/40 text-breach-text shadow-glow-breach'
+                : 'border-nominal/40 text-nominal shadow-glow-nominal')
+            }
+          >
+            <span
+              aria-hidden="true"
+              className={
+                'h-1.5 w-1.5 rotate-45 ' + (runContext.compromised ? 'bg-breach' : 'bg-nominal')
+              }
+            />
+            {runContext.compromised ? 'BREACH' : 'CLEAR'}
+          </span>
+          <span className="whitespace-nowrap font-mono text-[12.5px] tracking-[0.06em] text-ink-faint">
+            {runContext.category} · SEV{' '}
+            <span className={sevBreach ? 'text-breach-text' : 'text-caution'}>
+              {runContext.severity.toUpperCase()}
+            </span>
+          </span>
+        </div>
+      )}
+
       <ModeBadge mode={mode} />
     </header>
   );

@@ -88,7 +88,7 @@ export const NAV_ITEMS: NavItem[] = [
     ),
   },
   {
-    label: 'Threats',
+    label: 'Threat Model',
     href: '/threats',
     matchPrefix: '/threats',
     available: true,

@@ -1,36 +1,51 @@
 'use client';
 
+import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { cn } from '@/lib/utils';
 import type { Step } from '@/contract';
-import { stepMeta, type NodeBand } from './step-meta';
+import { stepMeta, stepSummary } from './step-meta';
+import { ReplayCore } from './ReplayCore';
 
 /**
- * The orbital replay stage: 13 typed nodes placed AROUND a ring (by trig, so they
- * never collide into a caption smear the way a flat row did), a sweep line that
- * rotates to the active step, tilted depth rings that imply a 3D core, and a
- * centred STEP numeral. This is the Sentinel v2 hero: a clock-face, enlarged.
+ * The orbital replay stage: a tri-state particle core (ReplayCore) at the centre,
+ * 13 typed nodes placed AROUND a ring by trig (so numbers never collide), a sweep
+ * line that rotates to the active step, and a centred STEP numeral over the core.
+ * This is the Sentinel v2 hero.
  *
- * Accessibility: the nodes are a real <ol> of labelled <button>s with aria-current
- * on the active one and the compromise node badged — a blind reader operates the
- * same control the sweep visualises. No WebGL; SVG + CSS transforms only.
+ * Node colour follows the design's per-type map, expressed in DTCG tokens:
+ * attacker → ink, agent → ink-muted, tool → nominal, memory → line-emphasis,
+ * complete → caution, breach → breach. The core carries the same tri-state by
+ * latitude (cyan body / amber band / red cap).
+ *
+ * Accessibility: the nodes are a real <ol> of labelled <button>s (aria-current on
+ * the active one, the compromise node badged) — the operable control a blind
+ * reader always has. SVG + 2D canvas + CSS transforms only; no WebGL.
  */
 
-const R = 44; // node-ring radius as a % of the plate (matches the design)
+const R = 44; // node-ring radius as a % of the plate
 
-function bandColor(band: NodeBand, breach: boolean): string {
+function nodeColor(type: Step['type'], breach: boolean): string {
   if (breach) return 'var(--status-breach)';
-  if (band === 'nominal') return 'var(--status-nominal)';
-  if (band === 'caution') return 'var(--status-caution)';
-  return 'var(--ink-muted)';
+  switch (type) {
+    case 'attacker':
+      return 'var(--text)';
+    case 'agent_reasoning':
+      return 'var(--text-muted)';
+    case 'tool_call':
+    case 'tool_result':
+      return 'var(--status-nominal)';
+    case 'memory_read':
+    case 'memory_write':
+      return 'var(--line-emphasis)';
+    case 'task_complete':
+      return 'var(--status-caution)';
+    default:
+      return 'var(--text-muted)';
+  }
 }
-function bandGlow(band: NodeBand, breach: boolean): string {
-  // Route through the DTCG glow tokens (same pipeline as every other surface),
-  // not raw rgba — so a theme swap reaches the orbital too.
-  if (breach) return 'var(--glow-breach)';
-  if (band === 'nominal') return 'var(--glow-nominal)';
-  if (band === 'caution') return 'var(--glow-caution)';
-  return 'none';
-}
+
+type Tip = { x: number; y: number; text: string; breach: boolean };
 
 export function OrbitalStage({
   steps,
@@ -43,6 +58,7 @@ export function OrbitalStage({
   compromiseIndex: number;
   onSelect: (index: number) => void;
 }) {
+  const [tip, setTip] = useState<Tip | null>(null);
   const total = steps.length;
   const active = steps[current]!;
   const activeMeta = stepMeta(active.type);
@@ -59,8 +75,23 @@ export function OrbitalStage({
       : 'color-mix(in srgb, var(--status-nominal) 42%, transparent)';
   const sweepDeg = (current / total) * 360 - 180;
 
+  const showTip = (el: HTMLElement, i: number, breach: boolean) => {
+    const r = el.getBoundingClientRect();
+    setTip({
+      x: r.left + r.width / 2,
+      y: r.top,
+      text: `${String(i + 1).padStart(2, '0')} · ${stepSummary(steps[i]!)}`,
+      breach,
+    });
+  };
+
   return (
-    <div className="relative mx-auto aspect-square" style={{ width: 'min(100%, 460px, 54vh)' }}>
+    <div className="relative mx-auto aspect-square" style={{ width: 'min(100%, 480px, 56vh)' }}>
+      {/* Particle core — the luminous centre, behind the numeral. */}
+      <div className="pointer-events-none absolute inset-[22%]">
+        <ReplayCore className="h-full w-full" />
+      </div>
+
       {/* Outer ring — hairline + dashed cyan graticule ticks. */}
       <svg viewBox="0 0 560 560" className="pointer-events-none absolute inset-0 h-full w-full">
         <circle cx="280" cy="280" r="248" fill="none" stroke="var(--line)" strokeWidth="1" />
@@ -74,53 +105,9 @@ export function OrbitalStage({
           strokeDasharray="1 9"
           opacity="0.7"
         />
-        {/* Tilted depth rings imply a 3D core. */}
-        <ellipse
-          cx="280"
-          cy="280"
-          rx="150"
-          ry="204"
-          transform="rotate(-14 280 280)"
-          fill="none"
-          stroke="var(--line-emphasis)"
-          strokeWidth="1"
-          opacity="0.28"
-        />
-        <ellipse
-          cx="280"
-          cy="280"
-          rx="118"
-          ry="196"
-          transform="rotate(62 280 280)"
-          fill="none"
-          stroke="var(--line-emphasis)"
-          strokeWidth="1"
-          opacity="0.2"
-        />
-        <ellipse
-          cx="280"
-          cy="280"
-          rx="204"
-          ry="80"
-          transform="rotate(18 280 280)"
-          fill="none"
-          stroke="var(--line-emphasis)"
-          strokeWidth="1"
-          opacity="0.22"
-        />
       </svg>
 
-      {/* Soft core glow behind the numeral. */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-[26%] rounded-full"
-        style={{
-          background:
-            'radial-gradient(closest-side, color-mix(in srgb, var(--cyan-700) 22%, transparent), transparent 72%)',
-        }}
-      />
-
-      {/* Sweep line — rotates to the active step (position, not evidence). */}
+      {/* Sweep line — rotates to the active step. */}
       <div
         aria-hidden="true"
         className="pointer-events-none absolute left-1/2 top-1/2 origin-top transition-transform duration-300 ease-out motion-reduce:transition-none"
@@ -144,9 +131,8 @@ export function OrbitalStage({
           const left = 50 + R * Math.cos(a);
           const top = 50 + R * Math.sin(a);
           const size = breach ? 16 : 11;
-          const dotBg = reached
-            ? bandColor(meta.band, breach)
-            : 'color-mix(in srgb, var(--ink-muted) 32%, transparent)';
+          const col = nodeColor(step.type, breach);
+          const dotBg = reached ? col : 'color-mix(in srgb, var(--ink-muted) 32%, transparent)';
           return (
             <li key={step.id}>
               <button
@@ -154,6 +140,10 @@ export function OrbitalStage({
                 aria-current={activeNode ? 'step' : undefined}
                 aria-label={`Step ${i + 1}: ${meta.label}${breach ? ', compromise step' : ''}`}
                 onClick={() => onSelect(i)}
+                onMouseEnter={(e) => showTip(e.currentTarget, i, breach)}
+                onFocus={(e) => showTip(e.currentTarget, i, breach)}
+                onMouseLeave={() => setTip(null)}
+                onBlur={() => setTip(null)}
                 className="absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1.5 rounded-md p-1"
                 style={{ left: `${left}%`, top: `${top}%` }}
               >
@@ -166,7 +156,9 @@ export function OrbitalStage({
                     width: `${size}px`,
                     height: `${size}px`,
                     background: dotBg,
-                    boxShadow: reached ? bandGlow(meta.band, breach) : 'none',
+                    boxShadow: reached
+                      ? `0 0 10px color-mix(in srgb, ${col} 55%, transparent)`
+                      : 'none',
                     border: activeNode ? '2px solid var(--text-readout)' : '2px solid transparent',
                   }}
                 />
@@ -188,12 +180,12 @@ export function OrbitalStage({
         })}
       </ol>
 
-      {/* Centre — STEP / numeral / head, in a dark radial pill. */}
+      {/* Centre — STEP / numeral / head, in a dark radial pill over the core. */}
       <div
         className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full px-9 py-6 text-center"
         style={{
           background:
-            'radial-gradient(closest-side, color-mix(in srgb, var(--surface-base) 88%, transparent) 40%, transparent)',
+            'radial-gradient(closest-side, color-mix(in srgb, var(--surface-base) 82%, transparent) 45%, transparent)',
         }}
       >
         <div className="font-mono text-[12px] tracking-[0.18em] text-ink-muted">STEP</div>
@@ -215,6 +207,27 @@ export function OrbitalStage({
           {activeBreach ? `${activeMeta.tag} · BREACH` : activeMeta.label}
         </div>
       </div>
+
+      {tip &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            role="tooltip"
+            style={{
+              position: 'fixed',
+              left: tip.x,
+              top: tip.y - 10,
+              transform: 'translate(-50%, -100%)',
+            }}
+            className={cn(
+              'pointer-events-none z-50 max-w-[15rem] rounded-md border bg-solid px-2.5 py-1.5 font-mono text-[12px] leading-snug shadow-glow-nominal',
+              tip.breach ? 'border-breach/50 text-breach-text' : 'border-line-em text-readout',
+            )}
+          >
+            {tip.text}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
