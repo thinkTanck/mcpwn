@@ -2,11 +2,11 @@ import { act, render, screen, within } from '@testing-library/react';
 import { BootSplash } from '@/components/splash/BootSplash';
 
 /**
- * Boot splash. In jsdom there is no WebGL and no matchMedia desktop match, so the
- * splash takes the resolved-end-frame path (no r3f). These assertions pin the
- * load-bearing contract: it is absent until the idle kick fires (so Home paints
- * first), it shows the Core-7 readout (corrected from the old Core-5), and it
- * never shows on a repeat visit.
+ * Boot splash — radar target-lock. In jsdom there is no matchMedia desktop match,
+ * so the sequence runs on fake timers. These assertions pin the load-bearing
+ * contract: it is absent until the idle kick fires (so Home paints first), it
+ * acquires the Core-7 signatures and resolves to SYSTEM ONLINE, and it never shows
+ * on a repeat visit.
  */
 beforeEach(() => {
   vi.useFakeTimers();
@@ -21,7 +21,7 @@ afterEach(() => {
 });
 
 describe('BootSplash', () => {
-  it('is absent on first render (Home paints under), then shows the Core-7 readout', () => {
+  it('is absent on first render (Home paints under), then acquires the Core-7 and reaches SYSTEM ONLINE', () => {
     render(<BootSplash />);
     // Absent until the idle kick — Home is never blocked.
     expect(screen.queryByRole('status', { name: /booting/i })).toBeNull();
@@ -31,13 +31,19 @@ describe('BootSplash', () => {
     });
 
     const status = screen.getByRole('status', { name: /mcpwn booting/i });
-    expect(within(status).getByText('SENTINEL FIELDS')).toBeInTheDocument();
-    expect(within(status).getByText('CORE-7 SIGNATURES')).toBeInTheDocument();
-    expect(within(status).getByText('ASI01 · 02 · 03 · 04 · 05 · 06 · 10')).toBeInTheDocument();
-    expect(within(status).getByText('MEASURED · LEAKAGE-SEPARATED')).toBeInTheDocument();
-    expect(within(status).getByText('SYSTEM ONLINE')).toBeInTheDocument();
+    // The radar names the Core-7 as the acquisition targets.
+    expect(within(status).getByText(/signatures acquired/i)).toBeInTheDocument();
+    expect(within(status).getByText('ASI01')).toBeInTheDocument();
+    expect(within(status).getByText('ASI06')).toBeInTheDocument();
+    expect(within(status).getByText('ASI10')).toBeInTheDocument();
     // No stale Core-5 label.
     expect(screen.queryByText(/CORE-5/i)).toBeNull();
+
+    // Drive the sweep through all seven locks to the resolved state.
+    act(() => {
+      vi.advanceTimersByTime(3200);
+    });
+    expect(within(status).getByText(/system online/i)).toBeInTheDocument();
   });
 
   it('never shows on a repeat visit (persisted first-visit flag)', () => {

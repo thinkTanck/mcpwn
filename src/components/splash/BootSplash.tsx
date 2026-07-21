@@ -6,34 +6,43 @@ import { usePrefersReducedMotion } from '@/lib/hud/reduced-motion';
 
 const SEEN_KEY = 'mcpwn.boot.v1.seen';
 
-// The five-line boot readout (Core-7).
-const LINES: { label: string; value?: string }[] = [
-  { label: 'SENTINEL FIELDS' },
-  { label: 'DETECTOR', value: 'BLIND · LOCKED' },
-  { label: 'CORE-7 SIGNATURES', value: 'ASI01 · 02 · 03 · 04 · 05 · 06 · 10' },
-  { label: 'CALIBRATION', value: 'MEASURED · LEAKAGE-SEPARATED' },
-  { label: 'SYSTEM ONLINE' },
-];
+/**
+ * The Core-7 signatures as radar contacts. Angles (deg from top, clockwise) +
+ * radius (% of the scope) scatter them but keep the field balanced; index order
+ * follows the sweep so they lock in sequence as it passes. Deterministic (no
+ * random), so it is stable across renders.
+ */
+const CONTACTS = [
+  { code: 'ASI01', ang: 22, r: 33 },
+  { code: 'ASI02', ang: 68, r: 21 },
+  { code: 'ASI03', ang: 118, r: 37 },
+  { code: 'ASI04', ang: 162, r: 27 },
+  { code: 'ASI05', ang: 208, r: 18 },
+  { code: 'ASI06', ang: 262, r: 35 },
+  { code: 'ASI10', ang: 314, r: 25 },
+].map((c) => {
+  const a = ((c.ang - 90) * Math.PI) / 180;
+  return { ...c, left: 50 + c.r * Math.cos(a), top: 50 + c.r * Math.sin(a) };
+});
+const N = CONTACTS.length;
 
-type Stage = 'field' | 'reticle' | 'readout' | 'online' | 'gone';
+type Stage = 'sweep' | 'online' | 'gone';
 
 /**
- * First-visit boot splash. A fade-OVER reveal, not a gate: it mounts only after
- * hydration (absent from SSR) so Home paints underneath and LCP is never blocked.
- * ~4s, completion-paced: cold field → the wireframe core assembles and idles →
- * the reticle draws closed → the five-line readout resolves → SYSTEM ONLINE +
- * hold → the overlay eases away to Home. Skippable (SKIP / click / any key).
- * `prefers-reduced-motion` jumps straight to the resolved end frame and fades
- * fast. CYAN ONLY — a boot screen is nominal. Shown once, then persisted.
- *
- * The core is SVG + CSS only (no WebGL): a wireframe sentinel that scales/fades up
- * and idle-spins, so the splash carries no 3D dependency.
+ * First-visit boot splash — a radar target-lock. A fade-OVER reveal, not a gate:
+ * it mounts only after hydration (absent from SSR) so Home paints underneath and
+ * LCP is never blocked. A sweep rotates the scope and ACQUIRES the Core-7
+ * signatures one by one (each contact locks with a bracket + code), the readout
+ * counts up to 7/7, then SYSTEM ONLINE + hold -> the overlay eases away to Home.
+ * Skippable (SKIP / any key / click). `prefers-reduced-motion` jumps to the
+ * all-locked end frame and fades fast. CYAN ONLY — a boot screen is nominal.
+ * Shown once, then persisted. SVG + CSS only, no WebGL.
  */
 export function BootSplash() {
   const reduced = usePrefersReducedMotion();
-  const [active, setActive] = useState(false); // decided on the client (first-visit)
-  const [stage, setStage] = useState<Stage>('field');
-  const [lines, setLines] = useState(0);
+  const [active, setActive] = useState(false);
+  const [locked, setLocked] = useState(0); // contacts acquired so far
+  const [stage, setStage] = useState<Stage>('sweep');
   const [fading, setFading] = useState(false);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const doneRef = useRef(false);
@@ -46,7 +55,7 @@ export function BootSplash() {
     try {
       localStorage.setItem(SEEN_KEY, '1');
     } catch {
-      /* storage blocked → still dismiss for this session */
+      /* storage blocked -> still dismiss for this session */
     }
     setTimeout(() => setStage('gone'), 420);
   };
@@ -58,27 +67,21 @@ export function BootSplash() {
     } catch {
       seen = false;
     }
-    if (seen) return; // not first visit → never shows, Home is untouched
+    if (seen) return; // not first visit -> never shows, Home is untouched
     const list = timers.current;
     const push = (fn: () => void, ms: number) => list.push(setTimeout(fn, ms));
 
-    // Kick when the browser is IDLE (after Home's critical render + LCP), so the
-    // fade-over never competes with first paint.
+    // Kick when the browser is IDLE (after Home's critical render + LCP).
     const kick = () => {
       setActive(true);
       if (reduced) {
+        setLocked(N);
         setStage('online');
-        setLines(LINES.length);
         push(finish, 900);
       } else {
-        push(() => setStage('reticle'), 1150);
-        push(() => setStage('readout'), 1850);
-        [0, 1, 2, 3].forEach((n, k) => push(() => setLines(n + 1), 1950 + k * 260));
-        push(() => {
-          setStage('online');
-          setLines(LINES.length);
-        }, 3150);
-        push(finish, 4050);
+        CONTACTS.forEach((_, i) => push(() => setLocked(i + 1), 700 + i * 240));
+        push(() => setStage('online'), 700 + N * 240 + 140);
+        push(finish, 700 + N * 240 + 800);
       }
     };
     let idle = 0;
@@ -93,144 +96,136 @@ export function BootSplash() {
     };
   }, [reduced]);
 
-  // Skip on any key or click while the splash is up. Keydown is immediate; the
-  // click-anywhere skip is armed ~600ms later so an accidental early tap does not
-  // cut the intro before the trust lines land (the SKIP button is always live).
-  // A Tab press also dismisses, so focus can never wander to Home behind the
-  // overlay — no separate focus trap is needed for this transient screen.
+  // Skip on any key or click. Keydown + SKIP are immediate; the click-anywhere
+  // skip is armed ~600ms in so a stray early tap does not cut the intro. A Tab
+  // press also dismisses, so focus can never wander to Home behind the overlay.
   useEffect(() => {
     if (!active || stage === 'gone') return;
     const skip = () => finish();
     window.addEventListener('keydown', skip);
-    const arm = setTimeout(() => window.addEventListener('pointerdown', skip), 600);
+    // A deliberate tap or scroll means "let me read Home now" — armed ~600ms in so
+    // a stray early gesture does not cut the intro.
+    const arm = setTimeout(() => {
+      window.addEventListener('pointerdown', skip);
+      window.addEventListener('wheel', skip, { passive: true });
+      window.addEventListener('touchmove', skip, { passive: true });
+    }, 600);
     return () => {
       clearTimeout(arm);
       window.removeEventListener('keydown', skip);
       window.removeEventListener('pointerdown', skip);
+      window.removeEventListener('wheel', skip);
+      window.removeEventListener('touchmove', skip);
     };
   }, [active, stage]);
 
   if (!active || stage === 'gone') return null;
 
-  const reticleClosed = stage === 'reticle' || stage === 'readout' || stage === 'online';
   const online = stage === 'online';
 
   return (
     <div
       role="status"
       aria-label="MCPwn booting"
+      aria-live="off"
       className={cn(
         'fixed inset-0 z-[100] flex flex-col items-center justify-center bg-base transition-opacity duration-[400ms] ease-out',
         fading ? 'opacity-0' : 'opacity-100 motion-safe:animate-[splash-in_320ms_ease-out]',
       )}
     >
-      {/* Core + reticle */}
-      <div className="relative h-[240px] w-[240px]">
-        {/* Wireframe sentinel core — assembles (scale/fade) then idle-spins. */}
-        <div
-          className={cn(
-            'absolute inset-0 flex items-center justify-center',
-            !reduced && 'motion-safe:animate-[boot-assemble_1000ms_cubic-bezier(.2,0,0,1)_both]',
-          )}
-        >
-          <svg
-            viewBox="0 0 240 240"
+      {/* Radar scope */}
+      <div className="relative h-[300px] w-[300px]">
+        {/* Range rings + crosshair graticule. */}
+        <svg viewBox="0 0 300 300" aria-hidden="true" className="absolute inset-0 h-full w-full">
+          <g fill="none" stroke="var(--line)">
+            <circle cx="150" cy="150" r="146" />
+            <circle cx="150" cy="150" r="106" stroke="var(--line-emphasis)" opacity="0.5" />
+            <circle cx="150" cy="150" r="66" stroke="var(--line-emphasis)" opacity="0.4" />
+            <circle cx="150" cy="150" r="26" stroke="var(--line-emphasis)" opacity="0.35" />
+            <line x1="4" y1="150" x2="296" y2="150" stroke="var(--line-emphasis)" opacity="0.25" />
+            <line x1="150" y1="4" x2="150" y2="296" stroke="var(--line-emphasis)" opacity="0.25" />
+          </g>
+          <circle cx="150" cy="150" r="2.4" fill="var(--status-nominal)" />
+        </svg>
+
+        {/* Rotating sweep wedge — clipped to the scope circle. */}
+        <div className="absolute inset-0 overflow-hidden rounded-full">
+          <div
             aria-hidden="true"
             className={cn(
-              'h-[150px] w-[150px]',
-              !reduced && 'motion-safe:animate-[spin_18s_linear_infinite]',
+              'absolute inset-0 rounded-full',
+              !reduced && 'motion-safe:animate-[spin_2400ms_linear_infinite]',
             )}
-          >
-            <g fill="none" stroke="var(--status-nominal)">
-              <circle cx="120" cy="120" r="60" strokeWidth="1" opacity="0.45" />
-              <circle cx="120" cy="120" r="38" strokeWidth="1" opacity="0.8" />
-              <path d="M120 60l52 30v60l-52 30-52-30V90z" strokeWidth="1" opacity="0.6" />
-              <path
-                d="M68 90l52 30 52-30 M120 120v60"
-                strokeWidth="0.8"
-                opacity="0.3"
-                strokeLinejoin="round"
-              />
-            </g>
-            <circle cx="120" cy="120" r="3.2" fill="var(--status-nominal)" />
-          </svg>
+            style={{
+              background:
+                'conic-gradient(from -6deg, color-mix(in srgb, var(--status-nominal) 26%, transparent), transparent 48deg)',
+              opacity: online ? 0.35 : 0.7,
+              transition: 'opacity 400ms ease-out',
+            }}
+          />
         </div>
 
-        {/* Reticle draws closed. */}
-        <svg
-          viewBox="0 0 240 240"
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 h-full w-full"
-        >
-          <circle
-            cx="120"
-            cy="120"
-            r="104"
-            fill="none"
-            stroke="var(--status-nominal)"
-            strokeWidth="1.2"
-            strokeDasharray="653"
-            strokeDashoffset={reticleClosed ? 0 : 653}
-            style={{ transition: 'stroke-dashoffset 700ms ease-out', opacity: 0.7 }}
-            transform="rotate(-90 120 120)"
-          />
-          {[0, 90, 180, 270].map((deg) => (
-            <line
-              key={deg}
-              x1="120"
-              y1="12"
-              x2="120"
-              y2="26"
-              stroke="var(--status-nominal)"
-              strokeWidth="1.2"
-              opacity={reticleClosed ? 0.8 : 0}
-              style={{ transition: 'opacity 500ms ease-out' }}
-              transform={`rotate(${deg} 120 120)`}
-            />
-          ))}
-        </svg>
-      </div>
-
-      {/* Five-line readout */}
-      <dl className="mt-8 w-full max-w-[440px] px-6 font-mono text-[13px] leading-relaxed text-nominal">
-        {LINES.map((ln, i) => {
-          const shown = i < lines || (online && i === LINES.length - 1);
-          const isTitle = i === 0;
-          const isOnline = i === LINES.length - 1;
+        {/* Contacts — lock in sequence as the sweep passes. */}
+        {CONTACTS.map((c, i) => {
+          const isLocked = i < locked;
           return (
             <div
-              key={ln.label}
-              className={cn(
-                'flex flex-col gap-0.5 transition-opacity duration-300 sm:flex-row sm:items-baseline sm:gap-2',
-                shown ? 'opacity-100' : 'opacity-0',
-              )}
+              key={c.code}
+              className="absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1"
+              style={{ left: `${c.left}%`, top: `${c.top}%` }}
             >
-              <dt
-                className={
-                  isTitle || isOnline
-                    ? 'tracking-[0.18em] text-readout'
-                    : 'shrink-0 tracking-[0.08em] text-ink-faint'
-                }
+              <span className="relative flex h-4 w-4 items-center justify-center">
+                {/* Lock bracket appears on acquisition. */}
+                <span
+                  aria-hidden="true"
+                  className="absolute inset-0 rounded-[3px] border transition-all duration-200"
+                  style={{
+                    borderColor: isLocked ? 'var(--status-nominal)' : 'transparent',
+                    transform: isLocked ? 'scale(1)' : 'scale(1.6)',
+                    opacity: isLocked ? 0.9 : 0,
+                  }}
+                />
+                <span
+                  className="h-2 w-2 rounded-full transition-all duration-200"
+                  style={{
+                    background: isLocked
+                      ? 'var(--status-nominal)'
+                      : 'color-mix(in srgb, var(--status-nominal) 28%, transparent)',
+                    boxShadow: isLocked ? 'var(--glow-nominal)' : 'none',
+                  }}
+                />
+              </span>
+              <span
+                className="font-mono text-[12px] tracking-[0.06em] text-nominal transition-opacity duration-200"
+                style={{ opacity: isLocked ? 1 : 0 }}
               >
-                {ln.label}
-              </dt>
-              {ln.value && (
-                <>
-                  {/* Dot leader: desktop only (stacks on mobile so the value never
-                      clips), and ink-faint so it clears AA even as pure decoration. */}
-                  <span
-                    aria-hidden="true"
-                    className="hidden min-w-0 flex-1 truncate text-ink-faint sm:block"
-                  >
-                    ································································
-                  </span>
-                  <dd className="text-readout sm:shrink-0">{ln.value}</dd>
-                </>
-              )}
+                {c.code}
+              </span>
             </div>
           );
         })}
-      </dl>
+      </div>
+
+      {/* Readout */}
+      <div className="mt-7 flex flex-col items-center gap-2 text-center font-mono">
+        <div className="micro-label text-ink-faint">Target lock · Core-7</div>
+        <div className="text-[13px] tracking-[0.12em]">
+          {online ? (
+            <span className="text-readout">SYSTEM ONLINE</span>
+          ) : (
+            <>
+              <span className="tabular-nums text-readout">{locked}</span>
+              <span className="text-ink-faint"> / {N} SIGNATURES ACQUIRED</span>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* One terminal SR announcement — the overlay's aria-live is off so the
+          per-lock count does not churn a polite live region; only the end lands. */}
+      <span className="sr-only" aria-live="polite">
+        {online ? 'MCPwn ready. Core-7 signatures locked.' : ''}
+      </span>
 
       <button
         type="button"
