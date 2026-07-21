@@ -42,10 +42,14 @@ describe('Replay — transport', () => {
     const run = await sampleRun();
     render(<Replay run={run} />);
     expect(screen.getByRole('button', { name: /^Play$/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /restart/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /previous step/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /next step/i })).toBeInTheDocument();
     expect(screen.getByRole('slider', { name: /scrub to step/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /playback speed/i })).toBeInTheDocument();
+    // Discrete speed buttons (0.5x / 1x / 2x / 4x) in a labelled group.
+    expect(screen.getByRole('group', { name: /playback speed/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '1×' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '4×' })).toBeInTheDocument();
   });
 });
 

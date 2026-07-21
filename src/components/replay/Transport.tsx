@@ -3,14 +3,15 @@
 import { cn } from '@/lib/utils';
 
 /**
- * Replay transport: play/pause, step back/forward, a scrub slider, and a speed
- * cycle. The STEP n / total readout reflects the playhead POSITION as it moves —
- * that is position, not an animated fact, so it may update live. The run id, step
- * total, severity, and offending-step number are static elsewhere and never tick.
+ * Replay transport: RESET, step back/forward, play/pause, discrete speed buttons
+ * (0.5× / 1× / 2× / 4×), a scrub slider, and the STEP n / total readout. The
+ * readout reflects the playhead POSITION as it moves — that is position, not an
+ * animated fact, so it may update live. Identifiers (run id, severity, offending
+ * step) are static elsewhere and never tick.
  */
 function ctrlClass(disabled?: boolean): string {
   return cn(
-    'inline-flex h-11 min-w-11 items-center justify-center gap-1.5 rounded-md border border-line px-2.5 font-mono text-[12px] text-ink transition-colors',
+    'inline-flex h-11 min-w-11 items-center justify-center gap-1.5 rounded-md border border-line px-2.5 font-mono text-[12px] tracking-[0.06em] text-ink transition-colors',
     disabled
       ? 'cursor-not-allowed opacity-40'
       : 'hover:border-line-em hover:bg-nominal/[0.06] hover:text-ink-hi',
@@ -22,24 +23,48 @@ export function Transport({
   total,
   playing,
   speed,
+  speeds,
   onPlayToggle,
   onStep,
   onScrub,
-  onSpeed,
+  onRestart,
+  onSpeedSet,
 }: {
   current: number;
   total: number;
   playing: boolean;
   speed: number;
+  speeds: number[];
   onPlayToggle: () => void;
   onStep: (delta: number) => void;
   onScrub: (index: number) => void;
-  onSpeed: () => void;
+  onRestart: () => void;
+  onSpeedSet: (value: number) => void;
 }) {
   const atStart = current <= 0;
   const atEnd = current >= total - 1;
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-lg border border-line bg-panel px-3 py-2.5">
+    <div className="flex flex-wrap items-center gap-2 rounded-lg border border-line bg-panel px-3 py-2.5">
+      <button
+        type="button"
+        onClick={onRestart}
+        disabled={atStart}
+        className={ctrlClass(atStart)}
+        aria-label="Restart"
+      >
+        <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+          <path
+            d="M6 2a4 4 0 1 1-3.8 2.8"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.4"
+            strokeLinecap="round"
+          />
+          <path d="M2 1.5V4h2.5" fill="none" stroke="currentColor" strokeWidth="1.4" />
+        </svg>
+        RESET
+      </button>
+
       <button
         type="button"
         onClick={() => onStep(-1)}
@@ -86,7 +111,29 @@ export function Transport({
         </svg>
       </button>
 
-      <label className="flex min-w-[140px] flex-1 items-center gap-2">
+      <span aria-hidden="true" className="mx-1 hidden h-6 w-px bg-line sm:block" />
+
+      {/* Speed buttons */}
+      <div className="flex items-center gap-1" role="group" aria-label="Playback speed">
+        {speeds.map((s) => (
+          <button
+            key={s}
+            type="button"
+            onClick={() => onSpeedSet(s)}
+            aria-pressed={speed === s}
+            className={cn(
+              'inline-flex h-11 min-w-11 items-center justify-center rounded-md border px-2 font-mono text-[12px] transition-colors',
+              speed === s
+                ? 'border-line-em bg-nominal/[0.08] text-readout'
+                : 'border-line text-ink-muted hover:border-line-em hover:text-ink-hi',
+            )}
+          >
+            {s}&times;
+          </button>
+        ))}
+      </div>
+
+      <label className="flex min-w-[120px] flex-1 items-center gap-2">
         <span className="sr-only">Scrub to step</span>
         <input
           type="range"
@@ -100,15 +147,6 @@ export function Transport({
           className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-line accent-[color:var(--status-nominal)]"
         />
       </label>
-
-      <button
-        type="button"
-        onClick={onSpeed}
-        className={ctrlClass()}
-        aria-label={`Playback speed ${speed}x`}
-      >
-        {speed}&times;
-      </button>
 
       <span className="font-mono text-[13px] tabular-nums text-readout" aria-live="off">
         STEP {String(current + 1).padStart(2, '0')}

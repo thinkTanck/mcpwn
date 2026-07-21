@@ -8,7 +8,14 @@ vi.mock('next/headers', () => ({
   headers: async () => ({ get: (k: string) => (k === 'x-pathname' ? '/' : null) }),
 }));
 
-const DECK_LINKS = ['Home', 'Connect / Run', 'Live Replay', 'Leaderboard', 'Findings', 'Threats'];
+const DECK_LINKS = [
+  'Home',
+  'Connect / Run',
+  'Live Replay',
+  'Leaderboard',
+  'Findings',
+  'Threat Model',
+];
 const sampleFleet: FleetStatus = {
   source: 'sample',
   nominal: 4,

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import type { RunResult } from '@/contract';
 import { OrbitalStage } from './OrbitalStage';
 import { Transport } from './Transport';
+import { StepLegend } from './StepLegend';
 import { StepDetail } from './StepDetail';
 import { VerdictRail } from './VerdictRail';
 
@@ -15,7 +16,7 @@ import { VerdictRail } from './VerdictRail';
  * panel is fixed-height, so advancing never reflows the page (no CLS). SVG + CSS
  * only — no WebGL.
  */
-const SPEEDS = [0.5, 1, 2];
+const SPEEDS = [0.5, 1, 2, 4];
 
 /** The attack narrative per Core-7 category (titles match the design reference). */
 const CATEGORY_TITLE: Record<string, string> = {
@@ -38,8 +39,7 @@ export function Replay({ run }: { run: RunResult }) {
 
   const [current, setCurrent] = useState(0);
   const [playing, setPlaying] = useState(false);
-  const [speedIdx, setSpeedIdx] = useState(1);
-  const speed = SPEEDS[speedIdx]!;
+  const [speed, setSpeed] = useState(1);
 
   const atEnd = current >= total - 1;
 
@@ -68,6 +68,10 @@ export function Replay({ run }: { run: RunResult }) {
   const scrubTo = (i: number) => {
     setPlaying(false);
     setCurrent(Math.max(0, Math.min(total - 1, i)));
+  };
+  const restart = () => {
+    setPlaying(false);
+    setCurrent(0);
   };
 
   const title = CATEGORY_TITLE[run.category] ?? 'Attack replay';
@@ -102,17 +106,20 @@ export function Replay({ run }: { run: RunResult }) {
           />
         </div>
 
-        <div className="border-y border-line px-6 py-4 lg:col-start-1 lg:row-start-2 lg:px-8">
+        <div className="flex flex-col gap-3 border-y border-line px-6 py-4 lg:col-start-1 lg:row-start-2 lg:px-8">
           <Transport
             current={current}
             total={total}
             playing={playing && !atEnd}
             speed={speed}
+            speeds={SPEEDS}
             onPlayToggle={playToggle}
             onStep={stepBy}
             onScrub={scrubTo}
-            onSpeed={() => setSpeedIdx((i) => (i + 1) % SPEEDS.length)}
+            onRestart={restart}
+            onSpeedSet={setSpeed}
           />
+          <StepLegend />
         </div>
 
         <div className="min-h-0 px-6 py-5 lg:col-start-1 lg:row-start-3 lg:overflow-y-auto lg:px-8">
