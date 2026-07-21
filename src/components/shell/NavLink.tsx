@@ -1,11 +1,18 @@
+'use client';
+
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { isActive, type NavItem } from './nav-items';
 
 /**
- * A single command-deck link with the active glow-bar + aria-current. A pure
- * Server Component — `pathname` is passed in (read from the request header in
- * AppShell), so no client `usePathname` is needed.
+ * A single command-deck link with the active glow-bar + aria-current. The active
+ * state follows the LIVE route via `usePathname` — the deck lives in a layout,
+ * which Next does not re-render on soft (client) navigation, so a header-passed
+ * pathname would freeze on the first-loaded route (the deck stuck highlighting
+ * Home). `usePathname` re-renders on every navigation. The `pathname` prop is the
+ * SSR seed / fallback for when no router is mounted (unit tests), so the server
+ * render and hydration still match.
  */
 export function NavLink({
   item,
@@ -16,7 +23,8 @@ export function NavLink({
   pathname: string;
   labelClassName?: string;
 }) {
-  const active = isActive(pathname, item);
+  const livePathname = usePathname();
+  const active = isActive(livePathname ?? pathname, item);
   return (
     <Link
       href={item.href}
