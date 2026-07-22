@@ -6,11 +6,11 @@ import { SAMPLE_VERDICTS } from '@/data/fixtures/sample-verdicts';
 import type { RunResult } from '@/contract';
 
 /**
- * Live Attack Replay. In jsdom there is no WebGL and no desktop media match, so
- * the orbital enhancement never mounts and these assertions exercise the RELIABLE
- * base: the operable step timeline, the transport, the fixed-height detail panel,
- * and the verdict that stays SEALED until the playhead reaches the compromise
- * step. Everything binds to the real sample RunResult, never a literal.
+ * Live Attack Replay. These assertions exercise the RELIABLE base of the signal-
+ * trace lane: the operable step timeline (a real <ol> of typed <button>s), the
+ * transport, the fixed-height detail panel, and the verdict that stays SEALED
+ * until the playhead reaches the compromise step. Everything binds to the real
+ * sample RunResult, never a literal.
  */
 async function sampleRun(): Promise<RunResult> {
   const run = await getDataSource().getRun('sample');

@@ -2,19 +2,19 @@
 
 import { useEffect, useState } from 'react';
 import type { RunResult } from '@/contract';
-import { OrbitalStage } from './OrbitalStage';
+import { SignalTraceLane } from './SignalTraceLane';
 import { Transport } from './Transport';
 import { StepLegend } from './StepLegend';
 import { StepDetail } from './StepDetail';
 import { VerdictRail } from './VerdictRail';
 
 /**
- * Live Attack Replay (the hero) — Sentinel v2 orbital. One playhead drives a
- * clock-face of typed nodes: the sweep rotates to the active step, the centre
- * carries the STEP numeral, and the detector verdict rail sits alongside with its
- * rationale sealed until the playhead reaches the compromise step. The step-detail
- * panel is fixed-height, so advancing never reflows the page (no CLS). SVG + CSS
- * only — no WebGL.
+ * Live Attack Replay (the hero) — the signal-trace lane. One playhead drives a
+ * horizontal oscilloscope of typed nodes: the sweep translates to the active step,
+ * a glowing waveform fills in the steps reached, the STEP readout leads the lane,
+ * and the detector verdict rail sits alongside with its rationale sealed until the
+ * playhead reaches the compromise step. The step-detail panel is fixed-height, so
+ * advancing never reflows the page (no CLS). SVG + CSS only — no WebGL.
  */
 const SPEEDS = [0.5, 1, 2, 4];
 
@@ -97,8 +97,8 @@ export function Replay({ run }: { run: RunResult }) {
 
       {/* Stage grid — orbital + transport + detail (left column) · verdict (right). */}
       <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_400px] lg:grid-rows-[auto_auto_minmax(0,1fr)]">
-        <div className="flex items-center justify-center px-6 py-6 lg:col-start-1 lg:row-start-1 lg:px-8">
-          <OrbitalStage
+        <div className="flex flex-col justify-center px-6 py-6 lg:col-start-1 lg:row-start-1 lg:px-8">
+          <SignalTraceLane
             steps={steps}
             current={current}
             compromiseIndex={compromiseIndex}
