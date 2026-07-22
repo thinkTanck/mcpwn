@@ -60,7 +60,7 @@ export function StepDetail({
               {row.k}
             </dt>
             <dd className="min-w-0">
-              <pre className="whitespace-pre-wrap break-words font-mono text-[14px] leading-relaxed text-readout">
+              <pre className="whitespace-pre-wrap break-words font-mono text-[15px] leading-relaxed text-readout">
                 {row.v}
               </pre>
             </dd>

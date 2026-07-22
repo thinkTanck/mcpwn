@@ -130,7 +130,7 @@ export function ReplayTerminal({
 
   return (
     <div
-      className="overflow-y-auto rounded-lg px-4 py-3 font-mono text-[14px] leading-[1.6]"
+      className="overflow-y-auto rounded-lg px-4 py-3 font-mono text-[15px] leading-[1.6]"
       style={{
         height: 'clamp(280px, 40vh, 460px)',
         background: 'var(--terminal-bg)',
