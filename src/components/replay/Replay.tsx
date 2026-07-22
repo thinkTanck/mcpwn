@@ -106,6 +106,9 @@ export function Replay({ run }: { run: RunResult }) {
               current={current}
               compromiseIndex={compromiseIndex}
               playing={playing && !atEnd}
+              model={run.model}
+              runId={run.runId}
+              category={run.category}
               onSelect={scrubTo}
             />
           </div>

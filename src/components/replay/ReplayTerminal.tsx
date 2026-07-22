@@ -100,12 +100,18 @@ export function ReplayTerminal({
   current,
   compromiseIndex,
   playing = false,
+  model,
+  runId,
+  category,
   onSelect,
 }: {
   steps: Step[];
   current: number;
   compromiseIndex: number;
   playing?: boolean;
+  model: string;
+  runId: string;
+  category: string;
   onSelect: (index: number) => void;
 }) {
   const reduced = usePrefersReducedMotion();
@@ -150,43 +156,30 @@ export function ReplayTerminal({
 
   return (
     <div
-      className="flex flex-col overflow-hidden rounded-lg border border-line bg-solid"
-      style={{ height: 'clamp(300px, 42vh, 480px)' }}
+      className="flex flex-col overflow-hidden rounded-lg border border-line-em"
+      style={{ height: 'clamp(360px, 52vh, 580px)', background: 'var(--terminal-bg)' }}
     >
-      {/* Terminal title bar. */}
-      <div className="flex shrink-0 items-center gap-3 border-b border-line px-4 py-2.5">
-        <span aria-hidden="true" className="flex gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-full bg-breach/70" />
-          <span className="h-2.5 w-2.5 rounded-full bg-caution/70" />
-          <span className="h-2.5 w-2.5 rounded-full bg-nominal/70" />
+      {/* Window chrome — traffic lights + the shell path title. */}
+      <div
+        className="flex shrink-0 items-center gap-3 border-b border-line px-3.5 py-2"
+        style={{ background: 'var(--terminal-chrome)' }}
+      >
+        <span aria-hidden="true" className="flex gap-2">
+          <span className="h-3 w-3 rounded-full bg-breach/80" />
+          <span className="h-3 w-3 rounded-full bg-caution/80" />
+          <span className="h-3 w-3 rounded-full bg-nominal/80" />
         </span>
-        <span className="font-mono text-[13px] tracking-[0.16em] text-ink-faint">
-          AGENT TRANSCRIPT
+        <span className="flex-1 truncate text-center font-mono text-[13px] tracking-[0.02em] text-ink-muted">
+          {model}@sentinel: ~/runs/{runId}
         </span>
-        <span className="flex-1" />
-        <span
-          className={
-            'inline-flex items-center gap-1.5 font-mono text-[13px] tracking-[0.12em] ' +
-            (playing ? 'text-nominal' : 'text-ink-faint')
-          }
-        >
-          <span
-            aria-hidden="true"
-            className={
-              'h-1.5 w-1.5 rounded-full ' +
-              (playing
-                ? 'bg-nominal shadow-glow-nominal motion-safe:animate-pulse'
-                : 'bg-ink-faint')
-            }
-          />
-          {playing ? 'STREAMING' : 'PAUSED'}
-        </span>
+        {/* Balances the traffic lights so the title stays optically centred. */}
+        <span aria-hidden="true" className="w-[52px] shrink-0" />
       </div>
 
-      {/* The transcript — one line per step; the operable step timeline. */}
+      {/* The transcript — one flat line per step; the operable step timeline. */}
       <ol
         aria-label="Attack replay step timeline"
-        className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-4 py-3 font-mono text-[14px] leading-relaxed"
+        className="min-h-0 flex-1 overflow-y-auto py-2 font-mono text-[14px] leading-[1.55]"
       >
         {steps.map((step, i) => {
           const meta = stepMeta(step.type);
@@ -203,19 +196,26 @@ export function ReplayTerminal({
                 aria-label={`Step ${i + 1}: ${meta.label}${breach ? ', compromise step' : ''}`}
                 onClick={() => onSelect(i)}
                 className={
-                  'grid w-full grid-cols-[auto_minmax(0,1fr)] gap-x-3 rounded-sm px-2 py-1 text-left transition-colors hover:bg-nominal/[0.05] focus:outline-none focus-visible:bg-nominal/[0.08] ' +
-                  (active ? 'bg-nominal/[0.06]' : '')
+                  'grid w-full grid-cols-[auto_auto_minmax(0,1fr)] gap-x-2 px-3.5 text-left transition-colors hover:bg-[color-mix(in_srgb,var(--status-nominal)_7%,transparent)] focus:outline-none focus-visible:bg-[color-mix(in_srgb,var(--status-nominal)_12%,transparent)] ' +
+                  (active ? 'bg-[color-mix(in_srgb,var(--status-nominal)_7%,transparent)]' : '')
                 }
               >
-                {/* Prompt tag — tri-state coloured, dim until reached. */}
+                {/* Line gutter — faint, like `less -N`. */}
                 <span
-                  className="tabular-nums tracking-[0.04em] whitespace-nowrap"
+                  aria-hidden="true"
+                  className="select-none pr-1 text-right tabular-nums text-ink-faint"
+                  style={{ opacity: reached ? 0.65 : 0.32 }}
+                >
+                  {String(i + 1).padStart(2, '0')}
+                </span>
+                {/* Shell prompt — role + direction glyph, tri-state coloured. */}
+                <span
+                  className="tabular-nums whitespace-nowrap"
                   style={{
                     color: reached ? col : 'var(--text-pending)',
-                    opacity: reached ? 1 : 0.6,
+                    opacity: reached ? 1 : 0.5,
                   }}
                 >
-                  <span className="text-ink-faint">{String(i + 1).padStart(2, '0')}</span>{' '}
                   {entry.prompt}
                   <span aria-hidden="true"> {entry.sep}</span>
                 </span>
@@ -228,13 +228,14 @@ export function ReplayTerminal({
                       : reached
                         ? 'var(--text)'
                         : 'var(--text-pending)',
+                    opacity: reached ? 1 : 0.5,
                   }}
                 >
                   {visibleText(i)}
                   {active && (
                     <span
                       aria-hidden="true"
-                      className="ml-0.5 inline-block h-[1.05em] w-[0.5ch] translate-y-[0.15em] motion-safe:animate-pulse"
+                      className="ml-px inline-block h-[1.05em] w-[0.55ch] translate-y-[0.18em] motion-safe:[animation:cursor-blink_1.05s_step-end_infinite]"
                       style={{ background: col }}
                     />
                   )}
@@ -244,6 +245,38 @@ export function ReplayTerminal({
           );
         })}
       </ol>
+
+      {/* Status line — tmux/vim style: mode on the left, position on the right. */}
+      <div
+        className="flex shrink-0 items-center gap-3 border-t border-line px-3.5 py-1.5 font-mono text-[13px] tracking-[0.08em]"
+        style={{ background: 'var(--terminal-chrome)' }}
+      >
+        <span
+          className={
+            'inline-flex items-center gap-1.5 ' + (playing ? 'text-nominal' : 'text-ink-muted')
+          }
+        >
+          <span
+            aria-hidden="true"
+            className={
+              'h-1.5 w-1.5 rounded-full ' +
+              (playing
+                ? 'bg-nominal shadow-glow-nominal motion-safe:animate-pulse'
+                : 'bg-ink-faint')
+            }
+          />
+          {playing ? '-- STREAMING --' : '-- PAUSED --'}
+        </span>
+        <span className="flex-1" />
+        <span className="text-ink-faint">{category}</span>
+        <span aria-hidden="true" className="text-ink-faint">
+          ·
+        </span>
+        <span className="tabular-nums text-ink-muted">
+          LN <span className="text-readout">{String(current + 1).padStart(2, '0')}</span>/
+          {String(steps.length).padStart(2, '0')}
+        </span>
+      </div>
     </div>
   );
 }
