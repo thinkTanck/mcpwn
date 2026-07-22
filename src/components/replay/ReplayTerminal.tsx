@@ -49,26 +49,33 @@ function flags(args: unknown): string {
   return compact(args);
 }
 
-/** One shell line per step: `cmd` lines carry the host prompt, output lines do not. */
-function lineFor(step: Step): { cmd: boolean; text: string } {
+/**
+ * One shell line per step, in one of three classes so input, action and output
+ * are never conflated:
+ *   'input' — the human operator's request (a `user@console` prompt)
+ *   'cmd'   — a command the agent runs in its own shell (the agent prompt)
+ *   'out'   — output the agent produces or receives (indented, no prompt):
+ *             its reasoning, tool results, memory reads
+ */
+function lineFor(step: Step): { kind: 'input' | 'cmd' | 'out'; text: string } {
   switch (step.type) {
     case 'attacker':
-      return { cmd: true, text: step.content };
+      return { kind: 'input', text: step.content };
     case 'agent_reasoning':
-      return { cmd: true, text: `# ${step.content}` };
+      return { kind: 'out', text: `agent ▸ ${step.content}` };
     case 'tool_call':
-      return { cmd: true, text: `${step.tool} ${flags(step.args)}`.trim() };
+      return { kind: 'cmd', text: `${step.tool} ${flags(step.args)}`.trim() };
     case 'tool_result':
-      return { cmd: false, text: compact(step.result) };
+      return { kind: 'out', text: `⇒ ${compact(step.result)}` };
     case 'memory_read':
-      return { cmd: false, text: `[mem] ${step.key} => ${compact(step.value)}` };
+      return { kind: 'out', text: `⇒ [mem] ${step.key} = ${compact(step.value)}` };
     case 'memory_write':
       return {
-        cmd: true,
+        kind: 'cmd',
         text: `mem-write ${step.key}=${typeof step.value === 'string' ? `"${step.value}"` : compact(step.value)}`,
       };
     case 'task_complete':
-      return { cmd: true, text: `exit 0  # ${step.summary ?? 'run complete'}` };
+      return { kind: 'cmd', text: `exit 0  # ${step.summary ?? 'run complete'}` };
   }
 }
 
@@ -89,7 +96,8 @@ export function ReplayTerminal({
   const lines = useMemo(() => steps.map(lineFor), [steps]);
   const [typed, setTyped] = useState<{ i: number; n: number }>({ i: -1, n: 0 });
   const activeRef = useRef<HTMLLIElement>(null);
-  const prompt = `${model}@sentinel:~/runs`;
+  const userPrompt = 'user@console:~';
+  const agentPrompt = `${model}@sentinel:~`;
 
   // Typewriter for the active line. setState runs only inside rAF callbacks, so
   // this never trips react-hooks/set-state-in-effect.
@@ -159,15 +167,15 @@ export function ReplayTerminal({
                 className="block w-full whitespace-pre-wrap break-words text-left focus:outline-none focus-visible:underline"
                 style={{ color }}
               >
-                {line.cmd ? (
+                {line.kind === 'out' ? (
+                  <span className="pl-4">{visibleText(i)}</span>
+                ) : (
                   <>
                     <span aria-hidden="true" style={{ opacity: 0.85 }}>
-                      {prompt}${' '}
+                      {line.kind === 'input' ? userPrompt : agentPrompt}${' '}
                     </span>
                     {visibleText(i)}
                   </>
-                ) : (
-                  <span className="pl-3">{visibleText(i)}</span>
                 )}
                 {active && (
                   <span
