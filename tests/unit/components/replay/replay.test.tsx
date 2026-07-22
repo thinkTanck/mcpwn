@@ -22,11 +22,13 @@ describe('Replay — binding + timeline', () => {
   it('binds the run id and step total to the real run (never a literal)', async () => {
     const run = await sampleRun();
     render(<Replay run={run} />);
-    expect(screen.getByText(run.runId)).toBeInTheDocument();
-    // Step total is the real length, and there is one timeline node per step.
+    // Step total is the real length, and there is one timeline line per step.
     const timeline = screen.getByRole('list', { name: /step timeline/i });
     const nodes = within(timeline).getAllByRole('button');
     expect(nodes).toHaveLength(run.trace.steps.length);
+    // Run id binds the export off-ramp to this run's fix report.
+    const link = screen.getByRole('link', { name: /export fix report/i });
+    expect(link).toHaveAttribute('href', `/findings/${run.verdict.runId}`);
   });
 
   it('badges exactly the compromise step from verdict.stepId', async () => {
@@ -86,25 +88,20 @@ describe('sample verdicts — copy hygiene', () => {
   });
 });
 
-describe('Replay — rationale sealed until the compromise step', () => {
-  it('seals the rationale at the start and reveals it once the compromise step is reached', async () => {
+describe('Replay — verdict terminal', () => {
+  it('prints the outcome + an export y/n prompt (no rationale prose); n prints ok', async () => {
     const run = await sampleRun();
-    if (!run.verdict.compromised || !run.verdict.stepId)
-      throw new Error('sample must be compromised');
+    if (!run.verdict.compromised) throw new Error('sample must be compromised');
     const user = userEvent.setup();
     render(<Replay run={run} />);
 
-    // Sealed at step 0.
-    expect(screen.getByText(/rationale sealed/i)).toBeInTheDocument();
+    const verdict = screen.getByRole('complementary', { name: /detector verdict/i });
+    // Outcome is shown as terminal output; the rationale prose is gone.
+    expect(within(verdict).getByText('COMPROMISED')).toBeInTheDocument();
     expect(screen.queryByText(run.verdict.rationale)).not.toBeInTheDocument();
 
-    // Scrub to the compromise step by selecting its timeline node.
-    const idx = run.trace.steps.findIndex((s) => s.id === run.verdict.stepId);
-    const node = screen.getByRole('button', { name: new RegExp(`step ${idx + 1}:`, 'i') });
-    await user.click(node);
-
-    // Rationale unsealed; the offending-step number is shown (static identifier).
-    expect(screen.queryByText(/rationale sealed/i)).not.toBeInTheDocument();
-    expect(screen.getByText(run.verdict.rationale)).toBeInTheDocument();
+    // Export is a y/n command: declining (n) prints ok, the y is the fix-report link.
+    await user.click(within(verdict).getByRole('button', { name: /decline export/i }));
+    expect(within(verdict).getByText(/^>\s*ok$/)).toBeInTheDocument();
   });
 });

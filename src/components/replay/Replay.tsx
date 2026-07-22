@@ -4,17 +4,15 @@ import { useEffect, useState } from 'react';
 import type { RunResult } from '@/contract';
 import { ReplayTerminal } from './ReplayTerminal';
 import { Transport } from './Transport';
-import { StepLegend } from './StepLegend';
 import { StepDetail } from './StepDetail';
 import { VerdictRail } from './VerdictRail';
 
 /**
- * Live Attack Replay (the hero) — a live agent-transcript terminal. The playhead
- * streams the run's real input/output line by line (ReplayTerminal); the transport
- * and the step-detail box sit directly beneath it, and the detector verdict rail
- * runs down the right, its rationale sealed until the playhead reaches the
- * compromise step. The step-detail panel is fixed-height, so advancing never
- * reflows the page (no CLS). SVG + CSS only — no WebGL.
+ * Live Attack Replay (the hero) — two terminals over a full-width transport. The
+ * transcript terminal streams the run's real input/output as a bash session; the
+ * verdict terminal prints the detector's summary + an export prompt. The transport
+ * (full width) and the step-detail box sit beneath both. The step-detail panel is
+ * fixed-height, so advancing never reflows the page (no CLS).
  */
 const SPEEDS = [0.5, 1, 2, 4];
 
@@ -51,7 +49,6 @@ export function Replay({ run }: { run: RunResult }) {
 
   const step = steps[current]!;
   const compromised = current === compromiseIndex;
-  const revealed = compromiseIndex < 0 || current >= compromiseIndex;
 
   const playToggle = () => {
     if (atEnd) {
@@ -78,70 +75,46 @@ export function Replay({ run }: { run: RunResult }) {
 
   return (
     <div className="flex min-h-[calc(100dvh-72px)] flex-col">
-      {/* Header — kicker, title, and the run subline (enlarged). */}
+      {/* Header — kicker + title. */}
       <header className="border-b border-line px-6 py-5 lg:px-8">
         <p className="micro-label text-nominal">Live Attack Replay</p>
         <h1 className="reading-h2 mt-2 font-semibold text-ink-hi">
           {run.category} · {title}
         </h1>
-        <p className="mt-2 font-mono text-[15px] text-ink-muted">
-          run <span className="text-readout">{run.runId}</span>
-          <span aria-hidden="true"> · </span>
-          <span className="text-readout">{total}</span> observable steps
-          <span aria-hidden="true"> · </span>
-          offending step <span className="text-breach-text">#{compromiseStepNumber ?? '—'}</span>
-          <span aria-hidden="true"> · </span>
-          leakage barrier <span className="text-nominal">on</span>
-        </p>
       </header>
 
-      {/* Stage grid — terminal + transport + detail stack down the left · verdict
-          rail down the right. Transport and detail sit directly under the terminal
-          (no dead gap), and the verdict runs alongside from the top. */}
-      <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_400px]">
-        <div className="flex flex-col lg:col-start-1">
-          <div className="px-6 pt-6 lg:px-8">
-            <ReplayTerminal
-              steps={steps}
-              current={current}
-              compromiseIndex={compromiseIndex}
-              playing={playing && !atEnd}
-              model={run.model}
-              runId={run.runId}
-              category={run.category}
-              onSelect={scrubTo}
-            />
-          </div>
-
-          <div className="flex flex-col gap-3 px-6 py-4 lg:px-8">
-            <Transport
-              current={current}
-              total={total}
-              playing={playing && !atEnd}
-              speed={speed}
-              speeds={SPEEDS}
-              onPlayToggle={playToggle}
-              onStep={stepBy}
-              onScrub={scrubTo}
-              onRestart={restart}
-              onSpeedSet={setSpeed}
-            />
-            <StepLegend />
-          </div>
-
-          <div className="px-6 pb-6 lg:px-8">
-            <StepDetail step={step} index={current} compromised={compromised} />
-          </div>
-        </div>
-
-        <div className="self-start border-t border-line px-6 py-6 lg:col-start-2 lg:border-l lg:border-t-0">
+      {/* Stage — two terminals in a row, then a full-width transport and the
+          step-detail box directly beneath both (no dead gap). */}
+      <div className="flex min-h-0 flex-1 flex-col gap-4 px-6 py-6 lg:px-8">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_400px]">
+          <ReplayTerminal
+            steps={steps}
+            current={current}
+            compromiseIndex={compromiseIndex}
+            model={run.model}
+            onSelect={scrubTo}
+          />
           <VerdictRail
             verdict={run.verdict}
             compromiseStepNumber={compromiseStepNumber}
             offendingLabel={offendingLabel}
-            revealed={revealed}
           />
         </div>
+
+        <Transport
+          current={current}
+          total={total}
+          playing={playing && !atEnd}
+          speed={speed}
+          speeds={SPEEDS}
+          onPlayToggle={playToggle}
+          onStep={stepBy}
+          onScrub={scrubTo}
+          onRestart={restart}
+          onSpeedSet={setSpeed}
+        />
+
+        <StepDetail step={step} index={current} compromised={compromised} />
       </div>
     </div>
   );

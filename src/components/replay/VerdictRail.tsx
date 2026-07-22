@@ -1,93 +1,121 @@
 'use client';
 
+import { useRef, useState } from 'react';
 import Link from 'next/link';
-import { cn } from '@/lib/utils';
 import type { Verdict } from '@/contract';
 
 /**
- * The detector verdict rail (Sentinel v2). The verdict SUMMARY — outcome,
- * category, severity, offending step — is shown throughout: this is a replay of a
- * known run, and the point is to watch HOW it happened. Only the detailed
- * RATIONALE prose is SEALED until the playhead reaches the compromise step
- * (verdict.stepId), so the reveal still lands at the anchor. Every identifier is
- * static — severity and the offending-step number are facts, never animated.
+ * The detector verdict, rendered as a second terminal (same rules as the
+ * transcript: bare console, one colour, breach-red for the compromise facts). It
+ * prints the verdict summary — outcome, category, severity, offending step — then
+ * an interactive `export fix report? [y/n]` prompt: `y` opens the engineer-ready
+ * fix report (/findings/[id]); `n` prints `ok` and stays. There is no rationale
+ * prose; the summary is the whole of it.
+ *
+ * `y` is a real <Link> (accessible name "Export fix report") so the fix-report
+ * off-ramp stays keyboard- and screen-reader-operable; typing y/n while either
+ * export control has focus does the same thing.
  */
+const CYAN = 'var(--text-readout)';
+const BREACH = 'var(--text-breach)';
+const PROMPT = 'detector@sentinel:~';
+
+function Row({ k, v, breachValue }: { k: string; v: string; breachValue?: boolean }) {
+  return (
+    <div className="whitespace-pre-wrap" style={{ color: CYAN }}>
+      <span style={{ opacity: 0.85 }}>{k.padEnd(11, ' ')}</span>
+      <span style={{ color: breachValue ? BREACH : CYAN }}>{v}</span>
+    </div>
+  );
+}
+
 export function VerdictRail({
   verdict,
   compromiseStepNumber,
   offendingLabel,
-  revealed,
 }: {
   verdict: Verdict;
   /** 1-based step number of verdict.stepId, or null if the run is clean. */
   compromiseStepNumber: number | null;
   /** Tool/label of the offending step, e.g. "send_email". */
   offendingLabel?: string;
-  revealed: boolean;
 }) {
+  const href = `/findings/${verdict.runId}`;
   const compromised = verdict.compromised;
+  const [answered, setAnswered] = useState<null | 'n'>(null);
+  const yRef = useRef<HTMLAnchorElement>(null);
+
+  // Type y/n while either export control is focused, like a real prompt. `y`
+  // triggers the link itself (no router dependency, so it renders under test).
+  const onKey = (e: React.KeyboardEvent) => {
+    if (e.key === 'y' || e.key === 'Y') {
+      e.preventDefault();
+      yRef.current?.click();
+    } else if (e.key === 'n' || e.key === 'N') {
+      e.preventDefault();
+      setAnswered('n');
+    }
+  };
 
   return (
     <aside
       aria-label="Detector verdict"
-      className="flex h-full flex-col gap-0 overflow-y-auto rounded-lg border border-line bg-panel p-5"
+      className="overflow-y-auto rounded-lg px-4 py-3 font-mono text-[14px] leading-[1.6]"
+      style={{ height: 'clamp(280px, 40vh, 460px)', background: 'var(--terminal-bg)', color: CYAN }}
     >
-      {/* Outcome pill */}
-      <span
-        className={cn(
-          'inline-flex w-fit items-center gap-2.5 rounded-full border px-3 py-1.5 font-mono text-[14px] tracking-[0.14em]',
-          compromised
-            ? 'border-breach/40 text-breach-text shadow-glow-breach'
-            : 'border-nominal/40 text-nominal shadow-glow-nominal',
-        )}
-      >
-        <span className={cn('h-2 w-2 rounded-full', compromised ? 'bg-breach' : 'bg-nominal')} />
-        {compromised ? 'COMPROMISED' : 'NOT COMPROMISED'}
-      </span>
-
-      {/* Verdict summary — always visible */}
-      <p className="micro-label mt-5 border-t border-line pt-4 text-ink-faint">Detector verdict</p>
-      <dl className="mt-2 flex flex-col gap-2.5 font-mono text-[15px]">
-        <div className="flex items-baseline justify-between">
-          <dt className="text-ink-muted">category</dt>
-          <dd className="text-readout">{verdict.category}</dd>
-        </div>
-        <div className="flex items-baseline justify-between">
-          <dt className="text-ink-muted">severity</dt>
-          <dd className="text-breach-text">{verdict.severity}</dd>
-        </div>
-        {compromised && compromiseStepNumber !== null && (
-          <div className="flex items-baseline justify-between gap-4">
-            <dt className="text-ink-muted">offending step</dt>
-            <dd className="text-right text-breach-text">
-              #{compromiseStepNumber}
-              {offendingLabel ? <span className="text-ink-muted"> {offendingLabel}</span> : null}
-            </dd>
-          </div>
-        )}
-      </dl>
-
-      {/* Rationale — sealed until the compromise step is reached */}
-      {revealed ? (
-        <div className="verdict-in mt-4 rounded-md border border-breach/30 bg-breach/5 px-4 py-3.5">
-          <p className="micro-label mb-2 text-breach-text">Rationale</p>
-          <p className="reading text-ink">{verdict.rationale}</p>
-        </div>
-      ) : (
-        <div className="mt-4 rounded-md border border-dashed border-line-em px-4 py-3.5">
-          <p className="font-mono text-[14px] leading-relaxed text-ink-faint">
-            Rationale sealed · reach the compromise step to unseal.
-          </p>
-        </div>
+      <div style={{ opacity: 0.85 }}>
+        {PROMPT}$ verdict --run {verdict.runId}
+      </div>
+      <Row
+        k="outcome"
+        v={compromised ? 'COMPROMISED' : 'NOT COMPROMISED'}
+        breachValue={compromised}
+      />
+      <Row k="category" v={verdict.category} />
+      <Row k="severity" v={verdict.severity.toUpperCase()} breachValue={compromised} />
+      {compromised && compromiseStepNumber !== null && (
+        <Row
+          k="offending"
+          v={`#${compromiseStepNumber}${offendingLabel ? ` ${offendingLabel}` : ''}`}
+          breachValue
+        />
       )}
 
-      {/* Off-ramp — the fix report carries the copy/export. The block ends here. */}
-      <Link
-        href={`/findings/${verdict.runId}`}
-        className="mt-4 inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-line-em bg-nominal/10 px-4 font-mono text-[14px] tracking-[0.1em] text-nominal transition-colors hover:bg-nominal/20 hover:shadow-glow-nominal"
-      >
-        Export fix report →
-      </Link>
+      {/* Interactive export prompt. */}
+      <div className="mt-3 whitespace-pre-wrap">
+        <span style={{ opacity: 0.85 }}>{PROMPT}$ </span>
+        export fix report? [
+        <Link
+          ref={yRef}
+          href={href}
+          aria-label="Export fix report"
+          onKeyDown={onKey}
+          className="underline-offset-2 hover:underline focus:underline focus:outline-none"
+          style={{ color: CYAN }}
+        >
+          y
+        </Link>
+        /
+        <button
+          type="button"
+          onClick={() => setAnswered('n')}
+          onKeyDown={onKey}
+          aria-label="Decline export"
+          className="underline-offset-2 hover:underline focus:underline focus:outline-none"
+          style={{ color: CYAN }}
+        >
+          n
+        </button>
+        ]
+        {answered === null && (
+          <span
+            aria-hidden="true"
+            className="ml-1 inline-block h-[1.05em] w-[0.55ch] translate-y-[0.18em] motion-safe:[animation:cursor-blink_1.05s_step-end_infinite]"
+            style={{ background: CYAN }}
+          />
+        )}
+      </div>
+      {answered === 'n' && <div style={{ color: CYAN }}>&gt; ok</div>}
     </aside>
   );
 }

@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils';
  */
 function ctrlClass(disabled?: boolean): string {
   return cn(
-    'inline-flex h-11 min-w-11 items-center justify-center gap-1.5 rounded-md border border-line px-2.5 font-mono text-[13px] tracking-[0.06em] text-ink transition-colors',
+    'inline-flex h-11 min-w-11 items-center justify-center gap-1.5 rounded-md border border-line px-2.5 font-mono text-[14px] tracking-[0.06em] text-ink transition-colors',
     disabled
       ? 'cursor-not-allowed opacity-40'
       : 'hover:border-line-em hover:bg-nominal/[0.06] hover:text-ink-hi',
@@ -52,7 +52,7 @@ export function Transport({
         className={ctrlClass(atStart)}
         aria-label="Restart"
       >
-        <svg width="16" height="16" viewBox="0 0 12 12" aria-hidden="true">
+        <svg width="20" height="20" viewBox="0 0 12 12" aria-hidden="true">
           <path
             d="M6 2a4 4 0 1 1-3.8 2.8"
             fill="none"
@@ -72,8 +72,9 @@ export function Transport({
         className={ctrlClass(atStart)}
         aria-label="Previous step"
       >
-        <svg width="16" height="16" viewBox="0 0 12 12" aria-hidden="true">
-          <path d="M8 2v8M8 6L3 2v8z" fill="currentColor" />
+        {/* Skip-back: bar on the left, triangle pointing left. */}
+        <svg width="20" height="20" viewBox="0 0 12 12" aria-hidden="true">
+          <path d="M4 2v8M4 6l5-4v8z" fill="currentColor" />
         </svg>
       </button>
 
@@ -87,12 +88,12 @@ export function Transport({
         aria-label={playing ? 'Pause' : 'Play'}
       >
         {playing ? (
-          <svg width="16" height="16" viewBox="0 0 12 12" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 12 12" aria-hidden="true">
             <rect x="2.5" y="2" width="2.5" height="8" fill="currentColor" />
             <rect x="7" y="2" width="2.5" height="8" fill="currentColor" />
           </svg>
         ) : (
-          <svg width="16" height="16" viewBox="0 0 12 12" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 12 12" aria-hidden="true">
             <polygon points="3,2 10,6 3,10" fill="currentColor" />
           </svg>
         )}
@@ -106,8 +107,9 @@ export function Transport({
         className={ctrlClass(atEnd)}
         aria-label="Next step"
       >
-        <svg width="16" height="16" viewBox="0 0 12 12" aria-hidden="true">
-          <path d="M4 2v8M4 6l5-4v8z" fill="currentColor" />
+        {/* Skip-forward: bar on the right, triangle pointing right. */}
+        <svg width="20" height="20" viewBox="0 0 12 12" aria-hidden="true">
+          <path d="M8 2v8M8 6L3 2v8z" fill="currentColor" />
         </svg>
       </button>
 
@@ -122,7 +124,7 @@ export function Transport({
             onClick={() => onSpeedSet(s)}
             aria-pressed={speed === s}
             className={cn(
-              'inline-flex h-11 min-w-11 items-center justify-center rounded-md border px-2 font-mono text-[13px] transition-colors',
+              'inline-flex h-11 min-w-11 items-center justify-center rounded-md border px-2 font-mono text-[14px] transition-colors',
               speed === s
                 ? 'border-line-em bg-nominal/[0.08] text-readout'
                 : 'border-line text-ink-muted hover:border-line-em hover:text-ink-hi',
