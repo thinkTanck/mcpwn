@@ -64,9 +64,13 @@
   --line-emphasis: var(--cyan-700);
 
   /* Terminal — a darker-than-page console screen (still navy, not pure black)
-   * with a slightly lighter chrome for the window bar + status line. */
+   * with a slightly lighter chrome for the window bar + status line. The shell
+   * prompt is a soft yellow so it reads apart from the cyan I/O text; it is a
+   * deliberately LIGHTER shade than the amber caution status, so it never reads
+   * as a tri-state signal. */
   --terminal-bg: color-mix(in srgb, var(--navy-950) 80%, #000);
   --terminal-chrome: var(--navy-850);
+  --terminal-prompt: var(--amber-200);
 
   /* Text */
   --text-hi: var(--ink-100);

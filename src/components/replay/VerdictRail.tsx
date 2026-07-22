@@ -18,6 +18,7 @@ import type { Verdict } from '@/contract';
  */
 const CYAN = 'var(--text-readout)';
 const BREACH = 'var(--text-breach)';
+const PROMPT_COLOR = 'var(--terminal-prompt)';
 const PROMPT = 'detector@sentinel:~';
 
 function Row({ k, v, breachValue }: { k: string; v: string; breachValue?: boolean }) {
@@ -63,8 +64,8 @@ export function VerdictRail({
       className="overflow-y-auto rounded-lg px-4 py-3 font-mono text-[15px] leading-[1.6]"
       style={{ height: 'clamp(280px, 40vh, 460px)', background: 'var(--terminal-bg)', color: CYAN }}
     >
-      <div style={{ opacity: 0.85 }}>
-        {PROMPT}$ verdict --run {verdict.runId}
+      <div>
+        <span style={{ color: PROMPT_COLOR }}>{PROMPT}$</span> verdict --run {verdict.runId}
       </div>
       <Row
         k="outcome"
@@ -83,7 +84,7 @@ export function VerdictRail({
 
       {/* Interactive export prompt. */}
       <div className="mt-3 whitespace-pre-wrap">
-        <span style={{ opacity: 0.85 }}>{PROMPT}$ </span>
+        <span style={{ color: PROMPT_COLOR }}>{PROMPT}$ </span>
         export fix report? [
         <Link
           ref={yRef}

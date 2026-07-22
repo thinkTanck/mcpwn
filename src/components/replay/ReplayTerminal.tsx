@@ -171,7 +171,7 @@ export function ReplayTerminal({
                   <span className="pl-4">{visibleText(i)}</span>
                 ) : (
                   <>
-                    <span aria-hidden="true" style={{ opacity: 0.85 }}>
+                    <span aria-hidden="true" style={{ color: 'var(--terminal-prompt)' }}>
                       {line.kind === 'input' ? userPrompt : agentPrompt}${' '}
                     </span>
                     {visibleText(i)}
