@@ -2,19 +2,19 @@
 
 import { useEffect, useState } from 'react';
 import type { RunResult } from '@/contract';
-import { SignalTraceLane } from './SignalTraceLane';
+import { ReplayTerminal } from './ReplayTerminal';
 import { Transport } from './Transport';
 import { StepLegend } from './StepLegend';
 import { StepDetail } from './StepDetail';
 import { VerdictRail } from './VerdictRail';
 
 /**
- * Live Attack Replay (the hero) — the signal-trace lane. One playhead drives a
- * horizontal oscilloscope of typed nodes: the sweep translates to the active step,
- * a glowing waveform fills in the steps reached, the STEP readout leads the lane,
- * and the detector verdict rail sits alongside with its rationale sealed until the
- * playhead reaches the compromise step. The step-detail panel is fixed-height, so
- * advancing never reflows the page (no CLS). SVG + CSS only — no WebGL.
+ * Live Attack Replay (the hero) — a live agent-transcript terminal. The playhead
+ * streams the run's real input/output line by line (ReplayTerminal); the transport
+ * and the step-detail box sit directly beneath it, and the detector verdict rail
+ * runs down the right, its rationale sealed until the playhead reaches the
+ * compromise step. The step-detail panel is fixed-height, so advancing never
+ * reflows the page (no CLS). SVG + CSS only — no WebGL.
  */
 const SPEEDS = [0.5, 1, 2, 4];
 
@@ -95,38 +95,43 @@ export function Replay({ run }: { run: RunResult }) {
         </p>
       </header>
 
-      {/* Stage grid — orbital + transport + detail (left column) · verdict (right). */}
-      <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_400px] lg:grid-rows-[auto_auto_minmax(0,1fr)]">
-        <div className="flex flex-col justify-center px-6 py-6 lg:col-start-1 lg:row-start-1 lg:px-8">
-          <SignalTraceLane
-            steps={steps}
-            current={current}
-            compromiseIndex={compromiseIndex}
-            onSelect={scrubTo}
-          />
+      {/* Stage grid — terminal + transport + detail stack down the left · verdict
+          rail down the right. Transport and detail sit directly under the terminal
+          (no dead gap), and the verdict runs alongside from the top. */}
+      <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_400px]">
+        <div className="flex flex-col lg:col-start-1">
+          <div className="px-6 pt-6 lg:px-8">
+            <ReplayTerminal
+              steps={steps}
+              current={current}
+              compromiseIndex={compromiseIndex}
+              playing={playing && !atEnd}
+              onSelect={scrubTo}
+            />
+          </div>
+
+          <div className="flex flex-col gap-3 px-6 py-4 lg:px-8">
+            <Transport
+              current={current}
+              total={total}
+              playing={playing && !atEnd}
+              speed={speed}
+              speeds={SPEEDS}
+              onPlayToggle={playToggle}
+              onStep={stepBy}
+              onScrub={scrubTo}
+              onRestart={restart}
+              onSpeedSet={setSpeed}
+            />
+            <StepLegend />
+          </div>
+
+          <div className="px-6 pb-6 lg:px-8">
+            <StepDetail step={step} index={current} compromised={compromised} />
+          </div>
         </div>
 
-        <div className="flex flex-col gap-3 border-y border-line px-6 py-4 lg:col-start-1 lg:col-end-3 lg:row-start-2 lg:px-8">
-          <Transport
-            current={current}
-            total={total}
-            playing={playing && !atEnd}
-            speed={speed}
-            speeds={SPEEDS}
-            onPlayToggle={playToggle}
-            onStep={stepBy}
-            onScrub={scrubTo}
-            onRestart={restart}
-            onSpeedSet={setSpeed}
-          />
-          <StepLegend />
-        </div>
-
-        <div className="min-h-0 px-6 py-5 lg:col-start-1 lg:col-end-3 lg:row-start-3 lg:overflow-y-auto lg:px-8">
-          <StepDetail step={step} index={current} compromised={compromised} />
-        </div>
-
-        <div className="border-t border-line px-6 py-5 lg:col-start-2 lg:row-start-1 lg:overflow-y-auto lg:border-b lg:border-l lg:border-t-0">
+        <div className="self-start border-t border-line px-6 py-6 lg:col-start-2 lg:border-l lg:border-t-0">
           <VerdictRail
             verdict={run.verdict}
             compromiseStepNumber={compromiseStepNumber}

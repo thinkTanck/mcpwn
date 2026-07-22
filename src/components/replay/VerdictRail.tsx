@@ -81,20 +81,13 @@ export function VerdictRail({
         </div>
       )}
 
-      {/* Off-ramp — the fix report carries the copy/export */}
+      {/* Off-ramp — the fix report carries the copy/export. The block ends here. */}
       <Link
         href={`/findings/${verdict.runId}`}
         className="mt-4 inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-line-em bg-nominal/10 px-4 font-mono text-[14px] tracking-[0.1em] text-nominal transition-colors hover:bg-nominal/20 hover:shadow-glow-nominal"
       >
         Export fix report →
       </Link>
-
-      {/* Provenance — the honesty note */}
-      <p className="mt-5 border-t border-line pt-4 font-mono text-[14px] leading-relaxed text-ink-faint">
-        Detector is BLIND. It never sees the answer.
-        <br />
-        <span className="text-ink-muted">fixture, not a benchmark</span>
-      </p>
     </aside>
   );
 }
