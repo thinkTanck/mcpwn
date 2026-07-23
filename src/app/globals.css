@@ -63,6 +63,15 @@
   --line: var(--line-base);
   --line-emphasis: var(--cyan-700);
 
+  /* Terminal — a darker-than-page console screen (still navy, not pure black)
+   * with a slightly lighter chrome for the window bar + status line. The shell
+   * prompt is a soft yellow so it reads apart from the cyan I/O text; it is a
+   * deliberately LIGHTER shade than the amber caution status, so it never reads
+   * as a tri-state signal. */
+  --terminal-bg: color-mix(in srgb, var(--navy-950) 80%, #000);
+  --terminal-chrome: var(--navy-850);
+  --terminal-prompt: var(--amber-200);
+
   /* Text */
   --text-hi: var(--ink-100);
   --text: var(--ink-300);
@@ -455,6 +464,19 @@ body {
   }
   50% {
     box-shadow: 0 0 22px color-mix(in srgb, var(--red-400) 90%, transparent);
+  }
+}
+
+/* Terminal caret — a hard on/off block blink (steps, not a fade), the way a
+ * real console cursor behaves. Used by the replay transcript's active line. */
+@keyframes cursor-blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
   }
 }
 

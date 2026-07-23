@@ -182,7 +182,7 @@ export function LeaderboardHeatmap({
                 ))}
                 <th
                   scope="col"
-                  className="min-w-[104px] border-b border-l border-line px-3.5 py-2.5 text-right font-mono text-[13px] font-medium uppercase tracking-[0.12em] text-ink-faint"
+                  className="min-w-[104px] border-b border-l border-r border-line px-3.5 py-2.5 text-right font-mono text-[13px] font-medium uppercase tracking-[0.12em] text-ink-faint"
                 >
                   Overall
                 </th>
@@ -236,10 +236,10 @@ export function LeaderboardHeatmap({
                         </td>
                       );
                     })}
-                    <td className="border-b border-l border-line px-3.5 py-3 text-right">
+                    <td className="border-b border-l border-r border-line px-3.5 py-3 text-right">
                       <CountUp
                         value={row.overall}
-                        className={cn('display-lg font-mono', TONE[overallBand].value)}
+                        className={cn('display-md font-mono', TONE[overallBand].value)}
                       />
                     </td>
                   </tr>

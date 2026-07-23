@@ -24,8 +24,11 @@ describe('runs/[id] replay', () => {
   it('resolves the run and renders the operable replay bound to the run id', async () => {
     const ui = await RunReplay({ params: Promise.resolve({ id: 'asi06-run' }) });
     render(ui);
-    // Run id is surfaced (bound to the record, not a literal).
-    expect(screen.getByText('asi06-run')).toBeInTheDocument();
+    // Run id is surfaced (bound to the record, not a literal) via the export off-ramp.
+    expect(screen.getByRole('link', { name: /export fix report/i })).toHaveAttribute(
+      'href',
+      '/findings/asi06-run',
+    );
     // The reliable base — the operable step timeline — is present.
     expect(screen.getByRole('list', { name: /step timeline/i })).toBeInTheDocument();
   });
