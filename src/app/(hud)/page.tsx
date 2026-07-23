@@ -70,19 +70,19 @@ export default async function Home() {
 
   return (
     <div className="flex min-h-[calc(100dvh-62px)] items-start lg:items-center">
-      <div className="mx-auto w-full max-w-[1240px] px-6 py-8">
-        <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:gap-10">
+      <div className="mx-auto w-full max-w-[1400px] px-6 py-8">
+        <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-[1.3fr_0.8fr] lg:gap-10">
           {/* ── left: pitch + stat + CTAs + trailer ── */}
           <section aria-labelledby="home-title" className="flex min-w-0 flex-col gap-4">
-            <h1 id="home-title" className="reading-h1 max-w-[20ch]">
+            <h1 id="home-title" className="reading-h1 max-w-[22ch]">
               Pwn your MCP agent before an attacker does. Trust the verdict.
             </h1>
 
-            <p className="reading-lead max-w-[68ch]">
+            <p className="reading-lead">
               Bring your own MCP agent and red-team it against the OWASP Agentic Top 10.
             </p>
 
-            <p className="reading max-w-[68ch]">
+            <p className="reading">
               Most tools only <span className="text-ink-muted">guess</span> whether an agent was
               compromised. We tested our detector against attacks with known outcomes and{' '}
               <span className="font-semibold text-nominal">measured</span> how accurate it is, so
