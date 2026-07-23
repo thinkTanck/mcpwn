@@ -10,7 +10,7 @@ import { BootSplash } from '@/components/splash/BootSplash';
  */
 beforeEach(() => {
   vi.useFakeTimers();
-  localStorage.clear();
+  sessionStorage.clear();
   // Force the setTimeout fallback so fake timers drive the sequence deterministically.
   // @ts-expect-error — narrowing the capability off for the test env
   delete window.requestIdleCallback;
@@ -46,8 +46,8 @@ describe('BootSplash', () => {
     expect(within(status).getByText(/system online/i)).toBeInTheDocument();
   });
 
-  it('never shows on a repeat visit (persisted first-visit flag)', () => {
-    localStorage.setItem('mcpwn.boot.v1.seen', '1');
+  it('never shows on a repeat visit in the same session (session flag)', () => {
+    sessionStorage.setItem('mcpwn.boot.v1.seen', '1');
     render(<BootSplash />);
     act(() => {
       vi.advanceTimersByTime(600);
