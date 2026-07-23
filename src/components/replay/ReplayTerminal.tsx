@@ -54,21 +54,23 @@ function flags(args: unknown): string {
  * are never conflated:
  *   'input' — the human operator's request (a `user@console` prompt)
  *   'cmd'   — a command the agent runs in its own shell (the agent prompt)
- *   'out'   — output the agent produces or receives (indented, no prompt):
- *             its reasoning, tool results, memory reads
+ *   'out'   — output the agent produces or receives (indented, marked): its
+ *             reasoning (`agent ▸`), tool results / memory reads (`⇒`)
+ * Every line carries a `marker` prompt (soft yellow) + the payload `text` (cyan);
+ * for 'cmd'/'input' the marker is the host prompt, filled in at render.
  */
-function lineFor(step: Step): { kind: 'input' | 'cmd' | 'out'; text: string } {
+function lineFor(step: Step): { kind: 'input' | 'cmd' | 'out'; marker?: string; text: string } {
   switch (step.type) {
     case 'attacker':
       return { kind: 'input', text: step.content };
     case 'agent_reasoning':
-      return { kind: 'out', text: `agent ▸ ${step.content}` };
+      return { kind: 'out', marker: 'agent ▸', text: step.content };
     case 'tool_call':
       return { kind: 'cmd', text: `${step.tool} ${flags(step.args)}`.trim() };
     case 'tool_result':
-      return { kind: 'out', text: `⇒ ${compact(step.result)}` };
+      return { kind: 'out', marker: '⇒', text: compact(step.result) };
     case 'memory_read':
-      return { kind: 'out', text: `⇒ [mem] ${step.key} = ${compact(step.value)}` };
+      return { kind: 'out', marker: '⇒', text: `[mem] ${step.key} = ${compact(step.value)}` };
     case 'memory_write':
       return {
         kind: 'cmd',
@@ -168,7 +170,12 @@ export function ReplayTerminal({
                 style={{ color }}
               >
                 {line.kind === 'out' ? (
-                  <span className="pl-4">{visibleText(i)}</span>
+                  <span className="pl-4">
+                    <span aria-hidden="true" style={{ color: 'var(--terminal-prompt)' }}>
+                      {line.marker}{' '}
+                    </span>
+                    {visibleText(i)}
+                  </span>
                 ) : (
                   <>
                     <span aria-hidden="true" style={{ color: 'var(--terminal-prompt)' }}>
