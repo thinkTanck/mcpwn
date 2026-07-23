@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { headers } from 'next/headers';
 
 export const metadata: Metadata = {
   title: 'Not found · MCPwn',
@@ -7,77 +8,125 @@ export const metadata: Metadata = {
 };
 
 /**
- * Custom 404. A root-level not-found renders inside the root layout only, so it
- * has no command deck — which makes it a dead-end that must carry its own
- * wayfinding back into the app. Register: BRAND.
+ * Custom 404 — a bare console that tried to RESOLVE the requested path and
+ * failed. It speaks MCPwn's own terminal language (the run-page transcript
+ * shell: soft-yellow host prompt, cyan I/O, blinking caret), so a dead end still
+ * feels like the product. Register: BRAND.
  *
- * Colour: a missing route is a SYSTEM state, not a red-team signal, so it wears
- * the neutral `--status-inert` plane (ADR-0003), never breach-red. Destinations
- * use the normal cyan link affordance.
+ * A root-level not-found renders inside the root layout only (no command deck),
+ * so it must carry its own wayfinding — the `suggest --routes` block is that
+ * contract. Colour discipline (ADR-0003): a missing route is a SYSTEM state, so
+ * the 404 marker wears the neutral `--status-inert` plane, NEVER breach-red.
+ *
+ * `headers()` reads the middleware `x-pathname`, so the console echoes the real
+ * path the visitor tried — a small, honest touch. SVG-free; the caret is a
+ * CSS-only blink, and every line is visible without JS.
  */
-export default function NotFound() {
+const ROUTES = [
+  { href: '/', cmd: 'home', hint: 'the front door' },
+  { href: '/runs/sample', cmd: 'runs/sample', hint: 'watch the sample run' },
+  { href: '/connect', cmd: 'connect', hint: 'connect your agent' },
+] as const;
+
+const PROMPT = 'mcpwn@sentinel:~$';
+
+export default async function NotFound() {
+  const path = (await headers()).get('x-pathname') || '/…';
+
   return (
-    <main className="relative flex min-h-dvh flex-col items-center justify-center overflow-hidden bg-base px-6 py-16 text-ink">
+    <main className="relative flex min-h-dvh flex-col items-center justify-center overflow-hidden bg-base px-6 py-16">
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 -z-10"
         style={{
           background:
-            'radial-gradient(120% 80% at 50% -10%,color-mix(in srgb,var(--status-inert) 12%,transparent),transparent 55%)',
+            'radial-gradient(120% 80% at 50% -10%, color-mix(in srgb, var(--status-inert) 12%, transparent), transparent 55%)',
         }}
       />
 
-      <div className="flex w-full max-w-md flex-col items-start gap-5">
-        <span aria-hidden="true" style={{ color: 'var(--status-inert)' }}>
-          {/* A ring with a broken arc — signal lost. */}
-          <svg width="40" height="40" viewBox="0 0 32 32" fill="none">
-            <path
-              d="M29 16a13 13 0 1 1-7-11.5"
-              stroke="currentColor"
-              strokeWidth="1.3"
-              strokeLinecap="round"
-              opacity="0.5"
+      <div className="w-full max-w-[620px]">
+        {/* Brand lockup — front-door wordmark, links home. */}
+        <Link
+          href="/"
+          aria-label="MCPwn home"
+          className="mb-7 inline-flex min-h-11 items-center gap-2.5 rounded-md"
+        >
+          <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" className="flex-none">
+            <circle
+              cx="12"
+              cy="12"
+              r="9"
+              fill="none"
+              stroke="var(--line-emphasis)"
+              strokeWidth="1"
             />
-            <path d="M16 10v7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-            <circle cx="16" cy="21.5" r="1.1" fill="currentColor" />
+            <circle
+              cx="12"
+              cy="12"
+              r="9"
+              fill="none"
+              stroke="var(--status-nominal)"
+              strokeWidth="1.4"
+              strokeDasharray="6 44"
+            />
+            <circle cx="12" cy="12" r="2.2" fill="var(--status-nominal)" />
           </svg>
-        </span>
+          <span className="font-mono text-[20px] font-semibold tracking-[0.09em] text-ink-hi">
+            MCP<span className="text-nominal">wn</span>
+          </span>
+        </Link>
 
-        <div className="flex flex-col gap-2">
-          <p className="micro-label" style={{ color: 'var(--status-inert)' }}>
-            404 · No signal
-          </p>
-          <h1 className="reading-h2 font-semibold text-ink-hi">Nothing at this address</h1>
+        {/* The console. */}
+        <div
+          className="overflow-hidden rounded-lg px-5 py-4 font-mono text-[15px] leading-[1.75]"
+          style={{ background: 'var(--terminal-bg)' }}
+        >
+          {/* Resolve the requested path → 404. */}
+          <div className="break-words">
+            <span style={{ color: 'var(--terminal-prompt)' }}>{PROMPT}</span>{' '}
+            <span className="text-readout">resolve {path}</span>
+          </div>
+          <h1
+            className="pl-4 font-mono text-[15px] font-normal"
+            style={{ color: 'var(--status-inert)' }}
+          >
+            404 · route not found
+          </h1>
+          <div className="pl-4 text-ink-muted">no MCPwn route or run at this address.</div>
+
+          {/* Suggest routes → the wayfinding, as command output. */}
+          <div className="mt-3 break-words">
+            <span style={{ color: 'var(--terminal-prompt)' }}>{PROMPT}</span>{' '}
+            <span className="text-readout">suggest --routes</span>
+          </div>
+          <nav aria-label="Where to next" className="mt-0.5 flex flex-col">
+            {ROUTES.map((r) => (
+              <Link
+                key={r.href}
+                href={r.href}
+                className="group grid grid-cols-[auto_auto_minmax(0,1fr)] items-baseline gap-x-2 rounded-sm py-0.5 pl-4 pr-2 transition-colors hover:bg-[color-mix(in_srgb,var(--status-nominal)_7%,transparent)]"
+              >
+                <span aria-hidden="true" style={{ color: 'var(--terminal-prompt)' }}>
+                  →
+                </span>
+                <span className="text-readout underline-offset-2 group-hover:underline">
+                  {r.cmd}
+                </span>
+                <span className="truncate text-ink-faint">{r.hint}</span>
+              </Link>
+            ))}
+          </nav>
+
+          {/* Waiting prompt + caret. */}
+          <div className="mt-3">
+            <span style={{ color: 'var(--terminal-prompt)' }}>{PROMPT}</span>{' '}
+            <span
+              aria-hidden="true"
+              className="ml-px inline-block h-[1.05em] w-[0.55ch] translate-y-[0.18em] motion-safe:[animation:cursor-blink_1.05s_step-end_infinite]"
+              style={{ background: 'var(--text-readout)' }}
+            />
+          </div>
         </div>
-
-        <p className="reading text-ink-muted">
-          This route is not part of MCPwn, or the run has expired. Pick a heading below to get back
-          on course.
-        </p>
-
-        <nav aria-label="Where to next" className="mt-1 flex w-full flex-col gap-2.5">
-          <Link
-            href="/"
-            className="inline-flex min-h-11 items-center justify-between rounded-md border border-line-em bg-nominal/10 px-4 font-mono text-[13px] tracking-[0.06em] text-readout transition-colors hover:bg-nominal/20"
-          >
-            <span>Home</span>
-            <span aria-hidden="true">→</span>
-          </Link>
-          <Link
-            href="/runs/sample"
-            className="inline-flex min-h-11 items-center justify-between rounded-md border border-line px-4 font-mono text-[13px] tracking-[0.04em] text-ink-muted transition-colors hover:border-line-em hover:text-ink-hi"
-          >
-            <span>Watch the sample run</span>
-            <span aria-hidden="true">→</span>
-          </Link>
-          <Link
-            href="/connect"
-            className="inline-flex min-h-11 items-center justify-between rounded-md border border-line px-4 font-mono text-[13px] tracking-[0.04em] text-ink-muted transition-colors hover:border-line-em hover:text-ink-hi"
-          >
-            <span>Connect your agent</span>
-            <span aria-hidden="true">→</span>
-          </Link>
-        </nav>
       </div>
     </main>
   );
