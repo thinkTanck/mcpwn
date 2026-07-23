@@ -4,6 +4,9 @@ import { useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { usePrefersReducedMotion } from '@/lib/hud/reduced-motion';
 
+// sessionStorage, not localStorage: the boot splash shows once PER SESSION/TAB —
+// a returning-in-the-same-tab reload skips it, but a fresh visit (new tab, new
+// session) sees it again.
 const SEEN_KEY = 'mcpwn.boot.v1.seen';
 
 /**
@@ -36,7 +39,7 @@ type Stage = 'sweep' | 'online' | 'gone';
  * counts up to 7/7, then SYSTEM ONLINE + hold -> the overlay eases away to Home.
  * Skippable (SKIP / any key / click). `prefers-reduced-motion` jumps to the
  * all-locked end frame and fades fast. CYAN ONLY — a boot screen is nominal.
- * Shown once, then persisted. SVG + CSS only, no WebGL.
+ * Shown once per session/tab (sessionStorage), then flagged. SVG + CSS only, no WebGL.
  */
 export function BootSplash() {
   const reduced = usePrefersReducedMotion();
@@ -53,7 +56,7 @@ export function BootSplash() {
     timers.current.forEach(clearTimeout);
     setFading(true);
     try {
-      localStorage.setItem(SEEN_KEY, '1');
+      sessionStorage.setItem(SEEN_KEY, '1');
     } catch {
       /* storage blocked -> still dismiss for this session */
     }
@@ -63,7 +66,7 @@ export function BootSplash() {
   useEffect(() => {
     let seen = false;
     try {
-      seen = localStorage.getItem(SEEN_KEY) === '1';
+      seen = sessionStorage.getItem(SEEN_KEY) === '1';
     } catch {
       seen = false;
     }
