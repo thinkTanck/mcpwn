@@ -38,6 +38,8 @@ export function Replay({ run }: { run: RunResult }) {
   const [current, setCurrent] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
+  // Bumped on RESET so the verdict terminal's export prompt re-arms (keyed remount).
+  const [resetKey, setResetKey] = useState(0);
 
   const atEnd = current >= total - 1;
 
@@ -69,6 +71,7 @@ export function Replay({ run }: { run: RunResult }) {
   const restart = () => {
     setPlaying(false);
     setCurrent(0);
+    setResetKey((k) => k + 1);
   };
 
   const title = CATEGORY_TITLE[run.category] ?? 'Attack replay';
@@ -95,6 +98,7 @@ export function Replay({ run }: { run: RunResult }) {
             onSelect={scrubTo}
           />
           <VerdictRail
+            key={resetKey}
             verdict={run.verdict}
             compromiseStepNumber={compromiseStepNumber}
             offendingLabel={offendingLabel}

@@ -45,13 +45,9 @@ export function Transport({
   const atEnd = current >= total - 1;
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-lg border border-line bg-panel px-3 py-2.5">
-      <button
-        type="button"
-        onClick={onRestart}
-        disabled={atStart}
-        className={ctrlClass(atStart)}
-        aria-label="Restart"
-      >
+      {/* Always enabled: RESET returns to step 0 AND re-arms the export prompt,
+          so it stays actionable even when the playhead is already at the start. */}
+      <button type="button" onClick={onRestart} className={ctrlClass()} aria-label="Restart">
         <svg width="20" height="20" viewBox="0 0 12 12" aria-hidden="true">
           <path
             d="M6 2a4 4 0 1 1-3.8 2.8"
