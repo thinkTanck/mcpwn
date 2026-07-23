@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import type { Verdict } from '@/contract';
 
@@ -13,8 +13,9 @@ import type { Verdict } from '@/contract';
  * prose; the summary is the whole of it.
  *
  * `y` is a real <Link> (accessible name "Export fix report") so the fix-report
- * off-ramp stays keyboard- and screen-reader-operable; typing y/n while either
- * export control has focus does the same thing.
+ * off-ramp stays keyboard- and screen-reader-operable. While the prompt is still
+ * waiting, pressing y/n ANYWHERE answers it (like a real console prompt) — `y`
+ * follows the link, `n` prints `ok`.
  */
 const CYAN = 'var(--text-readout)';
 const BREACH = 'var(--text-breach)';
@@ -46,17 +47,27 @@ export function VerdictRail({
   const [answered, setAnswered] = useState<null | 'n'>(null);
   const yRef = useRef<HTMLAnchorElement>(null);
 
-  // Type y/n while either export control is focused, like a real prompt. `y`
-  // triggers the link itself (no router dependency, so it renders under test).
-  const onKey = (e: React.KeyboardEvent) => {
-    if (e.key === 'y' || e.key === 'Y') {
-      e.preventDefault();
-      yRef.current?.click();
-    } else if (e.key === 'n' || e.key === 'N') {
-      e.preventDefault();
-      setAnswered('n');
-    }
-  };
+  // While the prompt is unanswered, y/n typed anywhere answers it — the way a
+  // console prompt captures the next keystroke. `y` clicks the link (no router
+  // dependency, so it still renders under test); `n` prints `ok`. Ignore keys
+  // aimed at a text field, and stop listening once answered.
+  useEffect(() => {
+    if (answered !== null) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+      if (e.key === 'y' || e.key === 'Y') {
+        e.preventDefault();
+        yRef.current?.click();
+      } else if (e.key === 'n' || e.key === 'N') {
+        e.preventDefault();
+        setAnswered('n');
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [answered]);
 
   return (
     <aside
@@ -82,36 +93,37 @@ export function VerdictRail({
         />
       )}
 
-      {/* Interactive export prompt. */}
-      <div className="mt-3 whitespace-pre-wrap">
-        <span style={{ color: PROMPT_COLOR }}>{PROMPT}$ </span>
-        export fix report? [
+      {/* Interactive export prompt — click y/n, or just type it. */}
+      <div className="mt-3 flex flex-wrap items-center gap-x-1 whitespace-pre-wrap">
+        <span>
+          <span style={{ color: PROMPT_COLOR }}>{PROMPT}$ </span>
+          export fix report?
+        </span>
+        <span aria-hidden="true">[</span>
         <Link
           ref={yRef}
           href={href}
           aria-label="Export fix report"
-          onKeyDown={onKey}
-          className="underline-offset-2 hover:underline focus:underline focus:outline-none"
+          className="rounded px-1.5 font-bold underline underline-offset-2 hover:bg-nominal/15 focus:outline-none focus-visible:bg-nominal/20"
           style={{ color: CYAN }}
         >
           y
         </Link>
-        /
+        <span aria-hidden="true">/</span>
         <button
           type="button"
           onClick={() => setAnswered('n')}
-          onKeyDown={onKey}
           aria-label="Decline export"
-          className="underline-offset-2 hover:underline focus:underline focus:outline-none"
+          className="rounded px-1.5 font-bold underline underline-offset-2 hover:bg-nominal/15 focus:outline-none focus-visible:bg-nominal/20"
           style={{ color: CYAN }}
         >
           n
         </button>
-        ]
+        <span aria-hidden="true">]</span>
         {answered === null && (
           <span
             aria-hidden="true"
-            className="ml-1 inline-block h-[1.05em] w-[0.55ch] translate-y-[0.18em] motion-safe:[animation:cursor-blink_1.05s_step-end_infinite]"
+            className="inline-block h-[1.05em] w-[0.55ch] translate-y-[0.18em] motion-safe:[animation:cursor-blink_1.05s_step-end_infinite]"
             style={{ background: CYAN }}
           />
         )}
