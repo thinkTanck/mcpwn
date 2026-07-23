@@ -60,6 +60,7 @@
   "overrides": {
     "tmp": "^0.2.4",
     "sharp": "0.35.3",
-    "fast-uri": "3.1.4"
+    "fast-uri": "3.1.4",
+    "postcss": "8.5.22"
   }
 }
