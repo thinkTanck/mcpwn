@@ -118,7 +118,7 @@ export function SignInPanel({
               <>
                 A one-time sign-in link is on its way to{' '}
                 <span className="font-mono text-readout">{email || 'your inbox'}</span>. It expires
-                in 15 minutes — open it on this device to finish signing in.
+                in 15 minutes, so open it on this device to finish signing in.
               </>
             ) : (
               <>
