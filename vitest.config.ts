@@ -23,11 +23,17 @@ export default defineConfig({
       provider: 'v8',
       reportsDirectory: './coverage',
       include: ['src/**/*.{ts,tsx}'],
-      // Excluded: files that render their own <html>/<body> document and so
-      // cannot be unit-tested in jsdom — the root layout shell and the root
-      // error boundary. Both are exercised by the Playwright e2e / production
-      // build, not by unit tests.
-      exclude: ['src/**/*.d.ts', 'src/app/**/layout.tsx', 'src/app/**/global-error.tsx'],
+      // Excluded: files that cannot be unit-tested in jsdom — the root layout
+      // shell and root error boundary (render their own <html>/<body>), and the
+      // Edge-runtime middleware (request/response cookies, NextResponse.next()).
+      // All are exercised by the Playwright e2e / production build, not units.
+      exclude: [
+        'src/**/*.d.ts',
+        'src/app/**/layout.tsx',
+        'src/app/**/global-error.tsx',
+        'src/middleware.ts',
+        'src/lib/supabase/middleware.ts',
+      ],
       // Enforced floor (Phase 0 Step 2). Met by real tests, not vacuous:
       // every included source file is exercised by its own unit test.
       thresholds: {
