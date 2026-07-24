@@ -1,8 +1,9 @@
 'use client';
 
-import { useId, useState } from 'react';
+import { useId, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/hud';
+import { sendMagicLink, startGitHubOAuth } from '@/lib/auth/actions';
 
 /**
  * Magic-link sign-in (BRAND · pre-auth). No real auth wiring — Supabase Auth
@@ -73,11 +74,36 @@ function GoogleIcon() {
   );
 }
 
-export function SignInPanel() {
+export function SignInPanel({
+  authEnabled = false,
+  githubEnabled = false,
+}: {
+  /** Real Supabase magic-link is wired (else the honest preview state). */
+  authEnabled?: boolean;
+  /** GitHub OAuth is configured + enabled (else the button stays disabled). */
+  githubEnabled?: boolean;
+}) {
   const emailId = useId();
   const helpId = useId();
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    // Honest preview when auth is not configured: no send happens.
+    if (!authEnabled) {
+      setSent(true);
+      return;
+    }
+    startTransition(async () => {
+      const res = await sendMagicLink(email);
+      if (res.ok) setSent(true);
+      else setError(res.error);
+    });
+  };
 
   if (sent) {
     return (
@@ -86,12 +112,22 @@ export function SignInPanel() {
           <span aria-hidden="true" className="mb-2 inline-flex text-nominal">
             <EnvelopeIcon />
           </span>
-          <h1 className="reading-h1">That is the flow.</h1>
+          <h1 className="reading-h1">{authEnabled ? 'Check your inbox.' : 'That is the flow.'}</h1>
           <p className="reading mt-3">
-            In the live app, a one-time sign-in link lands at{' '}
-            <span className="font-mono text-readout">{email || 'your inbox'}</span> and expires in
-            15 minutes. No email is sent in this preview; sign-in wiring ships with the hosted
-            release.
+            {authEnabled ? (
+              <>
+                A one-time sign-in link is on its way to{' '}
+                <span className="font-mono text-readout">{email || 'your inbox'}</span>. It expires
+                in 15 minutes — open it on this device to finish signing in.
+              </>
+            ) : (
+              <>
+                In the live app, a one-time sign-in link lands at{' '}
+                <span className="font-mono text-readout">{email || 'your inbox'}</span> and expires
+                in 15 minutes. No email is sent in this preview; sign-in wiring ships with the
+                hosted release.
+              </>
+            )}
           </p>
         </div>
         <Button
@@ -118,25 +154,20 @@ export function SignInPanel() {
         </p>
       </div>
 
-      {/* Honest preview state: none of the sign-in paths are wired yet (Supabase
-          Auth is Phase 8), so the screen is labelled a preview rather than
-          asserting a send that never happens. */}
-      <div className="mt-4 flex items-center gap-2.5 rounded-md border border-line-em bg-nominal/5 px-3 py-2.5">
-        <span className="shrink-0 rounded border border-line-em px-1.5 py-0.5 font-mono text-[13px] uppercase tracking-[0.12em] text-nominal">
-          Preview
-        </span>
-        <span className="reading text-[15px] text-ink-muted">
-          Sign-in wiring ships with the hosted release; no email is sent yet.
-        </span>
-      </div>
+      {/* Honest preview state only when auth is NOT configured: the screen is
+          labelled a preview rather than asserting a send that never happens. */}
+      {!authEnabled && (
+        <div className="mt-4 flex items-center gap-2.5 rounded-md border border-line-em bg-nominal/5 px-3 py-2.5">
+          <span className="shrink-0 rounded border border-line-em px-1.5 py-0.5 font-mono text-[13px] uppercase tracking-[0.12em] text-nominal">
+            Preview
+          </span>
+          <span className="reading text-[15px] text-ink-muted">
+            Sign-in wiring ships with the hosted release; no email is sent yet.
+          </span>
+        </div>
+      )}
 
-      <form
-        className="mt-6 flex flex-col gap-3"
-        onSubmit={(e) => {
-          e.preventDefault();
-          setSent(true);
-        }}
-      >
+      <form className="mt-6 flex flex-col gap-3" onSubmit={submit}>
         <div className="flex flex-col gap-2">
           <label
             htmlFor={emailId}
@@ -158,10 +189,20 @@ export function SignInPanel() {
           />
         </div>
 
-        <Button type="submit" className="w-full gap-2.5 uppercase tracking-[0.06em]">
+        <Button
+          type="submit"
+          disabled={pending}
+          className="w-full gap-2.5 uppercase tracking-[0.06em]"
+        >
           <EnvelopeIcon />
-          Email me a sign-in link
+          {pending ? 'Sending…' : 'Email me a sign-in link'}
         </Button>
+
+        {error && (
+          <p role="alert" className="reading text-[15px] text-breach-text">
+            {error}
+          </p>
+        )}
 
         <p id={helpId} className="reading mt-1 flex items-start gap-2">
           <LockIcon />
@@ -180,18 +221,33 @@ export function SignInPanel() {
         <span className="h-px flex-1 bg-line" />
       </div>
 
-      {/* OAuth is not wired yet (Phase 8); disabled rather than a silent no-op, so a
-          click never looks broken. The Preview banner above explains why. */}
+      {/* GitHub is wired behind config: enabled only when isGithubOAuthEnabled, so
+          it never blocks on the GitHub app creds. Google stays disabled (unwired)
+          rather than a silent no-op. */}
       <div className="flex gap-2.5">
-        <Button
-          variant="ghost"
-          disabled
-          aria-label="Continue with GitHub (available with the hosted release)"
-          className="flex-1 gap-2 border-line text-ink"
-        >
-          <GitHubIcon />
-          GitHub
-        </Button>
+        {githubEnabled ? (
+          <form action={startGitHubOAuth} className="flex-1">
+            <Button
+              variant="ghost"
+              type="submit"
+              aria-label="Continue with GitHub"
+              className="w-full gap-2 border-line text-ink"
+            >
+              <GitHubIcon />
+              GitHub
+            </Button>
+          </form>
+        ) : (
+          <Button
+            variant="ghost"
+            disabled
+            aria-label="Continue with GitHub (available with the hosted release)"
+            className="flex-1 gap-2 border-line text-ink"
+          >
+            <GitHubIcon />
+            GitHub
+          </Button>
+        )}
         <Button
           variant="ghost"
           disabled

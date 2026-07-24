@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { SignInPanel } from '@/components/signin/SignInPanel';
+import { isAuthEnabled, isGithubOAuthEnabled } from '@/config/env';
 
 export const metadata: Metadata = {
   title: 'Sign in · MCPwn',
@@ -52,7 +53,7 @@ export default function SignIn() {
       </Link>
 
       <div className="relative w-full max-w-[380px]">
-        <SignInPanel />
+        <SignInPanel authEnabled={isAuthEnabled()} githubEnabled={isGithubOAuthEnabled()} />
       </div>
     </main>
   );
