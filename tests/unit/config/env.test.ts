@@ -3,6 +3,9 @@ import {
   getPersistenceConfig,
   getJudgeConfig,
   getMcpConfig,
+  getSupabaseConfig,
+  isAuthEnabled,
+  getSupabaseServiceRoleKey,
   ConfigError,
 } from '@/config/env';
 
@@ -224,5 +227,61 @@ describe('reads process.env by default (offline)', () => {
 
   it('getMcpConfig() throws offline (no mcp target set)', () => {
     expect(() => getMcpConfig()).toThrow(ConfigError);
+  });
+});
+
+describe('getSupabaseConfig — offline-safe (absence is a first-class state)', () => {
+  const URL = 'https://ref.supabase.co';
+  const ANON = 'anon-key-123';
+
+  it('returns null when unconfigured (no NEXT_PUBLIC_SUPABASE_URL) → auth inert', () => {
+    expect(getSupabaseConfig({})).toBeNull();
+    expect(isAuthEnabled({})).toBe(false);
+  });
+
+  it('returns the typed public config when configured', () => {
+    const env = { NEXT_PUBLIC_SUPABASE_URL: URL, NEXT_PUBLIC_SUPABASE_ANON_KEY: ANON };
+    expect(getSupabaseConfig(env)).toEqual({ url: URL, anonKey: ANON });
+    expect(isAuthEnabled(env)).toBe(true);
+  });
+
+  it('throws (does NOT silently disable) when the URL is set but the anon key is missing', () => {
+    expect(() => getSupabaseConfig({ NEXT_PUBLIC_SUPABASE_URL: URL })).toThrow(ConfigError);
+  });
+
+  it('throws on a malformed URL, naming the var not its value', () => {
+    const err = caught(() =>
+      getSupabaseConfig({
+        NEXT_PUBLIC_SUPABASE_URL: 'not-a-url',
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ANON,
+      }),
+    );
+    expect(err).toBeInstanceOf(ConfigError);
+    expect(err.message).toContain('NEXT_PUBLIC_SUPABASE_URL');
+    expect(err.message).not.toContain(ANON);
+  });
+
+  it('getSupabaseServiceRoleKey: null when unconfigured', () => {
+    expect(getSupabaseServiceRoleKey({})).toBeNull();
+  });
+
+  it('getSupabaseServiceRoleKey: returns the key when configured', () => {
+    const key = 'service-role-xyz';
+    expect(
+      getSupabaseServiceRoleKey({
+        NEXT_PUBLIC_SUPABASE_URL: URL,
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ANON,
+        SUPABASE_SERVICE_ROLE_KEY: key,
+      }),
+    ).toBe(key);
+  });
+
+  it('getSupabaseServiceRoleKey: throws when auth is configured but the key is missing', () => {
+    expect(() =>
+      getSupabaseServiceRoleKey({
+        NEXT_PUBLIC_SUPABASE_URL: URL,
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ANON,
+      }),
+    ).toThrow(ConfigError);
   });
 });

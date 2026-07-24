@@ -85,6 +85,56 @@ export function getPersistenceConfig(env: Env = process.env): PersistenceConfig 
   return result.data;
 }
 
+// ── LAZY: Supabase Auth (gates live runs; OFFLINE-SAFE) ──
+//
+// Unlike the other deferred creds, absence is a first-class state: with no
+// Supabase URL set, auth is INERT (the accessor returns null), so the app boots
+// credential-free — sign-in stays in its honest preview and everything runs on
+// the in-memory data source. When the URL IS set, the public pair is required and
+// validated (a half-configured project is a real error, not silent inertness).
+const SupabaseEnvSchema = z
+  .object({
+    NEXT_PUBLIC_SUPABASE_URL: httpUrl,
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
+  })
+  .transform((v) => ({
+    url: v.NEXT_PUBLIC_SUPABASE_URL,
+    anonKey: v.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  }));
+export type SupabaseConfig = z.infer<typeof SupabaseEnvSchema>;
+
+/**
+ * Public Supabase config (url + anon key) usable in browser AND server, or
+ * `null` when auth is not configured (offline-safe). Presence is keyed on
+ * `NEXT_PUBLIC_SUPABASE_URL`; if that is set but the pair is incomplete/invalid,
+ * a typed `ConfigError` is thrown (naming the vars, never their values).
+ */
+export function getSupabaseConfig(env: Env = process.env): SupabaseConfig | null {
+  if (!env.NEXT_PUBLIC_SUPABASE_URL) return null; // not configured → auth inert
+  const result = SupabaseEnvSchema.safeParse(env);
+  if (!result.success) throw toConfigError(result.error, 'Invalid Supabase configuration');
+  return result.data;
+}
+
+/** True when Supabase Auth is configured. Gate real auth behaviour on this. */
+export function isAuthEnabled(env: Env = process.env): boolean {
+  return getSupabaseConfig(env) !== null;
+}
+
+/**
+ * SERVER-ONLY: the Supabase service-role key (bypasses RLS). `null` when auth is
+ * not configured; throws when auth IS configured but the key is missing. NEVER
+ * call this from browser/client code — it must never reach the bundle.
+ */
+export function getSupabaseServiceRoleKey(env: Env = process.env): string | null {
+  if (!getSupabaseConfig(env)) return null;
+  const key = env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!key || key.length === 0) {
+    throw new ConfigError('Invalid Supabase configuration: missing SUPABASE_SERVICE_ROLE_KEY');
+  }
+  return key;
+}
+
 // ── LAZY: JudgeModelPort (blind LLM alignment-auditor) ──
 const JudgeEnvSchema = z
   .object({
