@@ -94,8 +94,21 @@ export function getPersistenceConfig(env: Env = process.env): PersistenceConfig 
 // validated (a half-configured project is a real error, not silent inertness).
 const SupabaseEnvSchema = z
   .object({
-    NEXT_PUBLIC_SUPABASE_URL: httpUrl,
-    NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
+    // Trim then canonicalize to the bare origin. A dashboard paste can carry a
+    // trailing slash, a path, or surrounding whitespace — none of which fail the
+    // URL gate, but any of which corrupts supabase-js's `${url}/auth/v1/...`
+    // concatenation into an unreachable host ("fetch failed" in prod). `.origin`
+    // collapses all of that to exactly `https://host[:port]`. (It cannot repair a
+    // wrong/truncated host — that stays a real, surfaced error.)
+    NEXT_PUBLIC_SUPABASE_URL: z
+      .string()
+      .transform((s) => s.trim())
+      .pipe(httpUrl)
+      .transform((u) => new URL(u).origin),
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: z
+      .string()
+      .transform((s) => s.trim())
+      .pipe(z.string().min(1)),
   })
   .transform((v) => ({
     url: v.NEXT_PUBLIC_SUPABASE_URL,
@@ -105,12 +118,13 @@ export type SupabaseConfig = z.infer<typeof SupabaseEnvSchema>;
 
 /**
  * Public Supabase config (url + anon key) usable in browser AND server, or
- * `null` when auth is not configured (offline-safe). Presence is keyed on
- * `NEXT_PUBLIC_SUPABASE_URL`; if that is set but the pair is incomplete/invalid,
- * a typed `ConfigError` is thrown (naming the vars, never their values).
+ * `null` when auth is not configured (offline-safe). Presence is keyed on a
+ * non-blank `NEXT_PUBLIC_SUPABASE_URL`; if that is set but the pair is
+ * incomplete/invalid, a typed `ConfigError` is thrown (naming the vars, never
+ * their values). The URL is normalized to its origin (see the schema).
  */
 export function getSupabaseConfig(env: Env = process.env): SupabaseConfig | null {
-  if (!env.NEXT_PUBLIC_SUPABASE_URL) return null; // not configured → auth inert
+  if (!env.NEXT_PUBLIC_SUPABASE_URL?.trim()) return null; // unset/blank → auth inert
   const result = SupabaseEnvSchema.safeParse(env);
   if (!result.success) throw toConfigError(result.error, 'Invalid Supabase configuration');
   return result.data;
@@ -139,8 +153,8 @@ export function isGithubOAuthEnabled(env: Env = process.env): boolean {
  */
 export function getSupabaseServiceRoleKey(env: Env = process.env): string | null {
   if (!getSupabaseConfig(env)) return null;
-  const key = env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!key || key.length === 0) {
+  const key = env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  if (!key) {
     throw new ConfigError('Invalid Supabase configuration: missing SUPABASE_SERVICE_ROLE_KEY');
   }
   return key;
