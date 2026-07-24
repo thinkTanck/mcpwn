@@ -262,6 +262,54 @@ describe('getSupabaseConfig — offline-safe (absence is a first-class state)', 
     expect(err.message).not.toContain(ANON);
   });
 
+  it('normalizes a URL with a trailing slash to its bare origin', () => {
+    expect(
+      getSupabaseConfig({
+        NEXT_PUBLIC_SUPABASE_URL: 'https://ref.supabase.co/',
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ANON,
+      })?.url,
+    ).toBe(URL);
+  });
+
+  it('trims surrounding whitespace and drops a stray path, keeping the origin', () => {
+    expect(
+      getSupabaseConfig({
+        NEXT_PUBLIC_SUPABASE_URL: '  https://ref.supabase.co/rest/v1  ',
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ANON,
+      })?.url,
+    ).toBe(URL);
+  });
+
+  it('trims surrounding whitespace on the anon key', () => {
+    expect(
+      getSupabaseConfig({
+        NEXT_PUBLIC_SUPABASE_URL: URL,
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: `  ${ANON}\n`,
+      })?.anonKey,
+    ).toBe(ANON);
+  });
+
+  it('treats a blank/whitespace-only URL as unconfigured (inert), not an error', () => {
+    expect(getSupabaseConfig({ NEXT_PUBLIC_SUPABASE_URL: '   ' })).toBeNull();
+    expect(isAuthEnabled({ NEXT_PUBLIC_SUPABASE_URL: '  \n' })).toBe(false);
+  });
+
+  it('throws when the URL is set but the anon key is only whitespace', () => {
+    expect(() =>
+      getSupabaseConfig({ NEXT_PUBLIC_SUPABASE_URL: URL, NEXT_PUBLIC_SUPABASE_ANON_KEY: '   ' }),
+    ).toThrow(/NEXT_PUBLIC_SUPABASE_ANON_KEY/);
+  });
+
+  it('trims the service-role key and rejects a whitespace-only one', () => {
+    const base = { NEXT_PUBLIC_SUPABASE_URL: URL, NEXT_PUBLIC_SUPABASE_ANON_KEY: ANON };
+    expect(getSupabaseServiceRoleKey({ ...base, SUPABASE_SERVICE_ROLE_KEY: '  svc-key  ' })).toBe(
+      'svc-key',
+    );
+    expect(() => getSupabaseServiceRoleKey({ ...base, SUPABASE_SERVICE_ROLE_KEY: '   ' })).toThrow(
+      /SUPABASE_SERVICE_ROLE_KEY/,
+    );
+  });
+
   it('isGithubOAuthEnabled: only when auth is configured AND the flag is true', () => {
     const base = { NEXT_PUBLIC_SUPABASE_URL: URL, NEXT_PUBLIC_SUPABASE_ANON_KEY: ANON };
     expect(isGithubOAuthEnabled({})).toBe(false); // no auth
