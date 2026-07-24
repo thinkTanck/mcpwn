@@ -18,6 +18,10 @@
     "test:coverage": "vitest run --coverage --passWithNoTests",
     "test:e2e": "playwright test",
     "audit": "audit-ci --config ./audit-ci.json",
+    "db:link": "supabase link --project-ref ovsznqyynlxhrdnfywjx",
+    "db:new": "supabase migration new",
+    "db:push": "supabase db push",
+    "db:diff": "supabase db diff",
     "prepare": "husky"
   },
   "dependencies": {

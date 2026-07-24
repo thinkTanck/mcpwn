@@ -23,11 +23,16 @@ create index if not exists runs_user_created_idx
 alter table public.runs enable row level security;
 
 -- Owner-only. Runs are immutable once written (no UPDATE policy by design).
+-- Idempotent (drop-then-create) so the migration is safe to re-run whether it
+-- was first applied by hand in the SQL Editor or by `supabase db push`.
+drop policy if exists runs_select_own on public.runs;
 create policy runs_select_own on public.runs
   for select using (user_id = auth.uid());
 
+drop policy if exists runs_insert_own on public.runs;
 create policy runs_insert_own on public.runs
   for insert with check (user_id = auth.uid());
 
+drop policy if exists runs_delete_own on public.runs;
 create policy runs_delete_own on public.runs
   for delete using (user_id = auth.uid());
