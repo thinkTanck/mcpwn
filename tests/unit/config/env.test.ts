@@ -5,6 +5,7 @@ import {
   getMcpConfig,
   getSupabaseConfig,
   isAuthEnabled,
+  isGithubOAuthEnabled,
   getSupabaseServiceRoleKey,
   ConfigError,
 } from '@/config/env';
@@ -259,6 +260,13 @@ describe('getSupabaseConfig — offline-safe (absence is a first-class state)', 
     expect(err).toBeInstanceOf(ConfigError);
     expect(err.message).toContain('NEXT_PUBLIC_SUPABASE_URL');
     expect(err.message).not.toContain(ANON);
+  });
+
+  it('isGithubOAuthEnabled: only when auth is configured AND the flag is true', () => {
+    const base = { NEXT_PUBLIC_SUPABASE_URL: URL, NEXT_PUBLIC_SUPABASE_ANON_KEY: ANON };
+    expect(isGithubOAuthEnabled({})).toBe(false); // no auth
+    expect(isGithubOAuthEnabled(base)).toBe(false); // auth, flag off
+    expect(isGithubOAuthEnabled({ ...base, NEXT_PUBLIC_GITHUB_OAUTH_ENABLED: 'true' })).toBe(true);
   });
 
   it('getSupabaseServiceRoleKey: null when unconfigured', () => {

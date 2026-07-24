@@ -122,6 +122,17 @@ export function isAuthEnabled(env: Env = process.env): boolean {
 }
 
 /**
+ * True when GitHub OAuth should be OFFERED (the button is enabled). Kept behind
+ * its own flag so the sign-in path doesn't block on the GitHub app creds: the
+ * server action always exists, but the button only lights up once GitHub is
+ * configured in Supabase and `NEXT_PUBLIC_GITHUB_OAUTH_ENABLED=true` is set.
+ * Requires auth to be configured at all.
+ */
+export function isGithubOAuthEnabled(env: Env = process.env): boolean {
+  return isAuthEnabled(env) && env.NEXT_PUBLIC_GITHUB_OAUTH_ENABLED === 'true';
+}
+
+/**
  * SERVER-ONLY: the Supabase service-role key (bypasses RLS). `null` when auth is
  * not configured; throws when auth IS configured but the key is missing. NEVER
  * call this from browser/client code — it must never reach the bundle.
