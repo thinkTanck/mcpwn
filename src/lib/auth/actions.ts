@@ -15,21 +15,54 @@ async function siteOrigin(): Promise<string> {
   return `${proto}://${host}`;
 }
 
+/** Same-site relative path only, else `/account` (open-redirect guard). `next`
+ *  arrives from the untrusted `?next=` query param. */
+function sanitizeNext(next?: string): string {
+  if (!next || !next.startsWith('/') || next.startsWith('//') || next.includes('\\')) {
+    return '/account';
+  }
+  return next;
+}
+
 /**
- * Magic-link: email the address a one-time sign-in link that returns to
- * `/auth/callback`. Returns a typed result so the panel can show "check your
- * email" or a failure without leaving the page. Inert (ok:false) when auth is
- * not configured — the panel keeps its preview state.
+ * Email OTP: send the address a 6-digit code (the Supabase email templates must
+ * emit `{{ .Token }}`). Returns a typed result so the panel can advance to the
+ * code step or show a failure without leaving the page. Inert (ok:false) when
+ * auth is not configured — the panel keeps its preview state.
  */
-export async function sendMagicLink(email: string): Promise<AuthResult> {
+export async function requestEmailCode(email: string): Promise<AuthResult> {
   const supabase = await createServerSupabase();
   if (!supabase) return { ok: false, error: 'Sign-in is not configured yet.' };
   const { error } = await supabase.auth.signInWithOtp({
     email,
-    options: { emailRedirectTo: `${await siteOrigin()}/auth/callback` },
+    options: { shouldCreateUser: true },
   });
   if (error) return { ok: false, error: error.message };
   return { ok: true };
+}
+
+/**
+ * Email OTP verify: exchange the typed 6-digit code for a session. Tries the
+ * sign-in OTP type, then the signup OTP type (a brand-new account's first code).
+ * On success the cookie-bound server client has set the session cookies, so we
+ * redirect to a sanitized `next`. verifyOtp IS the whole flow — no PKCE, no
+ * callback, so an email scanner or a different browser can never break it.
+ */
+export async function verifyEmailCode(
+  email: string,
+  token: string,
+  next?: string,
+): Promise<AuthResult> {
+  const supabase = await createServerSupabase();
+  if (!supabase) return { ok: false, error: 'Sign-in is not configured yet.' };
+
+  let { error } = await supabase.auth.verifyOtp({ email, token, type: 'email' });
+  if (error) {
+    ({ error } = await supabase.auth.verifyOtp({ email, token, type: 'signup' }));
+  }
+  if (error) return { ok: false, error: error.message };
+
+  redirect(sanitizeNext(next));
 }
 
 /**

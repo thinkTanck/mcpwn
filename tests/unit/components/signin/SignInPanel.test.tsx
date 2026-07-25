@@ -1,10 +1,11 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SignInPanel } from '@/components/signin/SignInPanel';
-import { sendMagicLink } from '@/lib/auth/actions';
+import { requestEmailCode } from '@/lib/auth/actions';
 
 vi.mock('@/lib/auth/actions', () => ({
-  sendMagicLink: vi.fn(),
+  requestEmailCode: vi.fn(),
+  verifyEmailCode: vi.fn(),
   startGitHubOAuth: vi.fn(),
 }));
 
@@ -17,7 +18,7 @@ describe('SignInPanel (wired auth)', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('sends a real magic link, confirms, and drops the preview banner', async () => {
-    vi.mocked(sendMagicLink).mockResolvedValue({ ok: true });
+    vi.mocked(requestEmailCode).mockResolvedValue({ ok: true });
     const user = userEvent.setup();
     render(<SignInPanel authEnabled />);
 
@@ -26,7 +27,7 @@ describe('SignInPanel (wired auth)', () => {
     await user.type(screen.getByLabelText(/email/i), 'real@user.com');
     await user.click(screen.getByRole('button', { name: /email me a sign-in link/i }));
 
-    expect(sendMagicLink).toHaveBeenCalledWith('real@user.com');
+    expect(requestEmailCode).toHaveBeenCalledWith('real@user.com');
     await waitFor(() =>
       expect(screen.getByRole('heading', { name: /check your inbox/i })).toBeInTheDocument(),
     );
@@ -34,7 +35,7 @@ describe('SignInPanel (wired auth)', () => {
   });
 
   it('surfaces the provider error on failure', async () => {
-    vi.mocked(sendMagicLink).mockResolvedValue({ ok: false, error: 'rate limited' });
+    vi.mocked(requestEmailCode).mockResolvedValue({ ok: false, error: 'rate limited' });
     const user = userEvent.setup();
     render(<SignInPanel authEnabled />);
 

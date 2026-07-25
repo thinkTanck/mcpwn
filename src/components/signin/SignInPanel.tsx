@@ -3,7 +3,7 @@
 import { useId, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/hud';
-import { sendMagicLink, startGitHubOAuth } from '@/lib/auth/actions';
+import { requestEmailCode, startGitHubOAuth } from '@/lib/auth/actions';
 
 /**
  * Magic-link sign-in (BRAND · pre-auth). No real auth wiring — Supabase Auth
@@ -119,7 +119,7 @@ export function SignInPanel({
       return;
     }
     startTransition(async () => {
-      const res = await sendMagicLink(email);
+      const res = await requestEmailCode(email);
       if (res.ok) setSent(true);
       else setError(res.error);
     });
