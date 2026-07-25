@@ -1,9 +1,9 @@
 'use client';
 
-import { useId, useState, useTransition } from 'react';
+import { useEffect, useId, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/hud';
-import { requestEmailCode, startGitHubOAuth } from '@/lib/auth/actions';
+import { requestEmailCode, verifyEmailCode, startGitHubOAuth } from '@/lib/auth/actions';
 
 /**
  * Magic-link sign-in (BRAND · pre-auth). No real auth wiring — Supabase Auth
@@ -93,73 +93,180 @@ export function SignInPanel({
   authEnabled = false,
   githubEnabled = false,
   linkError = false,
+  next,
 }: {
-  /** Real Supabase magic-link is wired (else the honest preview state). */
+  /** Real Supabase auth is wired (else the honest preview state). */
   authEnabled?: boolean;
   /** GitHub OAuth is configured + enabled (else the button stays disabled). */
   githubEnabled?: boolean;
-  /** The visitor arrived from a failed `/auth/callback` (`?error=auth`): the
-   *  one-time link was already used or expired. Explain it instead of bouncing
-   *  them onto a silent, blank form. */
+  /** The visitor arrived from a failed `/auth/callback` (`?error=auth`): a prior
+   *  sign-in could not be completed. Explain it instead of bouncing them onto a
+   *  silent, blank form. */
   linkError?: boolean;
+  /** Post-verify destination (sanitized server-side); flows from `?next=`. */
+  next?: string;
 }) {
   const emailId = useId();
+  const codeId = useId();
   const helpId = useId();
+  const [step, setStep] = useState<'email' | 'code'>('email');
   const [email, setEmail] = useState('');
-  const [sent, setSent] = useState(false);
+  const [code, setCode] = useState('');
+  const [previewSent, setPreviewSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [cooldown, setCooldown] = useState(0);
   const [pending, startTransition] = useTransition();
+  const codeRef = useRef<HTMLInputElement>(null);
 
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
+  // One countdown for the whole code step; requesting/resending re-arms it to 45.
+  useEffect(() => {
+    if (step !== 'code') return;
+    const t = setInterval(() => setCooldown((c) => (c <= 1 ? 0 : c - 1)), 1000);
+    return () => clearInterval(t);
+  }, [step]);
+
+  // Move focus to the code field when it appears (keyboard-first).
+  useEffect(() => {
+    if (step === 'code') codeRef.current?.focus();
+  }, [step]);
+
+  const requestCode = () => {
     setError(null);
     // Honest preview when auth is not configured: no send happens.
     if (!authEnabled) {
-      setSent(true);
+      setPreviewSent(true);
       return;
     }
     startTransition(async () => {
       const res = await requestEmailCode(email);
-      if (res.ok) setSent(true);
-      else setError(res.error);
+      if (res.ok) {
+        setStep('code');
+        setCode('');
+        setCooldown(45);
+      } else {
+        setError(res.error);
+      }
     });
   };
 
-  if (sent) {
+  const verify = () => {
+    setError(null);
+    startTransition(async () => {
+      const res = await verifyEmailCode(email, code, next);
+      // A successful verify redirects server-side; only a failure returns here.
+      if (!res.ok) setError(res.error);
+    });
+  };
+
+  const backToEmail = () => {
+    setStep('email');
+    setCode('');
+    setError(null);
+  };
+
+  // Honest preview confirmation (auth not configured): no send happened.
+  if (previewSent) {
     return (
       <div className="w-full max-w-[380px]" role="status" aria-live="polite">
         <div className="border-t border-line pt-7">
           <span aria-hidden="true" className="mb-2 inline-flex text-nominal">
             <EnvelopeIcon />
           </span>
-          <h1 className="reading-h1">{authEnabled ? 'Check your inbox.' : 'That is the flow.'}</h1>
+          <h1 className="reading-h1">That is the flow.</h1>
           <p className="reading mt-3">
-            {authEnabled ? (
-              <>
-                A one-time sign-in link is on its way to{' '}
-                <span className="font-mono text-readout">{email || 'your inbox'}</span>. It expires
-                in 15 minutes, so open it on this device to finish signing in.
-              </>
-            ) : (
-              <>
-                In the live app, a one-time sign-in link lands at{' '}
-                <span className="font-mono text-readout">{email || 'your inbox'}</span> and expires
-                in 15 minutes. No email is sent in this preview; sign-in wiring ships with the
-                hosted release.
-              </>
-            )}
+            In the live app, a 6-digit code lands at{' '}
+            <span className="font-mono text-readout">{email || 'your inbox'}</span> and expires in
+            15 minutes. No email is sent in this preview; sign-in wiring ships with the hosted
+            release.
           </p>
         </div>
         <Button
           variant="ghost"
           className="mt-6 w-full uppercase"
           onClick={() => {
-            setSent(false);
+            setPreviewSent(false);
             setEmail('');
           }}
         >
           Use a different email
         </Button>
+      </div>
+    );
+  }
+
+  // Code step: type the 6-digit code (verified in this same browser).
+  if (step === 'code') {
+    return (
+      <div className="w-full max-w-[380px]">
+        <div className="border-t border-line pt-7">
+          <span aria-hidden="true" className="mb-2 inline-flex text-nominal">
+            <EnvelopeIcon />
+          </span>
+          <h1 className="reading-h1">Enter your code.</h1>
+          <p className="reading mt-3">
+            We emailed a 6-digit code to <span className="font-mono text-readout">{email}</span>. It
+            expires in 15 minutes. Enter it below to finish signing in.
+          </p>
+        </div>
+
+        <form
+          className="mt-6 flex flex-col gap-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            verify();
+          }}
+        >
+          <div className="flex flex-col gap-2">
+            <label
+              htmlFor={codeId}
+              className="font-mono text-[13px] uppercase tracking-[0.12em] text-ink-faint"
+            >
+              Code
+            </label>
+            <input
+              id={codeId}
+              ref={codeRef}
+              name="code"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              pattern="[0-9]*"
+              maxLength={6}
+              required
+              placeholder="000000"
+              value={code}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              className="w-full rounded-md border border-line bg-base px-3 py-3 text-center font-mono text-[18px] tracking-[0.4em] text-readout placeholder:text-ink-faint focus-visible:border-nominal"
+            />
+          </div>
+
+          <Button
+            type="submit"
+            disabled={pending || code.length < 6}
+            className="w-full gap-2.5 uppercase tracking-[0.06em]"
+          >
+            {pending ? 'Verifying…' : 'Verify and continue'}
+          </Button>
+
+          {error && (
+            <p role="alert" className="reading text-[15px] text-breach-text">
+              {error}
+            </p>
+          )}
+        </form>
+
+        <div className="mt-5 flex gap-2.5">
+          <Button
+            variant="ghost"
+            disabled={cooldown > 0 || pending}
+            onClick={requestCode}
+            className="flex-1 border-line text-ink"
+          >
+            {cooldown > 0 ? `Resend code in ${cooldown}s` : 'Resend code'}
+          </Button>
+          <Button variant="ghost" onClick={backToEmail} className="flex-1 border-line text-ink">
+            Use a different email
+          </Button>
+        </div>
       </div>
     );
   }
@@ -205,7 +312,13 @@ export function SignInPanel({
         </div>
       )}
 
-      <form className="mt-6 flex flex-col gap-3" onSubmit={submit}>
+      <form
+        className="mt-6 flex flex-col gap-3"
+        onSubmit={(e) => {
+          e.preventDefault();
+          requestCode();
+        }}
+      >
         <div className="flex flex-col gap-2">
           <label
             htmlFor={emailId}
@@ -233,7 +346,7 @@ export function SignInPanel({
           className="w-full gap-2.5 uppercase tracking-[0.06em]"
         >
           <EnvelopeIcon />
-          {pending ? 'Sending…' : 'Email me a sign-in link'}
+          {pending ? 'Sending…' : 'Email me a code'}
         </Button>
 
         {error && (
@@ -245,7 +358,7 @@ export function SignInPanel({
         <p id={helpId} className="reading mt-1 flex items-start gap-2">
           <LockIcon />
           <span>
-            No password. We email a one-time link that expires in 15 minutes, so nothing to remember
+            No password. We email a 6-digit code that expires in 15 minutes, so nothing to remember
             and nothing to leak.
           </span>
         </p>
