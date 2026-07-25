@@ -40,6 +40,30 @@ function CautionIcon() {
   );
 }
 
+function BreachIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <circle cx="8" cy="8" r="6.4" stroke="currentColor" strokeWidth="1.2" />
+      <path d="M8 4.6v3.4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+      <circle cx="8" cy="10.9" r="0.7" fill="currentColor" />
+    </svg>
+  );
+}
+
+/** Inline field error: breach-red text PLUS an icon (the project's error contract:
+ *  status is a label/icon, never colour alone). `id` links it to the input via
+ *  aria-describedby so a screen reader hears the error on the field. */
+function ErrorLine({ id, children }: { id: string; children: React.ReactNode }) {
+  return (
+    <p id={id} role="alert" className="reading flex items-start gap-2 text-[15px] text-breach-text">
+      <span aria-hidden="true" className="mt-0.5 shrink-0">
+        <BreachIcon />
+      </span>
+      <span>{children}</span>
+    </p>
+  );
+}
+
 function LockIcon() {
   return (
     <svg
@@ -109,11 +133,13 @@ export function SignInPanel({
   const emailId = useId();
   const codeId = useId();
   const helpId = useId();
+  const errorId = useId();
   const [step, setStep] = useState<'email' | 'code'>('email');
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [previewSent, setPreviewSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [cooldown, setCooldown] = useState(0);
   const [pending, startTransition] = useTransition();
   const codeRef = useRef<HTMLInputElement>(null);
@@ -137,12 +163,15 @@ export function SignInPanel({
       setPreviewSent(true);
       return;
     }
+    const isResend = step === 'code';
     startTransition(async () => {
       const res = await requestEmailCode(email);
       if (res.ok) {
         setStep('code');
         setCode('');
         setCooldown(45);
+        // A resend gives no visible reply otherwise; announce it politely.
+        setNotice(isResend ? 'New code sent.' : null);
       } else {
         setError(res.error);
       }
@@ -151,6 +180,7 @@ export function SignInPanel({
 
   const verify = () => {
     setError(null);
+    setNotice(null);
     startTransition(async () => {
       const res = await verifyEmailCode(email, code, next);
       // A successful verify redirects server-side; only a failure returns here.
@@ -162,6 +192,7 @@ export function SignInPanel({
     setStep('email');
     setCode('');
     setError(null);
+    setNotice(null);
   };
 
   // Honest preview confirmation (auth not configured): no send happened.
@@ -234,6 +265,8 @@ export function SignInPanel({
               required
               placeholder="000000"
               value={code}
+              aria-invalid={error ? true : undefined}
+              aria-describedby={error ? errorId : undefined}
               onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
               className="w-full rounded-md border border-line bg-base px-3 py-3 text-center font-mono text-[18px] tracking-[0.4em] text-readout placeholder:text-ink-faint focus-visible:border-nominal"
             />
@@ -247,14 +280,15 @@ export function SignInPanel({
             {pending ? 'Verifying…' : 'Verify and continue'}
           </Button>
 
-          {error && (
-            <p role="alert" className="reading text-[15px] text-breach-text">
-              {error}
-            </p>
-          )}
+          {error && <ErrorLine id={errorId}>{error}</ErrorLine>}
         </form>
 
-        <div className="mt-5 flex gap-2.5">
+        {/* Resend is otherwise silent; announce it politely for everyone. */}
+        <p role="status" aria-live="polite" className="reading mt-3 text-[15px] text-nominal">
+          {notice}
+        </p>
+
+        <div className="mt-2 flex gap-2.5">
           <Button
             variant="ghost"
             disabled={cooldown > 0 || pending}
@@ -267,6 +301,10 @@ export function SignInPanel({
             Use a different email
           </Button>
         </div>
+
+        <p className="reading mt-4 text-[15px] text-ink-muted">
+          Did not get the code? Check your spam folder, then resend above.
+        </p>
       </div>
     );
   }
@@ -333,7 +371,8 @@ export function SignInPanel({
             required
             autoComplete="email"
             placeholder="you@company.com"
-            aria-describedby={helpId}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error ? `${helpId} ${errorId}` : helpId}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="w-full rounded-md border border-line bg-base px-3 py-3 font-mono text-[14px] text-readout placeholder:text-ink-faint focus-visible:border-nominal"
@@ -349,11 +388,7 @@ export function SignInPanel({
           {pending ? 'Sending…' : 'Email me a code'}
         </Button>
 
-        {error && (
-          <p role="alert" className="reading text-[15px] text-breach-text">
-            {error}
-          </p>
-        )}
+        {error && <ErrorLine id={errorId}>{error}</ErrorLine>}
 
         <p id={helpId} className="reading mt-1 flex items-start gap-2">
           <LockIcon />

@@ -70,6 +70,37 @@ describe('SignInPanel (wired auth)', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(/incorrect or has expired/i);
     expect(verifyEmailCode).toHaveBeenCalledWith('real@user.com', '000000', '/account');
     expect(screen.getByRole('heading', { name: /enter your code/i })).toBeInTheDocument();
+    // The field is marked invalid and linked to the error for screen readers.
+    const codeInput = screen.getByLabelText(/code/i);
+    expect(codeInput).toHaveAttribute('aria-invalid', 'true');
+    expect(codeInput.getAttribute('aria-describedby')).toBe(screen.getByRole('alert').id);
+  });
+
+  it('announces a new code on resend', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.mocked(requestEmailCode).mockResolvedValue({ ok: true });
+      render(<SignInPanel authEnabled />);
+      const emailInput = screen.getByLabelText(/email/i);
+      fireEvent.change(emailInput, { target: { value: 'real@user.com' } });
+      fireEvent.submit(emailInput.closest('form')!);
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      // Wait out the cooldown, then resend.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(45_000);
+      });
+      fireEvent.click(screen.getByRole('button', { name: /^resend code$/i }));
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      expect(screen.getByRole('status')).toHaveTextContent(/new code sent/i);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('returns to the email step from the code step', async () => {
