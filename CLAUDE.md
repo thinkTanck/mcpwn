@@ -105,3 +105,5 @@ CVSS v4.0 qualitative bands (None/Low/Medium/High/Critical) as a string; numeric
 ## Dependencies (as of 2026-07)
 
 Hold TypeScript 6 (TS 7 GA'd 2026-07-08; behavior-preserving port → migrate once typescript-eslint + vitest support it). Hold ESLint 9 (config-next's bundled eslint-plugin-react calls `getFilename()`, removed in ESLint 10); tracked bump before ESLint 9 EOL 2026-08-06.
+
+`audit-ci` allowlists **GHSA-mh99-v99m-4gvg** (brace-expansion DoS, `<=5.0.7`) — a **dev/build-only** transitive dep pulled by ESLint/lhci, never in the prod runtime bundle. The patched `brace-expansion@5.0.8` is incompatible with the `minimatch@3.x` in the held ESLint 9 tree (a tree-wide override crashes `@eslint/config-array`), and there is no backported 1.x fix; the real remediation rides with the tracked ESLint 10 bump above. Re-evaluate and drop the allowlist at that bump.
