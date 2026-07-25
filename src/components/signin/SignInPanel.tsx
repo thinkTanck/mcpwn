@@ -6,15 +6,15 @@ import { Button } from '@/components/hud';
 import { requestEmailCode, verifyEmailCode, startGitHubOAuth } from '@/lib/auth/actions';
 
 /**
- * Magic-link sign-in (BRAND · pre-auth). No real auth wiring — Supabase Auth
- * lands in Phase 8. Submitting the form flips to an inline "check your email"
- * confirmation (announced via role="status") so the control has honest,
- * visible-system-status feedback without leaving the page.
+ * Email OTP sign-in (BRAND · pre-auth), wired to Supabase Auth. Two steps in one
+ * browser: request a 6-digit code (requestEmailCode), then type it (verifyEmailCode,
+ * which sets the session and redirects). Code-only by design — no clickable link,
+ * so an email scanner or a different browser can never break it. When auth is not
+ * configured the panel keeps an honest preview state (no send happens).
  *
  * Register discipline (design-system §3.0): sentences a human reads use the
  * READING role (sans, ≥16px); machine labels/field glyphs use the INSTRUMENT
- * role (mono, 12–13px). The frozen prototype set the helper line in mono — that
- * is prose in an instrument role, corrected here to READING.
+ * role (mono, 12–13px).
  */
 function EnvelopeIcon() {
   return (
@@ -92,17 +92,17 @@ function GoogleIcon() {
 export function SignInPanel({
   authEnabled = false,
   githubEnabled = false,
-  linkError = false,
+  authError = false,
   next,
 }: {
   /** Real Supabase auth is wired (else the honest preview state). */
   authEnabled?: boolean;
   /** GitHub OAuth is configured + enabled (else the button stays disabled). */
   githubEnabled?: boolean;
-  /** The visitor arrived from a failed `/auth/callback` (`?error=auth`): a prior
-   *  sign-in could not be completed. Explain it instead of bouncing them onto a
-   *  silent, blank form. */
-  linkError?: boolean;
+  /** The visitor arrived from a failed `/auth/callback` (`?error=auth`) — a prior
+   *  sign-in (GitHub OAuth) could not be completed. Explain it instead of
+   *  bouncing them onto a silent, blank form. */
+  authError?: boolean;
   /** Post-verify destination (sanitized server-side); flows from `?next=`. */
   next?: string;
 }) {
@@ -281,11 +281,11 @@ export function SignInPanel({
         </p>
       </div>
 
-      {/* Arrived from a failed callback: the one-time link was already used or
-          has expired. Say so (caution, not breach — a spent link is not a
-          compromise) and point at the form as the request-a-new-link action, so
-          the user is never dropped on a silent, blank sign-in page. */}
-      {linkError && (
+      {/* Arrived from a failed callback (GitHub OAuth): the sign-in could not be
+          completed. Say so (caution, not breach — a failed sign-in is not a
+          compromise) and point at the form as the try-again action, so the user
+          is never dropped on a silent, blank sign-in page. */}
+      {authError && (
         <div
           role="alert"
           className="mt-4 flex items-start gap-2.5 rounded-md border border-caution/45 bg-caution/5 px-3 py-2.5"
@@ -294,7 +294,7 @@ export function SignInPanel({
             <CautionIcon />
           </span>
           <span className="reading text-[15px] text-ink">
-            That sign-in link was already used or has expired. Request a new link below.
+            We could not complete that sign-in. Request a new code below.
           </span>
         </div>
       )}

@@ -110,14 +110,14 @@ describe('SignInPanel (wired auth)', () => {
     expect(screen.getByRole('button', { name: /continue with github/i })).not.toBeDisabled();
   });
 
-  it('surfaces a clear reason (not a blank form) when a prior sign-in failed', () => {
-    render(<SignInPanel authEnabled linkError />);
-    expect(screen.getByRole('alert')).toHaveTextContent(/already used or (has )?expired/i);
+  it('surfaces a clear reason (not a blank form) on a prior sign-in failure', () => {
+    render(<SignInPanel authEnabled authError />);
+    expect(screen.getByRole('alert')).toHaveTextContent(/could not complete that sign-in/i);
     expect(screen.getByRole('button', { name: /email me a code/i })).toBeInTheDocument();
   });
 
   it('shows no failure notice when there is no prior error', () => {
     render(<SignInPanel authEnabled />);
-    expect(screen.queryByText(/already used or (has )?expired/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/could not complete that sign-in/i)).not.toBeInTheDocument();
   });
 });
