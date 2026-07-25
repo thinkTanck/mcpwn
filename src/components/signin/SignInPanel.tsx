@@ -25,6 +25,21 @@ function EnvelopeIcon() {
   );
 }
 
+function CautionIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path
+        d="M8 2 14.5 13.5H1.5L8 2Z"
+        stroke="currentColor"
+        strokeWidth="1.2"
+        strokeLinejoin="round"
+      />
+      <path d="M8 6.4v3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+      <circle cx="8" cy="11.4" r="0.7" fill="currentColor" />
+    </svg>
+  );
+}
+
 function LockIcon() {
   return (
     <svg
@@ -77,11 +92,16 @@ function GoogleIcon() {
 export function SignInPanel({
   authEnabled = false,
   githubEnabled = false,
+  linkError = false,
 }: {
   /** Real Supabase magic-link is wired (else the honest preview state). */
   authEnabled?: boolean;
   /** GitHub OAuth is configured + enabled (else the button stays disabled). */
   githubEnabled?: boolean;
+  /** The visitor arrived from a failed `/auth/callback` (`?error=auth`): the
+   *  one-time link was already used or expired. Explain it instead of bouncing
+   *  them onto a silent, blank form. */
+  linkError?: boolean;
 }) {
   const emailId = useId();
   const helpId = useId();
@@ -153,6 +173,24 @@ export function SignInPanel({
           things fair and affordable. Sample playback stays open to everyone.
         </p>
       </div>
+
+      {/* Arrived from a failed callback: the one-time link was already used or
+          has expired. Say so (caution, not breach — a spent link is not a
+          compromise) and point at the form as the request-a-new-link action, so
+          the user is never dropped on a silent, blank sign-in page. */}
+      {linkError && (
+        <div
+          role="alert"
+          className="mt-4 flex items-start gap-2.5 rounded-md border border-caution/45 bg-caution/5 px-3 py-2.5"
+        >
+          <span aria-hidden="true" className="mt-0.5 shrink-0 text-caution">
+            <CautionIcon />
+          </span>
+          <span className="reading text-[15px] text-ink">
+            That sign-in link was already used or has expired. Request a new link below.
+          </span>
+        </div>
+      )}
 
       {/* Honest preview state only when auth is NOT configured: the screen is
           labelled a preview rather than asserting a send that never happens. */}

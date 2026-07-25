@@ -48,4 +48,17 @@ describe('SignInPanel (wired auth)', () => {
     render(<SignInPanel authEnabled githubEnabled />);
     expect(screen.getByRole('button', { name: /continue with github/i })).not.toBeDisabled();
   });
+
+  it('surfaces a clear reason (not a blank form) when a sign-in link failed', () => {
+    render(<SignInPanel authEnabled linkError />);
+    // A failed callback lands here: explain why, do not dump the user on a blank form.
+    expect(screen.getByRole('alert')).toHaveTextContent(/already used or (has )?expired/i);
+    // The magic-link form remains, as the "request a new link" action.
+    expect(screen.getByRole('button', { name: /email me a sign-in link/i })).toBeInTheDocument();
+  });
+
+  it('shows no failure notice when there is no link error', () => {
+    render(<SignInPanel authEnabled />);
+    expect(screen.queryByText(/already used or (has )?expired/i)).not.toBeInTheDocument();
+  });
 });

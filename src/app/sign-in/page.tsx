@@ -15,7 +15,16 @@ export const metadata: Metadata = {
  * the authenticated command deck / fleet status. A calm Sentinel Fields brand
  * frame (wordmark + radial ambience), not a generic auth card.
  */
-export default function SignIn() {
+export default async function SignIn({
+  searchParams,
+}: {
+  /** `?error=auth` is set by the auth callback when a magic link fails to
+   *  exchange (already used / expired) — surfaced to the panel so the visitor
+   *  gets a reason and a request-a-new-link action, not a silent blank form. */
+  searchParams?: Promise<{ error?: string }>;
+}) {
+  const linkError = ((await searchParams) ?? {}).error === 'auth';
+
   return (
     <main className="type-flow relative flex min-h-dvh flex-col items-center justify-center overflow-hidden px-5 py-12">
       {/* Sentinel Fields ambience — top-anchored radial wash, non-interactive. */}
@@ -53,7 +62,11 @@ export default function SignIn() {
       </Link>
 
       <div className="relative w-full max-w-[380px]">
-        <SignInPanel authEnabled={isAuthEnabled()} githubEnabled={isGithubOAuthEnabled()} />
+        <SignInPanel
+          authEnabled={isAuthEnabled()}
+          githubEnabled={isGithubOAuthEnabled()}
+          linkError={linkError}
+        />
       </div>
     </main>
   );
