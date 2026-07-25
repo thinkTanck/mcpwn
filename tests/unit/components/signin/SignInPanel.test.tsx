@@ -50,7 +50,9 @@ describe('SignInPanel (wired auth)', () => {
     await user.click(screen.getByRole('button', { name: /email me a code/i }));
 
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/rate limit/i));
-    expect(screen.getByRole('button', { name: /email me a code/i })).toBeInTheDocument();
+    // Still on the email step: it did not advance to the code step.
+    expect(screen.queryByRole('heading', { name: /enter your code/i })).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
   });
 
   it('surfaces a wrong-code error and stays on the code step', async () => {
