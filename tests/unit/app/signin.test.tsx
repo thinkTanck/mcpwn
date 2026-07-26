@@ -27,9 +27,9 @@ describe('Sign-in screen', () => {
     expect(email).toHaveAttribute('type', 'email');
   });
 
-  it('names the primary magic-link button', async () => {
+  it('names the primary code-request button', async () => {
     await renderPage();
-    expect(screen.getByRole('button', { name: /email me a sign-in link/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /email me a code/i })).toBeInTheDocument();
   });
 
   it('has a single level-1 heading and no heading-order jump', async () => {
@@ -48,19 +48,26 @@ describe('Sign-in screen', () => {
     const user = userEvent.setup();
     await renderPage();
     await user.type(screen.getByLabelText(/email/i), 'tester@example.com');
-    await user.click(screen.getByRole('button', { name: /email me a sign-in link/i }));
+    await user.click(screen.getByRole('button', { name: /email me a code/i }));
     expect(screen.queryByText(/we sent/i)).not.toBeInTheDocument();
     expect(screen.getByText(/no email is sent in this preview/i)).toBeInTheDocument();
   });
 
-  it('explains a failed sign-in link (?error=auth) instead of a blank form', async () => {
+  it('explains a failed sign-in (?error=auth) instead of a blank form', async () => {
     render(await SignIn({ searchParams: Promise.resolve({ error: 'auth' }) }));
-    expect(screen.getByRole('alert')).toHaveTextContent(/already used or (has )?expired/i);
+    expect(screen.getByRole('alert')).toHaveTextContent(/could not complete that sign-in/i);
   });
 
   it('shows no failure notice on a normal visit (no error param)', async () => {
     render(await SignIn({ searchParams: Promise.resolve({}) }));
-    expect(screen.queryByText(/already used or (has )?expired/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/could not complete that sign-in/i)).not.toBeInTheDocument();
+  });
+
+  it('passes next through so verify can honor it', async () => {
+    render(await SignIn({ searchParams: Promise.resolve({ next: '/leaderboard' }) }));
+    // The panel renders; next is wired to the client component (asserted via the
+    // panel's own verify test). Here we just confirm the page renders with a next.
+    expect(screen.getByRole('button', { name: /email me a code/i })).toBeInTheDocument();
   });
 
   it('gives the promised sample a keyless door, and does not ship inert OAuth', async () => {

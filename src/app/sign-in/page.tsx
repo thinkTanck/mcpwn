@@ -18,12 +18,14 @@ export const metadata: Metadata = {
 export default async function SignIn({
   searchParams,
 }: {
-  /** `?error=auth` is set by the auth callback when a magic link fails to
-   *  exchange (already used / expired) — surfaced to the panel so the visitor
-   *  gets a reason and a request-a-new-link action, not a silent blank form. */
-  searchParams?: Promise<{ error?: string }>;
+  /** `?error=auth` is set by the auth callback when GitHub OAuth fails to
+   *  exchange — surfaced to the panel so the visitor gets a reason and a
+   *  try-again action, not a silent blank form. `?next=` is the post-sign-in
+   *  destination (sanitized server-side in verifyEmailCode). */
+  searchParams?: Promise<{ error?: string; next?: string }>;
 }) {
-  const linkError = ((await searchParams) ?? {}).error === 'auth';
+  const sp = (await searchParams) ?? {};
+  const authError = sp.error === 'auth';
 
   return (
     <main className="type-flow relative flex min-h-dvh flex-col items-center justify-center overflow-hidden px-5 py-12">
@@ -65,7 +67,8 @@ export default async function SignIn({
         <SignInPanel
           authEnabled={isAuthEnabled()}
           githubEnabled={isGithubOAuthEnabled()}
-          linkError={linkError}
+          authError={authError}
+          next={sp.next}
         />
       </div>
     </main>

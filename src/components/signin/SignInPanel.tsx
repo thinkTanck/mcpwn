@@ -1,20 +1,20 @@
 'use client';
 
-import { useId, useState, useTransition } from 'react';
+import { useEffect, useId, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/hud';
-import { sendMagicLink, startGitHubOAuth } from '@/lib/auth/actions';
+import { requestEmailCode, verifyEmailCode, startGitHubOAuth } from '@/lib/auth/actions';
 
 /**
- * Magic-link sign-in (BRAND · pre-auth). No real auth wiring — Supabase Auth
- * lands in Phase 8. Submitting the form flips to an inline "check your email"
- * confirmation (announced via role="status") so the control has honest,
- * visible-system-status feedback without leaving the page.
+ * Email OTP sign-in (BRAND · pre-auth), wired to Supabase Auth. Two steps in one
+ * browser: request a 6-digit code (requestEmailCode), then type it (verifyEmailCode,
+ * which sets the session and redirects). Code-only by design — no clickable link,
+ * so an email scanner or a different browser can never break it. When auth is not
+ * configured the panel keeps an honest preview state (no send happens).
  *
  * Register discipline (design-system §3.0): sentences a human reads use the
  * READING role (sans, ≥16px); machine labels/field glyphs use the INSTRUMENT
- * role (mono, 12–13px). The frozen prototype set the helper line in mono — that
- * is prose in an instrument role, corrected here to READING.
+ * role (mono, 12–13px).
  */
 function EnvelopeIcon() {
   return (
@@ -37,6 +37,30 @@ function CautionIcon() {
       <path d="M8 6.4v3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
       <circle cx="8" cy="11.4" r="0.7" fill="currentColor" />
     </svg>
+  );
+}
+
+function BreachIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <circle cx="8" cy="8" r="6.4" stroke="currentColor" strokeWidth="1.2" />
+      <path d="M8 4.6v3.4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+      <circle cx="8" cy="10.9" r="0.7" fill="currentColor" />
+    </svg>
+  );
+}
+
+/** Inline field error: breach-red text PLUS an icon (the project's error contract:
+ *  status is a label/icon, never colour alone). `id` links it to the input via
+ *  aria-describedby so a screen reader hears the error on the field. */
+function ErrorLine({ id, children }: { id: string; children: React.ReactNode }) {
+  return (
+    <p id={id} role="alert" className="reading flex items-start gap-2 text-[15px] text-breach-text">
+      <span aria-hidden="true" className="mt-0.5 shrink-0">
+        <BreachIcon />
+      </span>
+      <span>{children}</span>
+    </p>
   );
 }
 
@@ -92,74 +116,195 @@ function GoogleIcon() {
 export function SignInPanel({
   authEnabled = false,
   githubEnabled = false,
-  linkError = false,
+  authError = false,
+  next,
 }: {
-  /** Real Supabase magic-link is wired (else the honest preview state). */
+  /** Real Supabase auth is wired (else the honest preview state). */
   authEnabled?: boolean;
   /** GitHub OAuth is configured + enabled (else the button stays disabled). */
   githubEnabled?: boolean;
-  /** The visitor arrived from a failed `/auth/callback` (`?error=auth`): the
-   *  one-time link was already used or expired. Explain it instead of bouncing
-   *  them onto a silent, blank form. */
-  linkError?: boolean;
+  /** The visitor arrived from a failed `/auth/callback` (`?error=auth`) — a prior
+   *  sign-in (GitHub OAuth) could not be completed. Explain it instead of
+   *  bouncing them onto a silent, blank form. */
+  authError?: boolean;
+  /** Post-verify destination (sanitized server-side); flows from `?next=`. */
+  next?: string;
 }) {
   const emailId = useId();
+  const codeId = useId();
   const helpId = useId();
+  const errorId = useId();
+  const [step, setStep] = useState<'email' | 'code'>('email');
   const [email, setEmail] = useState('');
-  const [sent, setSent] = useState(false);
+  const [code, setCode] = useState('');
+  const [previewSent, setPreviewSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [cooldown, setCooldown] = useState(0);
   const [pending, startTransition] = useTransition();
+  const codeRef = useRef<HTMLInputElement>(null);
 
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
+  // One countdown for the whole code step; requesting/resending re-arms it to 45.
+  useEffect(() => {
+    if (step !== 'code') return;
+    const t = setInterval(() => setCooldown((c) => (c <= 1 ? 0 : c - 1)), 1000);
+    return () => clearInterval(t);
+  }, [step]);
+
+  // Move focus to the code field when it appears (keyboard-first).
+  useEffect(() => {
+    if (step === 'code') codeRef.current?.focus();
+  }, [step]);
+
+  const requestCode = () => {
     setError(null);
     // Honest preview when auth is not configured: no send happens.
     if (!authEnabled) {
-      setSent(true);
+      setPreviewSent(true);
       return;
     }
+    const isResend = step === 'code';
     startTransition(async () => {
-      const res = await sendMagicLink(email);
-      if (res.ok) setSent(true);
-      else setError(res.error);
+      const res = await requestEmailCode(email);
+      if (res.ok) {
+        setStep('code');
+        setCode('');
+        setCooldown(45);
+        // A resend gives no visible reply otherwise; announce it politely.
+        setNotice(isResend ? 'New code sent.' : null);
+      } else {
+        setError(res.error);
+      }
     });
   };
 
-  if (sent) {
+  const verify = () => {
+    setError(null);
+    setNotice(null);
+    startTransition(async () => {
+      const res = await verifyEmailCode(email, code, next);
+      // A successful verify redirects server-side; only a failure returns here.
+      if (!res.ok) setError(res.error);
+    });
+  };
+
+  const backToEmail = () => {
+    setStep('email');
+    setCode('');
+    setError(null);
+    setNotice(null);
+  };
+
+  // Honest preview confirmation (auth not configured): no send happened.
+  if (previewSent) {
     return (
       <div className="w-full max-w-[380px]" role="status" aria-live="polite">
         <div className="border-t border-line pt-7">
           <span aria-hidden="true" className="mb-2 inline-flex text-nominal">
             <EnvelopeIcon />
           </span>
-          <h1 className="reading-h1">{authEnabled ? 'Check your inbox.' : 'That is the flow.'}</h1>
+          <h1 className="reading-h1">That is the flow.</h1>
           <p className="reading mt-3">
-            {authEnabled ? (
-              <>
-                A one-time sign-in link is on its way to{' '}
-                <span className="font-mono text-readout">{email || 'your inbox'}</span>. It expires
-                in 15 minutes, so open it on this device to finish signing in.
-              </>
-            ) : (
-              <>
-                In the live app, a one-time sign-in link lands at{' '}
-                <span className="font-mono text-readout">{email || 'your inbox'}</span> and expires
-                in 15 minutes. No email is sent in this preview; sign-in wiring ships with the
-                hosted release.
-              </>
-            )}
+            In the live app, a 6-digit code lands at{' '}
+            <span className="font-mono text-readout">{email || 'your inbox'}</span> and expires in
+            15 minutes. No email is sent in this preview; sign-in wiring ships with the hosted
+            release.
           </p>
         </div>
         <Button
           variant="ghost"
           className="mt-6 w-full uppercase"
           onClick={() => {
-            setSent(false);
+            setPreviewSent(false);
             setEmail('');
           }}
         >
           Use a different email
         </Button>
+      </div>
+    );
+  }
+
+  // Code step: type the 6-digit code (verified in this same browser).
+  if (step === 'code') {
+    return (
+      <div className="w-full max-w-[380px]">
+        <div className="border-t border-line pt-7">
+          <span aria-hidden="true" className="mb-2 inline-flex text-nominal">
+            <EnvelopeIcon />
+          </span>
+          <h1 className="reading-h1">Enter your code.</h1>
+          <p className="reading mt-3">
+            We emailed a 6-digit code to <span className="font-mono text-readout">{email}</span>. It
+            expires in 15 minutes. Enter it below to finish signing in.
+          </p>
+        </div>
+
+        <form
+          className="mt-6 flex flex-col gap-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            verify();
+          }}
+        >
+          <div className="flex flex-col gap-2">
+            <label
+              htmlFor={codeId}
+              className="font-mono text-[13px] uppercase tracking-[0.12em] text-ink-faint"
+            >
+              Code
+            </label>
+            <input
+              id={codeId}
+              ref={codeRef}
+              name="code"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              pattern="[0-9]*"
+              maxLength={6}
+              required
+              placeholder="000000"
+              value={code}
+              aria-invalid={error ? true : undefined}
+              aria-describedby={error ? errorId : undefined}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              className="w-full rounded-md border border-line bg-base px-3 py-3 text-center font-mono text-[18px] tracking-[0.4em] text-readout placeholder:text-ink-faint focus-visible:border-nominal"
+            />
+          </div>
+
+          <Button
+            type="submit"
+            disabled={pending || code.length < 6}
+            className="w-full gap-2.5 uppercase tracking-[0.06em]"
+          >
+            {pending ? 'Verifying…' : 'Verify and continue'}
+          </Button>
+
+          {error && <ErrorLine id={errorId}>{error}</ErrorLine>}
+        </form>
+
+        {/* Resend is otherwise silent; announce it politely for everyone. */}
+        <p role="status" aria-live="polite" className="reading mt-3 text-[15px] text-nominal">
+          {notice}
+        </p>
+
+        <div className="mt-2 flex gap-2.5">
+          <Button
+            variant="ghost"
+            disabled={cooldown > 0 || pending}
+            onClick={requestCode}
+            className="flex-1 border-line text-ink"
+          >
+            {cooldown > 0 ? `Resend code in ${cooldown}s` : 'Resend code'}
+          </Button>
+          <Button variant="ghost" onClick={backToEmail} className="flex-1 border-line text-ink">
+            Use a different email
+          </Button>
+        </div>
+
+        <p className="reading mt-4 text-[15px] text-ink-muted">
+          Did not get the code? Check your spam folder, then resend above.
+        </p>
       </div>
     );
   }
@@ -174,11 +319,11 @@ export function SignInPanel({
         </p>
       </div>
 
-      {/* Arrived from a failed callback: the one-time link was already used or
-          has expired. Say so (caution, not breach — a spent link is not a
-          compromise) and point at the form as the request-a-new-link action, so
-          the user is never dropped on a silent, blank sign-in page. */}
-      {linkError && (
+      {/* Arrived from a failed callback (GitHub OAuth): the sign-in could not be
+          completed. Say so (caution, not breach — a failed sign-in is not a
+          compromise) and point at the form as the try-again action, so the user
+          is never dropped on a silent, blank sign-in page. */}
+      {authError && (
         <div
           role="alert"
           className="mt-4 flex items-start gap-2.5 rounded-md border border-caution/45 bg-caution/5 px-3 py-2.5"
@@ -187,7 +332,7 @@ export function SignInPanel({
             <CautionIcon />
           </span>
           <span className="reading text-[15px] text-ink">
-            That sign-in link was already used or has expired. Request a new link below.
+            We could not complete that sign-in. Request a new code below.
           </span>
         </div>
       )}
@@ -205,7 +350,13 @@ export function SignInPanel({
         </div>
       )}
 
-      <form className="mt-6 flex flex-col gap-3" onSubmit={submit}>
+      <form
+        className="mt-6 flex flex-col gap-3"
+        onSubmit={(e) => {
+          e.preventDefault();
+          requestCode();
+        }}
+      >
         <div className="flex flex-col gap-2">
           <label
             htmlFor={emailId}
@@ -220,7 +371,8 @@ export function SignInPanel({
             required
             autoComplete="email"
             placeholder="you@company.com"
-            aria-describedby={helpId}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error ? `${helpId} ${errorId}` : helpId}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="w-full rounded-md border border-line bg-base px-3 py-3 font-mono text-[14px] text-readout placeholder:text-ink-faint focus-visible:border-nominal"
@@ -233,19 +385,15 @@ export function SignInPanel({
           className="w-full gap-2.5 uppercase tracking-[0.06em]"
         >
           <EnvelopeIcon />
-          {pending ? 'Sending…' : 'Email me a sign-in link'}
+          {pending ? 'Sending…' : 'Email me a code'}
         </Button>
 
-        {error && (
-          <p role="alert" className="reading text-[15px] text-breach-text">
-            {error}
-          </p>
-        )}
+        {error && <ErrorLine id={errorId}>{error}</ErrorLine>}
 
         <p id={helpId} className="reading mt-1 flex items-start gap-2">
           <LockIcon />
           <span>
-            No password. We email a one-time link that expires in 15 minutes, so nothing to remember
+            No password. We email a 6-digit code that expires in 15 minutes, so nothing to remember
             and nothing to leak.
           </span>
         </p>
