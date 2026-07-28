@@ -6,7 +6,7 @@ import { getDataSource, SAMPLE_RUN_ID } from '@/data/source';
 export const metadata: Metadata = {
   title: 'Robustness Leaderboard · MCPwn',
   description:
-    'Per-model, per-category robustness heatmap — fixture data, not a claimed benchmark.',
+    'Per-model, per-category robustness heatmap built on fixture data, not a claimed benchmark.',
 };
 
 /**

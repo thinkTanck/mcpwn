@@ -67,7 +67,7 @@ export function FleetStatus({
       </div>
       {fleet.empty ? (
         <p className="font-mono text-[14px] leading-relaxed text-ink-faint">
-          No runs yet — launch one to populate.
+          No runs yet. Launch one to populate.
         </p>
       ) : (
         <ul className="flex flex-col gap-2.5">

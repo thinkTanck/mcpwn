@@ -26,7 +26,7 @@ function fibonacciSphere(count: number): [number, number, number][] {
 
 export function SentinelCore({
   size = 300,
-  label = 'Sentinel core — the detector reads only the observable trace',
+  label = 'Sentinel core: the detector reads only the observable trace',
   className,
 }: {
   size?: number;
