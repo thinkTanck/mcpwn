@@ -209,9 +209,12 @@ describe('defineAttack — declaration is validated (fail fast, not at build tim
   });
 
   it('rejects duplicate slugs', () => {
-    expect(def([{ slug: 'a', toolParity: false }, { slug: 'a', toolParity: false }])).toThrow(
-      AttackError,
-    );
+    expect(
+      def([
+        { slug: 'a', toolParity: false },
+        { slug: 'a', toolParity: false },
+      ]),
+    ).toThrow(AttackError);
   });
 
   it('rejects an empty slug', () => {

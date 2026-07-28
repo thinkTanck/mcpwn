@@ -1,19 +1,22 @@
 /**
  * Module 4b — PRECISION/RECALL EVAL HARNESS.
  *
- * Enumerates each registered attack × {malicious, benign} → {trace, groundTruth},
- * runs the detector on the observable TRACE + goal ONLY (never the groundTruth —
+ * Enumerates EVERY realization of each registered attack — all
+ * `attack.variants`, not just the two defaults — into {trace, groundTruth}, runs
+ * the detector on the observable TRACE + goal ONLY (never the groundTruth —
  * leakage separation), and scores verdict.compromised vs the held-out
- * groundTruth into precision/recall (aggregate + per Core-7 category). The
- * harness HOLDS the groundTruth purely to score; the detector never sees it.
+ * groundTruth into precision/recall (aggregate + per Core-7 category). Each
+ * category's metrics therefore reflect its TRUE n, whatever that is. The harness
+ * HOLDS the groundTruth purely to score; the detector never sees it.
  *
- * NOT A MEASUREMENT — SMOKE TEST ONLY: with one malicious + one benign variant
- * per category (n = 2 per category), a reported P/R — e.g. 1.0 against a
- * mock/oracle detector — only proves the harness runs and that each benign
- * control is a genuine negative. It is NOT product accuracy and must NEVER be
- * surfaced as such (UI, README, leaderboard, or any summary). Trustworthy
- * measured P/R needs many realizations per category and the validated judge
- * (Phase 8 — see plan.md's variant-count prerequisite).
+ * STILL NOT PRODUCT ACCURACY. More realizations shrink the variance, they do not
+ * create a measurement. Every number this harness reports today is scored against
+ * a MOCK or ORACLE detector in unit tests, which only proves the harness runs and
+ * that each benign control is a genuine negative (the always-compromised baseline
+ * dropping below precision 1 is the check). No P/R produced here may be surfaced
+ * as the product's accuracy — in the UI, README, leaderboard, or any summary —
+ * until the fixed, validated judge has been run against this set. That run is
+ * Phase 8 and is gated on the operator's judge credentials.
  */
 import { getAttack, listAttackCodes, type AttackModule } from '@/attacks';
 import type { Category, Trace, Verdict } from '@/contract';
@@ -25,6 +28,8 @@ export type DetectorFn = (trace: Trace, taskGoal: string) => Verdict | Promise<V
 /** One scored run: the true category + label vs the detector's prediction. */
 export interface EvalRecord {
   category: Category;
+  /** Which realization produced it (`${slug}-${kind}`) — provenance for triage. */
+  variantId?: string;
   actual: boolean; // groundTruth.compromised (held out from the detector)
   predicted: boolean; // verdict.compromised
 }
@@ -75,18 +80,20 @@ function report(records: EvalRecord[]): EvalReport {
 }
 
 /**
- * Run `detect` over each attack × {malicious, benign}. The detector receives the
- * observable trace + goal ONLY; the held-out groundTruth is used here to score.
+ * Run `detect` over EVERY realization of every supplied attack. The detector
+ * receives the observable trace + goal ONLY; the held-out groundTruth is used
+ * here to score.
  */
 export async function evaluate(attacks: AttackModule[], detect: DetectorFn): Promise<EvalReport> {
   const records: EvalRecord[] = [];
   for (const attack of attacks) {
-    for (const variant of ['malicious', 'benign'] as const) {
-      const { trace, groundTruth } = attack.build(variant);
-      const { taskGoal } = attack.scenario(variant);
+    for (const variant of attack.variants) {
+      const { trace, groundTruth } = attack.build(variant.id);
+      const { taskGoal } = attack.scenario(variant.id);
       const verdict = await detect(trace, taskGoal);
       records.push({
         category: groundTruth.category,
+        variantId: variant.id,
         actual: groundTruth.compromised,
         predicted: verdict.compromised,
       });
