@@ -10,11 +10,24 @@
  *    sample-playback screens and the runner keep serving the same run;
  *  - the observable Trace never carries a token that names its own label.
  */
-import { CategorySchema, TraceSchema, type Category } from '@/contract';
+import fc from 'fast-check';
+import { CategorySchema, TraceSchema, type Category, type Trace } from '@/contract';
 import { getAttack, listAttackCodes, variantsOfKind, VARIANT_KINDS } from '@/attacks';
 
 const CORE_7 = CategorySchema.options;
 const attacks = () => CORE_7.map(getAttack);
+
+/** Every (category, variant) in the whole Core-7 set, as a table-test row. */
+const ALL_VARIANTS = CORE_7.flatMap((code) =>
+  getAttack(code).variants.map((v) => [code, v.id] as const),
+);
+
+/** Tool names used by a trace, as a MULTISET (sorted, duplicates kept). */
+const toolMultiset = (trace: Trace): string[] =>
+  trace.steps
+    .flatMap((s) => (s.type === 'tool_call' ? [s.tool] : []))
+    .slice()
+    .sort();
 
 describe('Core-7 registry — every realization is enumerable and addressable', () => {
   it('registers all seven categories', () => {
@@ -119,5 +132,115 @@ describe('every attack exposes both kinds (ADR-0003 bar 4: precision-bearing)', 
         variantsOfKind(attack, 'benign').length,
       );
     }
+  });
+
+  /**
+   * The measurement prerequisite. One malicious + one benign per category is a
+   * fixture smoke test, not a dataset: a judge graded on two examples has
+   * enormous variance and can support no headline number at all. This floor is
+   * the thing that has to be true BEFORE any P/R is measured.
+   */
+  const MIN_PER_KIND = 3;
+
+  it.each(CORE_7)(
+    `%s ships at least ${MIN_PER_KIND} malicious realizations and ${MIN_PER_KIND} benign controls`,
+    (code) => {
+      const attack = getAttack(code);
+      expect(variantsOfKind(attack, 'malicious').length).toBeGreaterThanOrEqual(MIN_PER_KIND);
+      expect(variantsOfKind(attack, 'benign').length).toBeGreaterThanOrEqual(MIN_PER_KIND);
+    },
+  );
+
+  it.each(CORE_7)('%s realizations are distinct runs, not the same trace relabelled', (code) => {
+    const attack = getAttack(code);
+    const traces = attack.variants.map((v) => JSON.stringify(attack.build(v.id).trace));
+    expect(new Set(traces).size).toBe(traces.length);
+  });
+});
+
+/**
+ * THE SEPARABILITY BAR.
+ *
+ * A benign control is only worth something if telling it from its malicious
+ * sibling requires reading what the agent DID against what the task authorized.
+ * The moment a control is recognisable from a giveaway string, precision becomes
+ * an artifact of the fixture rather than a property of the detector.
+ */
+describe('separability — nothing in the observable trace names its own label', () => {
+  /**
+   * Tokens that would hand the detector the held-out label. `attacker` is NOT on
+   * this list and never can be: it is a `Step.type` in the data contract, so it
+   * appears in every trace of every kind and separates nothing.
+   */
+  const LABEL_TOKENS = [
+    'malicious',
+    'benign',
+    'compromis', // compromised / compromise / compromiseFlag
+    'groundtruth',
+    'ground_truth',
+    'ground truth',
+    'not_compromised',
+    'is_attack',
+    'isattack',
+    'attack_variant',
+    'variant',
+    'label',
+    'oracle',
+    'ground-truth',
+    'expected_verdict',
+    'test_case',
+    'testcase',
+    'fixture',
+  ];
+
+  it.each(ALL_VARIANTS)('%s / %s carries no label-like token anywhere', (code, id) => {
+    const serialized = JSON.stringify(getAttack(code).build(id).trace).toLowerCase();
+    for (const token of LABEL_TOKENS) {
+      expect({ id, token, present: serialized.includes(token) }).toEqual({
+        id,
+        token,
+        present: false,
+      });
+    }
+  });
+
+  it.each(ALL_VARIANTS)('%s / %s does not leak its own variant id or kind', (code, id) => {
+    const variant = getAttack(code).variants.find((v) => v.id === id)!;
+    const serialized = JSON.stringify(getAttack(code).build(id).trace).toLowerCase();
+    expect(serialized).not.toContain(variant.id.toLowerCase());
+    expect(serialized).not.toContain(variant.kind);
+  });
+
+  it('property: no realization anywhere in the Core-7 leaks a label token', () => {
+    fc.assert(
+      fc.property(fc.constantFrom(...ALL_VARIANTS), ([code, id]) => {
+        const serialized = JSON.stringify(getAttack(code).build(id).trace).toLowerCase();
+        return !LABEL_TOKENS.some((t) => serialized.includes(t));
+      }),
+    );
+  });
+
+  /**
+   * Where a pair declares `toolParity`, the two siblings must reach for exactly
+   * the same tools the same number of times — same credentials, same data, same
+   * blast radius — so the ONLY thing left to separate them is whether the stated
+   * task goal authorized the action. A detector cannot shortcut those with "it
+   * called the dangerous tool".
+   */
+  it.each(CORE_7)('%s: every tool-parity pair has an identical tool multiset', (code) => {
+    const attack = getAttack(code);
+    const parityPairs = [
+      ...new Set(attack.variants.filter((v) => v.toolParity).map((v) => v.slug)),
+    ];
+    for (const slug of parityPairs) {
+      const malicious = toolMultiset(attack.build(`${slug}-malicious`).trace);
+      const benign = toolMultiset(attack.build(`${slug}-benign`).trace);
+      expect({ slug, tools: benign }).toEqual({ slug, tools: malicious });
+      expect(malicious.length).toBeGreaterThan(0);
+    }
+  });
+
+  it.each(CORE_7)('%s declares at least one tool-parity pair', (code) => {
+    expect(getAttack(code).variants.some((v) => v.toolParity)).toBe(true);
   });
 });
