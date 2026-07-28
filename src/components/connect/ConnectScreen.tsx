@@ -1,11 +1,12 @@
 'use client';
 
-import { useId, useState, type ReactNode } from 'react';
+import { useId, useState, useTransition, type ReactNode } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/hud';
 import { cn } from '@/lib/utils';
 import { CORE7 } from './categories';
 import type { Category } from '@/contract';
+import type { LiveRunOutcome, LiveRunRequest } from '@/live';
 
 /**
  * Connect / Run Setup — the targeting console (register: PRODUCT, the instrument
@@ -109,7 +110,25 @@ const LockIcon = () => (
   </svg>
 );
 
-export function ConnectScreen({ signedIn = false }: { signedIn?: boolean }) {
+/** The server action that runs a live red-team. Every gate is enforced inside it. */
+export type LaunchLiveRun = (input: LiveRunRequest) => Promise<LiveRunOutcome>;
+
+export interface ConnectScreenProps {
+  /** Real session state from the server. Live runs are gated on it. */
+  signedIn?: boolean;
+  /**
+   * Whether the LOCKED validated judge is connected. When false the console says
+   * so plainly rather than presenting a live run as working.
+   */
+  liveRunEnabled?: boolean;
+  launchLiveRun?: LaunchLiveRun;
+}
+
+export function ConnectScreen({
+  signedIn = false,
+  liveRunEnabled = false,
+  launchLiveRun,
+}: ConnectScreenProps) {
   const [mode, setMode] = useState<Mode>('sample');
   const [demoModel, setDemoModel] = useState<string>(DEMO_MODELS[0].id);
   const [endpoint, setEndpoint] = useState('');
@@ -118,6 +137,8 @@ export function ConnectScreen({ signedIn = false }: { signedIn?: boolean }) {
   const [runs, setRuns] = useState('5');
   const [seed, setSeed] = useState('1337');
   const [selected, setSelected] = useState<Set<Category>>(() => new Set(CORE7.map((c) => c.id)));
+  const [outcome, setOutcome] = useState<LiveRunOutcome | null>(null);
+  const [pending, startLaunch] = useTransition();
 
   const live = mode === 'live';
   const showGate = live && !signedIn;
@@ -125,6 +146,28 @@ export function ConnectScreen({ signedIn = false }: { signedIn?: boolean }) {
   // A live run needs an endpoint, a key, and at least one category. Sample is a
   // fixed playback, so it launches unconditionally (navigates to the replay).
   const liveReady = endpoint.trim() !== '' && apiKey.trim() !== '' && selectedCount > 0;
+
+  /**
+   * Hand the run to the server action. The client-side `liveReady` check is
+   * convenience only: the action re-validates the endpoint, the key, the
+   * categories, the session and the per-account cap on the server.
+   */
+  const onLaunch = () => {
+    if (!launchLiveRun || pending) return;
+    setOutcome(null);
+    startLaunch(async () => {
+      const modelValue = modelId.trim();
+      const result = await launchLiveRun({
+        endpoint: endpoint.trim(),
+        apiKey,
+        ...(modelValue === '' ? {} : { modelId: modelValue }),
+        categories: [...selected],
+      });
+      // The secret has served its purpose in this browser tab; drop it.
+      if (result.ok) setApiKey('');
+      setOutcome(result);
+    });
+  };
 
   const toggleCategory = (id: Category) =>
     setSelected((prev) => {
@@ -415,13 +458,30 @@ export function ConnectScreen({ signedIn = false }: { signedIn?: boolean }) {
             </Link>
           </div>
         )}
+        {/* Honest status: the judge is operator-provided and LOCKED, and until it
+            is connected a live run cannot be judged. Say so before the click. */}
+        {live && !showGate && !liveRunEnabled && (
+          <div className="mb-4 rounded-lg border border-line-em bg-panel px-5 py-4">
+            <p className="font-mono text-[13px] tracking-[0.06em] text-ink-muted">
+              LIVE RUNS NOT ENABLED YET
+            </p>
+            <p className="reading mt-1">
+              The fixed, validated detector is not connected in this deployment, so no live run can
+              be judged. Sample playback stays open with no key.
+            </p>
+          </div>
+        )}
         <div className="flex flex-wrap items-center gap-4">
           {live ? (
-            <Button disabled={showGate || !liveReady} aria-disabled={showGate || !liveReady}>
+            <Button
+              onClick={onLaunch}
+              disabled={showGate || !liveReady || pending}
+              aria-disabled={showGate || !liveReady || pending}
+            >
               <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
                 <polygon points="2,1 11,6 2,11" fill="currentColor" />
               </svg>
-              LAUNCH LIVE RUN
+              {pending ? 'LAUNCHING…' : 'LAUNCH LIVE RUN'}
             </Button>
           ) : (
             <Link
@@ -441,6 +501,50 @@ export function ConnectScreen({ signedIn = false }: { signedIn?: boolean }) {
             Select at least one attack category to launch.
           </p>
         )}
+        {/* Result of the launch. Reserved as a live region so the outcome is
+            announced without moving the transport above it. */}
+        <div aria-live="polite" className="mt-4 empty:mt-0">
+          {live && pending && (
+            <p className="reading text-ink-muted">
+              Running against your agent. This can take a while.
+            </p>
+          )}
+          {live && !pending && outcome && !outcome.ok && (
+            <div className="rounded-lg border border-caution/40 bg-caution/5 px-5 py-4">
+              <p className="font-mono text-[13px] tracking-[0.06em] text-caution">RUN REFUSED</p>
+              <p className="reading mt-1">{outcome.message}</p>
+            </div>
+          )}
+          {live && !pending && outcome?.ok && (
+            <div className="rounded-lg border border-line-em bg-nominal/5 px-5 py-4">
+              <p className="font-mono text-[13px] tracking-[0.06em] text-nominal">
+                {outcome.runs.length} RUN{outcome.runs.length === 1 ? '' : 'S'} RECORDED
+              </p>
+              <ul className="mt-2 flex flex-col gap-1">
+                {outcome.runs.map((r) => (
+                  <li key={r.id} className="font-mono text-[13px] text-ink">
+                    <Link
+                      href={`/runs/${r.id}`}
+                      className="text-readout underline-offset-4 hover:underline"
+                    >
+                      {r.category}
+                    </Link>
+                    <span
+                      className={cn('ml-3', r.compromised ? 'text-breach-text' : 'text-nominal')}
+                    >
+                      {r.compromised ? 'COMPROMISED' : 'CLEAR'}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              {outcome.failed.length > 0 && (
+                <p className="reading mt-2 text-ink-muted">
+                  Not completed: {outcome.failed.join(', ')}.
+                </p>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
