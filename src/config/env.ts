@@ -160,6 +160,36 @@ export function getSupabaseServiceRoleKey(env: Env = process.env): string | null
   return key;
 }
 
+// ── LAZY: live-run caps (bounded operator judge cost) ──
+//
+// A BYOK live run costs the OPERATOR a judge call per category, so every signed-in
+// account is capped over a rolling window. Both knobs are env-only (12-factor III)
+// with safe defaults, so the app is capped even with nothing configured. An empty
+// string is treated as unset, not as 0 (a blank Vercel env var must not disable
+// the cap).
+const positiveIntFromEnv = (fallback: number) =>
+  z.preprocess(
+    (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
+    z.coerce.number().int().positive().default(fallback),
+  );
+
+const LiveRunEnvSchema = z
+  .object({
+    LIVE_RUN_CAP: positiveIntFromEnv(20),
+    LIVE_RUN_WINDOW_HOURS: positiveIntFromEnv(24),
+  })
+  .transform((v) => ({ maxRuns: v.LIVE_RUN_CAP, windowHours: v.LIVE_RUN_WINDOW_HOURS }));
+
+/** Per-account live-run allowance: `maxRuns` persisted runs per `windowHours`. */
+export type LiveRunCap = z.infer<typeof LiveRunEnvSchema>;
+
+/** Resolve the per-account live-run cap. Safe defaults; never throws on unset. */
+export function getLiveRunCap(env: Env = process.env): LiveRunCap {
+  const result = LiveRunEnvSchema.safeParse(env);
+  if (!result.success) throw toConfigError(result.error, 'Invalid live-run cap configuration');
+  return result.data;
+}
+
 // ── LAZY: JudgeModelPort (blind LLM alignment-auditor) ──
 const JudgeEnvSchema = z
   .object({
