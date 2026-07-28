@@ -52,8 +52,12 @@ export const metadata: Metadata = {
     title: TITLE,
     description: DESCRIPTION,
   },
+  // `summary`, not `summary_large_image`: the repo ships no `opengraph-image.*`
+  // and no static share asset, and a large-image card with no image behind it is
+  // a declaration we cannot honour. Promote it in the same change that adds the
+  // image, never before.
   twitter: {
-    card: 'summary_large_image',
+    card: 'summary',
     title: TITLE,
     description: DESCRIPTION,
   },

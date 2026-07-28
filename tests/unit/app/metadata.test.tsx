@@ -119,4 +119,25 @@ describe('root metadata URL contract', () => {
     expect(metadata.openGraph?.description).toBe(metadata.description);
     expect(metadata.twitter?.title).toBe(metadata.title);
   });
+
+  /**
+   * A `summary_large_image` card with no image behind it is a declaration the
+   * repo cannot honour. Keep the card type honest: it may only be promoted in
+   * the same change that adds a real share asset (a Next `opengraph-image.*`
+   * convention file, or an explicit `images` entry).
+   */
+  it('claims a large-image card only when a share image actually exists', async () => {
+    const { metadata } = await import('@/app/layout');
+    const card = metadata.twitter && 'card' in metadata.twitter ? metadata.twitter.card : undefined;
+    if (card !== 'summary_large_image') return;
+
+    const hasDeclaredImage = Boolean(
+      metadata.openGraph && 'images' in metadata.openGraph && metadata.openGraph.images,
+    );
+    const conventionFile = (await import('node:fs'))
+      .readdirSync('src/app')
+      .some((f) => /^(opengraph|twitter)-image\./.test(f));
+
+    expect(hasDeclaredImage || conventionFile).toBe(true);
+  });
 });
