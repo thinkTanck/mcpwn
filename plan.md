@@ -60,9 +60,26 @@ Evidence-based audit of the current `main`. **Done** = implemented, tested, and 
 | # | Blocked item | Needs | Notes |
 |---|---|---|---|
 | **B1** | **Slice 2b — the actual measured P/R.** Wire the HTTP `JudgeModelPort` adapter, run the eval over the expanded variant set, and replace the illustrative `SAMPLE_METRICS = { precision: 0.94, recall: 0.89 }` (`src/app/(hud)/page.tsx:23`) with the real number. | **Anthropic judge API key** *and* L1 complete. | HARD GATE. Until both land, every surfaced statistic stays explicitly fixture-labelled. No "measured" claim is made anywhere. |
-| **B2** | **Slice 3 — a real BYOK live run end to end.** The `McpTargetPort` HTTP adapter can be built and unit-tested against a fake MCP server, but "does it correctly observe a real black-box agent's tool calls" cannot be answered without one. | **A reachable test MCP agent endpoint + key.** | Scaffold + fake-server tests can land now; real-target verification holds. |
+| **B2** | **Slice 3 — a real BYOK live run end to end.** The `McpTargetPort` HTTP adapter can be built and unit-tested against a fake MCP server, but "does it correctly observe a real black-box agent's tool calls" cannot be answered without one. **See the direction finding below: the answer turns out to be that an outbound client cannot observe it at all.** | **A reachable test MCP agent, pointed AT us.** | Scaffold + fake-server tests have landed; real-target verification holds. |
 | **B3** | Replacing the curated `sample-verdicts.ts` placeholders with recorded validated-judge verdicts. | Same as B1. | Sample *traces* are already real builder output; only the verdicts are curated. |
 | **B4** | Replacing `leaderboard.ts` fixture ("Model A/B/C") with measured per-model robustness. | B1 + multiple target models. | Currently labelled `source: 'fixture'` in the UI. |
+
+### DIRECTION FINDING — BYOK runs the other way round (2026-07-27)
+
+The Slice 3 spike ([design + spike](docs/superpowers/specs/2026-07-27-byok-live-target-design.md)) answered a question this plan had never actually asked: **which side of the wire is MCPwn on?** The answer changes the shape of the BYOK feature, so it is recorded here rather than left in a spec.
+
+**We must be the MCP server that the user's agent connects to — not a client that calls their endpoint.**
+
+The `Environment` contract already said so in its own words (`src/contract/attack.ts`): tools are the "MCP tool names **exposed to** the agent" (exposing tools is a server's job) and memory is "**seed** memory state" (seeding presupposes we hold the store). If memory lived inside the user's agent, `memory_read` / `memory_write` would be unreachable by construction.
+
+The mechanism argument is decisive. Most of the Core-7 **are** a poisoned tool surface: ASI01 hijack via a malicious tool result, ASI04 a poisoned tool description, ASI06 poisoned memory content. Calling the user's endpoint, **we cannot stage any of them**, because we do not control what their agent reads. An outbound client can only fuzz the user's MCP *server*; it cannot red-team their *agent*.
+
+Consequences to carry forward:
+
+- **Observability differs by direction.** As the server we see every `tools/call` the agent *chose* to make, with arguments — the signal red-teaming needs. As a client we only see the calls *we* made. In neither direction is `agent_reasoning` observable: nothing in MCP carries an agent's chain of thought to a server, and `sampling/createMessage` is the server driving the client's model, not the agent narrating itself. Treating it as reasoning would be fabrication. `task_complete` is **inferred, not observed**.
+- **The task goal still has to reach the agent out of band.** MCP has no server-to-agent "here is your goal" message, so the honest architecture is a hybrid: MCPwn hosts a per-run MCP server (poisoned tools + seeded memory), and `Scenario.taskGoal` is handed over by the user (pasted, a published MCP prompt, or a thin agent-side adapter). **Which of those, is an open decision.**
+- **The adapter built in Slice 3 keeps a narrower, real job:** probing a target MCP *server* (the ASI02 / ASI05 surfaces) and providing the transport / JSON-RPC / Zod / retry layer the hosted-server direction will reuse. It is not the path to a full agent trace and must not be documented as one.
+- **CLAUDE.md still frames the BYOK target as "the user's MCP agent endpoint + key"** (an outbound call). That framing needs the operator's sign-off to change, so it is flagged here rather than edited unilaterally.
 
 ### Not blocked, but explicitly out of scope
 
