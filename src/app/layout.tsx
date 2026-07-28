@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import { BootSplash } from '@/components/splash/BootSplash';
+import { getSiteOrigin } from '@/config/env';
 
 /**
  * `display: 'optional'` with next/font's metric-matched fallback: text paints
@@ -20,10 +21,42 @@ const geistMono = Geist_Mono({
   variable: '--font-geist-mono',
 });
 
+const TITLE = 'MCPwn · Red-team your MCP agents';
+const DESCRIPTION =
+  'MCPwn red-teams an MCP-tool-using AI agent against the OWASP Top 10 for Agentic Applications (2026): live attack replay, per-model robustness leaderboard, and engineer-ready fix reports.';
+
+/**
+ * `metadataBase` is the origin every RELATIVE metadata URL resolves against.
+ * Without it Next.js falls back to `http://localhost:3000`, so a deployed page
+ * advertises localhost Open Graph and canonical URLs. The origin is env-only
+ * (`NEXT_PUBLIC_SITE_URL`, defaulting to the canonical host) — see
+ * `getSiteOrigin`.
+ *
+ * Deliberately NOT set here: `alternates.canonical` and `openGraph.url`. Next
+ * merges metadata down the tree, so a value pinned on the root layout would make
+ * EVERY page that does not override it claim the same canonical URL. A base plus
+ * per-route relative URLs is the correct shape.
+ *
+ * The Open Graph / Twitter card is the SITE-level card, shared by every route
+ * that does not override it. A screen behind sign-in has no link-preview
+ * audience of its own, so one honest product card beats eight near-identical
+ * ones; a route that earns a distinct share card sets its own `openGraph`.
+ */
 export const metadata: Metadata = {
-  title: 'MCPwn — Red-team your MCP agents',
-  description:
-    'MCPwn red-teams an MCP-tool-using AI agent against the OWASP Top 10 for Agentic Applications (2026): live attack replay, per-model robustness leaderboard, and engineer-ready fix reports.',
+  metadataBase: new URL(getSiteOrigin()),
+  title: TITLE,
+  description: DESCRIPTION,
+  openGraph: {
+    type: 'website',
+    siteName: 'MCPwn',
+    title: TITLE,
+    description: DESCRIPTION,
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: TITLE,
+    description: DESCRIPTION,
+  },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

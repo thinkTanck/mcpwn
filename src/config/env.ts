@@ -68,6 +68,44 @@ export function loadCoreConfig(env: Env = process.env): CoreConfig {
   return result.data;
 }
 
+// ── CORE: the canonical public origin (metadata base) ──
+//
+// Next.js resolves every RELATIVE metadata URL (Open Graph, canonical, images)
+// against `metadata.metadataBase`. With no base set it falls back to
+// `http://localhost:3000`, so a production page advertises localhost OG and
+// canonical URLs. The origin is env-only (12-Factor III) with the canonical
+// production host as the default, so a clean clone renders correct absolute URLs
+// with zero configuration.
+
+/** The canonical production origin, used when `NEXT_PUBLIC_SITE_URL` is unset. */
+export const DEFAULT_SITE_ORIGIN = 'https://mcpwn.dev';
+
+// Trimmed, gated as http(s), then collapsed to the bare origin — the same
+// normalization the Supabase URL gets, for the same reason: a dashboard/CI paste
+// can carry a trailing slash or a path, and either one corrupts every relative
+// URL resolved against it.
+const SiteUrlSchema = z
+  .object({
+    NEXT_PUBLIC_SITE_URL: z
+      .string()
+      .transform((s) => s.trim())
+      .pipe(httpUrl)
+      .transform((u) => new URL(u).origin),
+  })
+  .transform((v) => v.NEXT_PUBLIC_SITE_URL);
+
+/**
+ * The canonical public origin as an absolute `https://host[:port]` string.
+ * Falls back to {@link DEFAULT_SITE_ORIGIN} when `NEXT_PUBLIC_SITE_URL` is unset
+ * or blank; a SET-but-invalid value is a real error, not a silent fallback.
+ */
+export function getSiteOrigin(env: Env = process.env): string {
+  if (!env.NEXT_PUBLIC_SITE_URL?.trim()) return DEFAULT_SITE_ORIGIN;
+  const result = SiteUrlSchema.safeParse(env);
+  if (!result.success) throw toConfigError(result.error, 'Invalid site URL configuration');
+  return result.data;
+}
+
 // ── LAZY: persistence (Neon Postgres behind the repository port) ──
 const PostgresEnvSchema = z
   .object({ DATABASE_URL: postgresUrl })
