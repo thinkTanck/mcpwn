@@ -153,6 +153,16 @@ export function SignInPanel({
   const [cooldown, setCooldown] = useState(0);
   const [pending, startTransition] = useTransition();
   const codeRef = useRef<HTMLInputElement>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
+  /**
+   * Armed only by a deliberate return to step 1 ("Use a different email"), so the
+   * focus handoff is symmetric: forward to the code field, back to the email
+   * field. Without it, going back re-rendered step 1 with focus still on the
+   * removed button, which the browser resets to <body> — dropping a keyboard or
+   * screen-reader user at the top of the document with no announcement. A ref
+   * (not state) because first mount must NOT steal focus.
+   */
+  const returnToEmail = useRef(false);
 
   // One countdown for the whole code step; requesting/resending re-arms it to 45.
   useEffect(() => {
@@ -161,10 +171,18 @@ export function SignInPanel({
     return () => clearInterval(t);
   }, [step]);
 
-  // Move focus to the code field when it appears (keyboard-first).
+  // Keyboard-first focus handoff, both ways: to the code field when it appears,
+  // and back to the email field when the visitor returns to step 1. `previewSent`
+  // is a dependency because the unconfigured-auth preview leaves `step` at
+  // 'email' and swaps the whole panel, so `step` alone never changes.
   useEffect(() => {
-    if (step === 'code') codeRef.current?.focus();
-  }, [step]);
+    if (step === 'code') {
+      codeRef.current?.focus();
+    } else if (returnToEmail.current) {
+      returnToEmail.current = false;
+      emailRef.current?.focus();
+    }
+  }, [step, previewSent]);
 
   const requestCode = () => {
     setError(null);
@@ -199,6 +217,7 @@ export function SignInPanel({
   };
 
   const backToEmail = () => {
+    returnToEmail.current = true;
     setStep('email');
     setCode('');
     setError(null);
@@ -225,6 +244,7 @@ export function SignInPanel({
           variant="ghost"
           className="mt-6 w-full uppercase"
           onClick={() => {
+            returnToEmail.current = true;
             setPreviewSent(false);
             setEmail('');
           }}
@@ -376,6 +396,7 @@ export function SignInPanel({
           </label>
           <input
             id={emailId}
+            ref={emailRef}
             name="email"
             type="email"
             required
