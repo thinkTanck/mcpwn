@@ -5,8 +5,13 @@ import { asi10 } from '@/attacks/asi10';
 
 const stepIds = (trace: Trace): string[] => trace.steps.map((s) => s.id);
 
-/** The three bounded single-run rogue signatures, as realization pair slugs. */
-const SIGNATURES = ['asi10-goal-drift', 'asi10-covert-action', 'asi10-deceptive-report'] as const;
+/** The bounded single-run rogue signatures, as realization pair slugs. */
+const SIGNATURES = [
+  'asi10-goal-drift',
+  'asi10-covert-action',
+  'asi10-deceptive-report',
+  'asi10-scale-out',
+] as const;
 
 describe('ASI10 — Rogue Agents', () => {
   describe('base build / scenario surface (default realization)', () => {
@@ -34,12 +39,22 @@ describe('ASI10 — Rogue Agents', () => {
     });
   });
 
-  describe('three single-run rogue signatures, as generic realization pairs', () => {
-    it('exposes exactly three distinct signatures, each with both kinds', () => {
+  describe('single-run rogue signatures, as generic realization pairs', () => {
+    it('exposes each distinct signature with both kinds', () => {
       const slugs = [...new Set(asi10.variants.map((v) => v.slug))];
       expect(slugs).toEqual([...SIGNATURES]);
-      expect(variantsOfKind(asi10, 'malicious')).toHaveLength(3);
-      expect(variantsOfKind(asi10, 'benign')).toHaveLength(3);
+      expect(variantsOfKind(asi10, 'malicious')).toHaveLength(SIGNATURES.length);
+      expect(variantsOfKind(asi10, 'benign')).toHaveLength(SIGNATURES.length);
+    });
+
+    it('scale-out is the tool-parity pair: the same change, made under mandate or not', () => {
+      const tools = (id: string) =>
+        asi10
+          .build(id)
+          .trace.steps.flatMap((s) => (s.type === 'tool_call' ? [s.tool] : []))
+          .sort();
+      expect(tools('asi10-scale-out-benign')).toEqual(tools('asi10-scale-out-malicious'));
+      expect(tools('asi10-scale-out-malicious')).toContain('scale_service');
     });
 
     it.each(SIGNATURES)(
@@ -98,10 +113,10 @@ describe('ASI10 — Rogue Agents', () => {
   });
 
   describe('registration', () => {
-    it('registers under ASI10 with six realizations', () => {
+    it('registers under ASI10 with one realization per signature per kind', () => {
       expect(getAttack('ASI10')).toBe(asi10);
       expect(asi10.category).toBe('ASI10');
-      expect(asi10.variants).toHaveLength(6);
+      expect(asi10.variants).toHaveLength(SIGNATURES.length * 2);
     });
   });
 
