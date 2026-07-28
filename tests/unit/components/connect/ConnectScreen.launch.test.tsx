@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ConnectScreen } from '@/components/connect/ConnectScreen';
-import type { LiveRunOutcome, LiveRunRequest } from '@/live';
+import type { LiveRunOutcome, LiveRunRequest, LiveRunSummary } from '@/live';
 
 /**
  * The LIVE path of the Connect console, now actually wired: the launch button
@@ -19,8 +19,7 @@ async function fillForm(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText(/API KEY \/ TOKEN/i), 'sk-live-secret');
 }
 
-const ok = (runs: LiveRunOutcome extends { ok: true; runs: infer R } ? R : never): LiveRunOutcome =>
-  ({ ok: true, runs, failed: [] }) as LiveRunOutcome;
+const ok = (runs: LiveRunSummary[]): LiveRunOutcome => ({ ok: true, runs, failed: [] });
 
 describe('ConnectScreen · launching a live run', () => {
   it('sends the endpoint, key and selected categories to the server action', async () => {
@@ -47,7 +46,9 @@ describe('ConnectScreen · launching a live run', () => {
 
   it('omits a blank model id rather than sending an empty string', async () => {
     const user = userEvent.setup();
-    const launchLiveRun = vi.fn(async () => ok([]));
+    const launchLiveRun = vi.fn<(input: LiveRunRequest) => Promise<LiveRunOutcome>>(async () =>
+      ok([]),
+    );
     render(<ConnectScreen signedIn liveRunEnabled launchLiveRun={launchLiveRun} />);
     await goLive(user);
     await fillForm(user);
