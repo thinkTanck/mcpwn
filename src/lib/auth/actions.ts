@@ -2,10 +2,15 @@
 
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { createServerSupabase } from '@/lib/supabase/server';
+import { createOtpSenderSupabase, createServerSupabase } from '@/lib/supabase/server';
+import { readableAuthError } from '@/lib/auth/errors';
 
-/** Result the sign-in UI renders. Never leaks provider internals beyond `error`. */
+/** Result the sign-in UI renders. `error` is always human copy, never provider
+ *  machine text (auth-js will hand us `"{}"` given an empty GoTrue body). */
 export type AuthResult = { ok: true } | { ok: false; error: string };
+
+/** GoTrue normalizes addresses; match it so the send and the verify agree. */
+const normalizeEmail = (email: string): string => email.trim().toLowerCase();
 
 /** Absolute site origin, from the (proxied) request headers — works on preview + prod. */
 async function siteOrigin(): Promise<string> {
@@ -25,28 +30,50 @@ function sanitizeNext(next?: string): string {
 }
 
 /**
- * Email OTP: send the address a 6-digit code (the Supabase email templates must
- * emit `{{ .Token }}`). Returns a typed result so the panel can advance to the
- * code step or show a failure without leaving the page. Inert (ok:false) when
- * auth is not configured — the panel keeps its preview state.
+ * Email OTP: email the address a one-time code (the Supabase email templates
+ * must emit `{{ .Token }}`). Returns a typed result so the panel can advance to
+ * the code step or show a failure without leaving the page. Inert (ok:false)
+ * when auth is not configured — the panel keeps its preview state.
+ *
+ * Sent through `createOtpSenderSupabase()` (implicit flow) and NOT the
+ * cookie-bound SSR client: `@supabase/ssr` forces `flowType: "pkce"`, under
+ * which GoTrue stores a flow-state auth code instead of `sha224(email + otp)`
+ * and no emailed code can ever verify. See that factory for the full trace.
  */
 export async function requestEmailCode(email: string): Promise<AuthResult> {
-  const supabase = await createServerSupabase();
+  const supabase = createOtpSenderSupabase();
   if (!supabase) return { ok: false, error: 'Sign-in is not configured yet.' };
   const { error } = await supabase.auth.signInWithOtp({
-    email,
+    email: normalizeEmail(email),
     options: { shouldCreateUser: true },
   });
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    return {
+      ok: false,
+      error: readableAuthError(error, 'We could not send that code. Try again.'),
+    };
+  }
   return { ok: true };
 }
 
+/** GoTrue error classes that mean "this code did not match THIS token type" —
+ *  the only ones worth retrying as a signup OTP. Anything else (a rate limit,
+ *  a disabled provider) would just be masked by a second failing attempt. */
+function isCodeMismatch(error: { code?: string; message?: string }): boolean {
+  if (error.code) return error.code === 'otp_expired' || error.code === 'otp_disabled';
+  return /token has expired or is invalid|otp_expired/i.test(error.message ?? '');
+}
+
 /**
- * Email OTP verify: exchange the typed 6-digit code for a session. Tries the
- * sign-in OTP type, then the signup OTP type (a brand-new account's first code).
- * On success the cookie-bound server client has set the session cookies, so we
- * redirect to a sanitized `next`. verifyOtp IS the whole flow — no PKCE, no
- * callback, so an email scanner or a different browser can never break it.
+ * Email OTP verify: exchange the typed code for a session. Tries the sign-in OTP
+ * type, then the signup OTP type (a brand-new account's first code). On success
+ * the cookie-bound server client has set the session cookies, so we redirect to
+ * a sanitized `next`. verifyOtp IS the whole flow — no PKCE, no callback, so an
+ * email scanner or a different browser can never break it.
+ *
+ * The code is passed through as GoTrue issued it, minus whitespace. Its LENGTH
+ * is a project setting (Supabase allows 6 to 10; this project emits 8), so
+ * nothing here may assume, pad, or truncate it.
  */
 export async function verifyEmailCode(
   email: string,
@@ -56,11 +83,19 @@ export async function verifyEmailCode(
   const supabase = await createServerSupabase();
   if (!supabase) return { ok: false, error: 'Sign-in is not configured yet.' };
 
-  let { error } = await supabase.auth.verifyOtp({ email, token, type: 'email' });
-  if (error) {
-    ({ error } = await supabase.auth.verifyOtp({ email, token, type: 'signup' }));
+  const address = normalizeEmail(email);
+  const code = token.replace(/\s+/g, '');
+
+  let { error } = await supabase.auth.verifyOtp({ email: address, token: code, type: 'email' });
+  if (error && isCodeMismatch(error)) {
+    ({ error } = await supabase.auth.verifyOtp({ email: address, token: code, type: 'signup' }));
   }
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    return {
+      ok: false,
+      error: readableAuthError(error, 'We could not verify that code. Request a new one.'),
+    };
+  }
 
   redirect(sanitizeNext(next));
 }
