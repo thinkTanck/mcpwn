@@ -108,7 +108,7 @@ describe('backward compatibility — a bare kind resolves to a PINNED default re
   it('the ASI06 hero sample keeps the run id and offending step the UI links to', () => {
     const { trace, groundTruth } = getAttack('ASI06').build('malicious');
     expect(trace.runId).toBe('asi06-run');
-    expect(groundTruth.stepId).toBe('asi06-s11');
+    expect(groundTruth.stepId).toBe('s11');
   });
 
   it('the benign default shares its run id with its malicious sibling', () => {

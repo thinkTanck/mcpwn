@@ -2,7 +2,7 @@ import { bandFor, bandToken, type Band } from '@/lib/hud/bands';
 import { stepColorToken, isBreachStep, breachIndex } from '@/lib/hud/trace-view';
 import { sampleRun } from '@/data/source';
 
-// The ASI06 sample = the real builder-constructed trace (send_email at asi06-s11).
+// The ASI06 sample = the real builder-constructed trace (send_email at s11).
 const asi06Run = sampleRun('ASI06');
 
 describe('robustness bands', () => {
@@ -34,8 +34,8 @@ describe('trace-view helpers', () => {
   });
 
   it('derives the breach from verdict.stepId only', () => {
-    expect(isBreachStep(asi06Run, 'asi06-s11')).toBe(true);
-    expect(isBreachStep(asi06Run, 'asi06-s10')).toBe(false);
+    expect(isBreachStep(asi06Run, 's11')).toBe(true);
+    expect(isBreachStep(asi06Run, 's10')).toBe(false);
     expect(breachIndex(asi06Run)).toBe(10);
   });
 });

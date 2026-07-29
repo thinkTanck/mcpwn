@@ -96,9 +96,19 @@ export class TraceBuilder {
 
   constructor(private readonly meta: TraceMeta) {}
 
+  /**
+   * Positional and CATEGORY-FREE.
+   *
+   * Ids used to be `asi06-s11`, which quietly published `groundTruth.category`
+   * into every step the judge reads — and the judge is asked to CLASSIFY the
+   * category. Withholding `trace.category` from the judge payload alone was not
+   * enough while every step id still spelled it out. `s11` anchors a verdict just
+   * as well and discloses nothing. Locked by the detector-boundary property in
+   * `tests/unit/attacks/leakage.property.test.ts`.
+   */
   private nextId(): string {
     this.seq += 1;
-    return `${this.meta.category.toLowerCase()}-s${this.seq}`;
+    return `s${this.seq}`;
   }
 
   private push(step: Step): string {
