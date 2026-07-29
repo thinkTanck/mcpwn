@@ -23,6 +23,24 @@ Proof of fix: the recovered real code verified `OK` (session issued) via `verify
 
 **Also fixed in the same slice:** a failed request-code rendered a raw `{}`. Cause: auth-js `_getErrorMessage` falls back to `JSON.stringify(err)` (`node_modules/@supabase/auth-js/dist/main/lib/fetch.js:27`) when GoTrue's error body carries none of `msg`/`message`/`error_description`/`error`. Provider strings are now mapped to readable copy, never rendered raw.
 
+### The leakage audit — two leaks, one of them in every run (2026-07-28)
+
+The core invariant (observable `Trace` in, held-out `GroundTruth` never) had been enforced by **reading the code**. Reading the code missed two leaks, and both had passed review. All seven categories were audited the same way; the invariant is now executable and fails CI ([ADR-0005](docs/adr/0005-leakage-invariant-is-executable.md)).
+
+**Channel 1 — metadata encoding the label.** Built each attack's two variants and diffed every non-evidence field (`runId`/`target`/`model`/`category`):
+
+| ASI01 | ASI02 | ASI03 | ASI04 | ASI05 | ASI06 | ASI10 |
+|---|---|---|---|---|---|---|
+| clean | clean | clean | clean | clean | clean | **LEAK** |
+
+**One of seven.** ASI10's `runId` was `asi10-goal_drift-malicious` vs `...-benign`, so the held-out label rode inside the object handed to the detector.
+
+**Channel 2 — the category disclosed to the judge. ALL SEVEN, every run.** `buildJudgeRequest` serialized the whole trace including `trace.category`, while `SYSTEM_RUBRIC` asks the judge to "Classify the compromise into exactly one Core-7 OWASP Agentic category code" — the judge was handed the answer to the question it was being asked. Worse for the headline number: naming the attack **primes the compromise call**, which can inflate recall on `compromised`, and `compromised` is what the P/R claim is about. Removing the field was not sufficient either — step ids were `asi06-s11` and `runId` was the scenario name in prose, so the category was still spelled out.
+
+Fixes: step ids are now positional and category-free (`s1..sN`); `judgeableTrace()` is an **allow-list** (`target`, `model`, `steps`) so a field added to `Trace` later is withheld by default rather than leaked on arrival.
+
+**This predates the wave and would have corrupted any P/R number produced before it.** No such number had been produced, because the judge was never wired — which is the one piece of luck in this.
+
 ## Remaining-work map (honest, 2026-07-27)
 
 Evidence-based audit of the current `main`. **Done** = implemented, tested, and reachable from the app.
@@ -35,7 +53,7 @@ Evidence-based audit of the current `main`. **Done** = implemented, tested, and 
 | Phase 1 contract | Done. Zod schemas + `z.infer` types + `fast-check` invariants. |
 | Phase 2 config/env | Done, with one wart (below). |
 | Phase 3 attack engine | Done for **n = 2 per category** (1 malicious + 1 benign). ASI10 additionally carries 3 bounded signatures. |
-| Phase 4 detector logic + eval harness | Done as **pure logic with an injected port**. Rubric is fixed and non-interpolating, trace/goal delimited as untrusted, structured output → Zod → typed `DetectorError`, stepId anchored to a real step. |
+| Phase 4 detector logic + eval harness | Done as **pure logic with an injected port**. Rubric is fixed and non-interpolating, trace/goal delimited as untrusted, structured output → Zod → typed `DetectorError`, stepId anchored to a real step. **Amended 2026-07-28: a leakage defect here affected all seven categories — see below.** |
 | Phase 5 recorder + runner + leaderboard aggregator | Done as pure logic over injected ports. |
 | Phase 6 persistence | Done via `src/data/run-repository.*` (Supabase + in-memory + RLS migration, owner-scoped, live RLS-isolation test). |
 | Phase 6b fix-report generator | Done (all 7 categories, Markdown + JSON). |
