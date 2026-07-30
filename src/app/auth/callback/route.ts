@@ -3,8 +3,9 @@ import { createServerSupabase } from '@/lib/supabase/server';
 import { logger } from '@/lib/logger';
 
 /**
- * Auth callback — the return target for both the magic-link email and the GitHub
- * OAuth redirect. Exchanges the one-time `code` for a session (cookies are set by
+ * Auth callback — the return target for the GitHub OAuth redirect, and the only
+ * remaining PKCE consumer now that email sign-in is a typed code with no URL to
+ * open. Exchanges the one-time `code` for a session (cookies are set by
  * the cookie-bound server client) and forwards to `next` (default `/account`). On
  * any failure it bounces to the sign-in page with an error marker rather than
  * leaving the user on a blank callback.

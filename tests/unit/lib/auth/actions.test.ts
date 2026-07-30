@@ -1,5 +1,5 @@
 import { requestEmailCode, verifyEmailCode } from '@/lib/auth/actions';
-import { createServerSupabase } from '@/lib/supabase/server';
+import { createServerSupabase, createOtpSenderSupabase } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 
 vi.mock('next/headers', () => ({
@@ -8,10 +8,13 @@ vi.mock('next/headers', () => ({
   }),
 }));
 vi.mock('next/navigation', () => ({ redirect: vi.fn() }));
-vi.mock('@/lib/supabase/server', () => ({ createServerSupabase: vi.fn() }));
+vi.mock('@/lib/supabase/server', () => ({
+  createServerSupabase: vi.fn(),
+  createOtpSenderSupabase: vi.fn(),
+}));
 
 const mockOtp = (otp: ReturnType<typeof vi.fn>) =>
-  vi.mocked(createServerSupabase).mockResolvedValue({ auth: { signInWithOtp: otp } } as never);
+  vi.mocked(createOtpSenderSupabase).mockReturnValue({ auth: { signInWithOtp: otp } } as never);
 const mockVerify = (verifyOtp: ReturnType<typeof vi.fn>) =>
   vi.mocked(createServerSupabase).mockResolvedValue({ auth: { verifyOtp } } as never);
 
@@ -19,7 +22,7 @@ describe('requestEmailCode (email OTP request)', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('is inert (ok:false) when auth is not configured', async () => {
-    vi.mocked(createServerSupabase).mockResolvedValue(null);
+    vi.mocked(createOtpSenderSupabase).mockReturnValue(null);
     expect((await requestEmailCode('a@b.com')).ok).toBe(false);
   });
 
@@ -30,13 +33,51 @@ describe('requestEmailCode (email OTP request)', () => {
     expect(otp).toHaveBeenCalledWith({ email: 'a@b.com', options: { shouldCreateUser: true } });
   });
 
-  it('surfaces the provider error', async () => {
-    const otp = vi.fn().mockResolvedValue({ error: { message: 'email rate limit exceeded' } });
+  /**
+   * The Slice 1.5 prod bug: sending through the cookie-bound SSR client put
+   * GoTrue on the PKCE branch, which stores a flow-state code instead of the
+   * OTP hash, so no emailed code could ever verify. The send MUST go through
+   * the implicit-flow sender.
+   */
+  it('sends through the implicit-flow sender, never the cookie-bound PKCE client', async () => {
+    const otp = vi.fn().mockResolvedValue({ error: null });
     mockOtp(otp);
-    expect(await requestEmailCode('a@b.com')).toEqual({
-      ok: false,
-      error: 'email rate limit exceeded',
+    const cookieBound = vi.fn();
+    vi.mocked(createServerSupabase).mockResolvedValue({
+      auth: { signInWithOtp: cookieBound },
+    } as never);
+
+    await requestEmailCode('a@b.com');
+
+    expect(createOtpSenderSupabase).toHaveBeenCalled();
+    expect(otp).toHaveBeenCalled();
+    expect(cookieBound).not.toHaveBeenCalled();
+  });
+
+  it('trims and lower-cases the address so send and verify agree', async () => {
+    const otp = vi.fn().mockResolvedValue({ error: null });
+    mockOtp(otp);
+    await requestEmailCode('  Real@User.COM  ');
+    expect(otp).toHaveBeenCalledWith({
+      email: 'real@user.com',
+      options: { shouldCreateUser: true },
     });
+  });
+
+  it('renders a rate-limit error as words', async () => {
+    mockOtp(vi.fn().mockResolvedValue({ error: { code: 'over_email_send_rate_limit' } }));
+    const res = await requestEmailCode('a@b.com');
+    expect(res).toMatchObject({ ok: false });
+    expect(res.ok === false && res.error).toMatch(/too many|wait/i);
+  });
+
+  /** The raw `{}` that reached /sign-in: auth-js JSON.stringifies an empty body. */
+  it('never surfaces a raw JSON error body', async () => {
+    mockOtp(vi.fn().mockResolvedValue({ error: { message: '{}' } }));
+    const res = await requestEmailCode('a@b.com');
+    expect(res.ok).toBe(false);
+    expect(res.ok === false && res.error).not.toBe('{}');
+    expect(res.ok === false && res.error).toMatch(/[a-z]{3,}\s+[a-z]{2,}/i);
   });
 });
 
@@ -45,7 +86,7 @@ describe('verifyEmailCode (email OTP verify)', () => {
 
   it('is inert (ok:false) when auth is not configured', async () => {
     vi.mocked(createServerSupabase).mockResolvedValue(null);
-    expect((await verifyEmailCode('a@b.com', '123456')).ok).toBe(false);
+    expect((await verifyEmailCode('a@b.com', '12345678')).ok).toBe(false);
   });
 
   it('verifies with type email and redirects to a safe next (cookies set first)', async () => {
@@ -59,35 +100,67 @@ describe('verifyEmailCode (email OTP verify)', () => {
       return undefined as never;
     });
     mockVerify(verifyOtp);
-    await verifyEmailCode('a@b.com', '123456', '/leaderboard');
-    expect(verifyOtp).toHaveBeenCalledWith({ email: 'a@b.com', token: '123456', type: 'email' });
+    await verifyEmailCode('a@b.com', '12345678', '/leaderboard');
+    expect(verifyOtp).toHaveBeenCalledWith({ email: 'a@b.com', token: '12345678', type: 'email' });
     expect(redirect).toHaveBeenCalledWith('/leaderboard');
     expect(order).toEqual(['verify', 'redirect']);
+  });
+
+  /**
+   * The project's Email OTP length is 8, not the 6 the first cut assumed.
+   * Supabase allows 6 to 10, so the action must not care how long the code is
+   * and must not reshape it; GoTrue is the authority.
+   */
+  it.each([['123456'], ['1234567'], ['12345678'], ['1234567890']])(
+    'passes a %s-length code through unchanged',
+    async (token) => {
+      const verifyOtp = vi.fn().mockResolvedValue({ error: null });
+      mockVerify(verifyOtp);
+      await verifyEmailCode('a@b.com', token);
+      expect(verifyOtp).toHaveBeenCalledWith({ email: 'a@b.com', token, type: 'email' });
+    },
+  );
+
+  it('strips whitespace a user pasted around the code', async () => {
+    const verifyOtp = vi.fn().mockResolvedValue({ error: null });
+    mockVerify(verifyOtp);
+    await verifyEmailCode('a@b.com', ' 123 456 ');
+    expect(verifyOtp).toHaveBeenCalledWith({ email: 'a@b.com', token: '123456', type: 'email' });
   });
 
   it('falls back to type signup for a new-account code', async () => {
     const verifyOtp = vi
       .fn()
-      .mockResolvedValueOnce({ error: { message: 'otp_expired' } })
+      .mockResolvedValueOnce({ error: { code: 'otp_expired' } })
       .mockResolvedValueOnce({ error: null });
     mockVerify(verifyOtp);
-    await verifyEmailCode('new@b.com', '654321');
+    await verifyEmailCode('new@b.com', '87654321');
     expect(verifyOtp).toHaveBeenNthCalledWith(2, {
       email: 'new@b.com',
-      token: '654321',
+      token: '87654321',
       type: 'signup',
     });
     expect(redirect).toHaveBeenCalledWith('/account');
   });
 
-  it('returns a typed error and does not redirect when both types fail', async () => {
+  /** A rate limit is not a type mismatch. Retrying masks it and burns a request. */
+  it('does not retry as signup when the failure is not a code mismatch', async () => {
+    const verifyOtp = vi.fn().mockResolvedValue({ error: { code: 'over_request_rate_limit' } });
+    mockVerify(verifyOtp);
+    const res = await verifyEmailCode('a@b.com', '12345678');
+    expect(verifyOtp).toHaveBeenCalledTimes(1);
+    expect(res.ok === false && res.error).toMatch(/too many|wait/i);
+  });
+
+  it('returns readable copy and does not redirect when both types fail', async () => {
     const verifyOtp = vi
       .fn()
       .mockResolvedValue({ error: { message: 'Token has expired or is invalid' } });
     mockVerify(verifyOtp);
-    expect(await verifyEmailCode('a@b.com', '000000')).toEqual({
+    const res = await verifyEmailCode('a@b.com', '00000000');
+    expect(res).toEqual({
       ok: false,
-      error: 'Token has expired or is invalid',
+      error: 'That code is incorrect or has expired. Enter the newest one, or resend a new code.',
     });
     expect(redirect).not.toHaveBeenCalled();
   });
@@ -101,7 +174,7 @@ describe('verifyEmailCode (email OTP verify)', () => {
   ])('sanitizes next=%s to %s', async (next, expected) => {
     const verifyOtp = vi.fn().mockResolvedValue({ error: null });
     mockVerify(verifyOtp);
-    await verifyEmailCode('a@b.com', '123456', next as string | undefined);
+    await verifyEmailCode('a@b.com', '12345678', next as string | undefined);
     expect(redirect).toHaveBeenCalledWith(expected);
   });
 });

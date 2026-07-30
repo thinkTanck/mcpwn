@@ -7,7 +7,7 @@ import { requestEmailCode, verifyEmailCode, startGitHubOAuth } from '@/lib/auth/
 
 /**
  * Email OTP sign-in (BRAND · pre-auth), wired to Supabase Auth. Two steps in one
- * browser: request a 6-digit code (requestEmailCode), then type it (verifyEmailCode,
+ * browser: request a one-time code (requestEmailCode), then type it (verifyEmailCode,
  * which sets the session and redirects). Code-only by design — no clickable link,
  * so an email scanner or a different browser can never break it. When auth is not
  * configured the panel keeps an honest preview state (no send happens).
@@ -16,6 +16,16 @@ import { requestEmailCode, verifyEmailCode, startGitHubOAuth } from '@/lib/auth/
  * READING role (sans, ≥16px); machine labels/field glyphs use the INSTRUMENT
  * role (mono, 12–13px).
  */
+/**
+ * Supabase's Email OTP length is a PROJECT SETTING, not a constant: the
+ * dashboard allows 6 to 10 digits and this project emits 8. The first cut
+ * hardcoded 6, silently truncating every real code to a prefix so no sign-in
+ * could ever succeed. Accept the whole configurable range and let GoTrue be the
+ * authority on what a valid code is.
+ */
+const CODE_MIN_LENGTH = 6;
+const CODE_MAX_LENGTH = 10;
+
 function EnvelopeIcon() {
   return (
     <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -205,9 +215,9 @@ export function SignInPanel({
           </span>
           <h1 className="reading-h1">That is the flow.</h1>
           <p className="reading mt-3">
-            In the live app, a 6-digit code lands at{' '}
-            <span className="font-mono text-readout">{email || 'your inbox'}</span> and expires in
-            15 minutes. No email is sent in this preview; sign-in wiring ships with the hosted
+            In the live app, a one-time code lands at{' '}
+            <span className="font-mono text-readout">{email || 'your inbox'}</span> and expires
+            shortly after. No email is sent in this preview; sign-in wiring ships with the hosted
             release.
           </p>
         </div>
@@ -225,7 +235,7 @@ export function SignInPanel({
     );
   }
 
-  // Code step: type the 6-digit code (verified in this same browser).
+  // Code step: type the emailed code (verified in this same browser).
   if (step === 'code') {
     return (
       <div className="w-full max-w-[380px]">
@@ -235,8 +245,8 @@ export function SignInPanel({
           </span>
           <h1 className="reading-h1">Enter your code.</h1>
           <p className="reading mt-3">
-            We emailed a 6-digit code to <span className="font-mono text-readout">{email}</span>. It
-            expires in 15 minutes. Enter it below to finish signing in.
+            We emailed a one-time code to <span className="font-mono text-readout">{email}</span>.
+            Enter it below to finish signing in. Codes expire, so use the newest one.
           </p>
         </div>
 
@@ -261,20 +271,20 @@ export function SignInPanel({
               inputMode="numeric"
               autoComplete="one-time-code"
               pattern="[0-9]*"
-              maxLength={6}
+              maxLength={CODE_MAX_LENGTH}
               required
               placeholder="000000"
               value={code}
               aria-invalid={error ? true : undefined}
               aria-describedby={error ? errorId : undefined}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, CODE_MAX_LENGTH))}
               className="w-full rounded-md border border-line bg-base px-3 py-3 text-center font-mono text-[18px] tracking-[0.4em] text-readout placeholder:text-ink-faint focus-visible:border-nominal"
             />
           </div>
 
           <Button
             type="submit"
-            disabled={pending || code.length < 6}
+            disabled={pending || code.length < CODE_MIN_LENGTH}
             className="w-full gap-2.5 uppercase tracking-[0.06em]"
           >
             {pending ? 'Verifying…' : 'Verify and continue'}
@@ -393,8 +403,8 @@ export function SignInPanel({
         <p id={helpId} className="reading mt-1 flex items-start gap-2">
           <LockIcon />
           <span>
-            No password. We email a 6-digit code that expires in 15 minutes, so nothing to remember
-            and nothing to leak.
+            No password. We email a one-time code that expires soon after, so there is nothing to
+            remember and nothing to leak.
           </span>
         </p>
       </form>
