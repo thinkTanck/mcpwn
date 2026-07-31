@@ -1,6 +1,6 @@
 # MCPwn
 
-> **Bring your own MCP agent → live red-team it against the OWASP Top 10 for Agentic Applications (2026) → get a report from a detector whose accuracy is _measured_** (leakage-separated precision/recall). With a live attack replay, a per-model robustness leaderboard, and engineer-ready fix reports.
+> **Point your MCP agent at MCPwn → live red-team it against the OWASP Top 10 for Agentic Applications (2026) → get a report from a detector whose accuracy is _measured_** (leakage-separated precision/recall). With a live attack replay, a per-model robustness leaderboard, and engineer-ready fix reports.
 
 **Production: [mcpwn.dev](https://mcpwn.dev)** — the canonical URL. The
 Vercel-generated deployment domain still resolves, but `mcpwn.dev` is the one to
@@ -10,7 +10,7 @@ link, and the one page metadata resolves against.
 
 MCPwn is a standalone, deployed web app that red-teams an MCP-tool-using agent
 against the **OWASP Top 10 for Agentic Applications (2026)**. The competitive
-product: **bring your own MCP agent → live red-team it against the Core-7 → get a
+product: **point your own MCP agent at us → live red-team it against the Core-7 → get a
 trustworthy report from a detector whose accuracy is _measured_** (leakage-separated
 precision/recall, not asserted). The verdict is trustworthy precisely because it
 comes from the detector config whose accuracy was actually measured.
@@ -19,14 +19,21 @@ comes from the detector config whose accuracy was actually measured.
 
 - **Sample playback** (the trailer) — a no-key, curated **real** run you can step
   through immediately, so the tool proves itself before you connect anything.
-- **Live BYOK red-teaming** (the tool) — you **bring your own MCP agent**
-  (endpoint + key; _you_ pay target inference) and run it against the Core-7. The
-  **judge is the fixed, validated, operator-provided detector — LOCKED** and never
-  user-swappable, because the measured accuracy only holds for the validated judge
-  config. Live runs are **gated** (sign-in + per-account caps) with a cheap
-  validated judge, so operator judge cost stays a few cents per run. **BYOK keys
-  are used server-side only, over HTTPS, never logged, and never persisted in
-  plaintext.**
+- **Live red-teaming** (the tool) — **you point your own MCP agent at us.** MCPwn
+  hosts a per-run MCP endpoint serving the attack's tools, seeded memory and
+  prompts; your agent connects to it and we record every tool call it chooses to
+  make. You bring the agent and pay its inference; **you never hand us an endpoint
+  or a key**, because we never call your agent. The task goal is delivered
+  out-of-band (a published MCP prompt, or paste). The **judge is the fixed,
+  validated, operator-provided detector — LOCKED** and never user-swappable,
+  because the measured accuracy only holds for the validated judge config. Live
+  runs are **gated** (sign-in + per-account caps) with a cheap validated judge, so
+  operator judge cost stays a few cents per run.
+
+  **Why this direction:** attacks are staged through the tool surface, and you
+  cannot poison what you do not serve. Calling your agent, we could not stage
+  ASI01/02/04/05/06 at all. See
+  [ADR-0006](docs/adr/0006-mcpwn-is-the-mcp-server.md).
 
 Either way, results are presented three ways:
 
@@ -94,15 +101,21 @@ recorded in
 Eight modules, two external ports (`McpTargetPort`, `JudgeModelPort`), and a small
 data contract that the whole system agrees on.
 
+**The live agent path is INBOUND** ([ADR-0006](docs/adr/0006-mcpwn-is-the-mcp-server.md)):
+module 1 hosts the per-run MCP server and the user's agent connects to it, so we
+serve the poisoned tool surface the attacks are staged through. `McpTargetPort`
+remains for OUTBOUND probing of a target MCP _server_, which is a different job.
+
 ![MCPwn module map](docs/diagrams/architecture.svg)
 
-<sub>Polished render — **archify**, themeable for dark/light. The Mermaid source below stays the canonical, diffable diagram.</sub>
+<sub>Polished render — **archify**, themeable for dark/light. The Mermaid source below stays the canonical, diffable diagram. **The SVG predates [ADR-0006](docs/adr/0006-mcpwn-is-the-mcp-server.md) and still draws the retired outbound agent path; regenerating it is tracked work. Trust the Mermaid below.**</sub>
 
 ```mermaid
 flowchart TD
     %% ---- External systems (outside the app boundary) ----
     subgraph EXT["External systems"]
-        AGENT["Target MCP agent"]
+        AGENT["The user's MCP agent (connects TO us)"]
+        SRV["A target MCP server (probing only)"]
         JUDGE["Judge / auditor model"]
     end
 
@@ -112,7 +125,7 @@ flowchart TD
 
     %% ---- Modules 1..8 ----
     M2["2. Attack engine (Core-7)"]
-    M1["1. MCP harness"]
+    M1["1. MCP harness — hosts our per-run MCP server"]
     M3["3. Runner"]
     M4["4. Detector"]
     M5["5. Leaderboard"]
@@ -132,11 +145,15 @@ flowchart TD
     M2 -. "produced at construction" .-> GT
     M2 -- "scenario(variant)" --> M3
 
-    %% ---- Live run path ----
-    M3 --> M1
-    M1 <--> MTP
-    MTP <--> AGENT
+    %% ---- Live run path (INBOUND: the agent connects to US — ADR-0006) ----
+    M3 -- "scenario Environment" --> M1
+    M1 == "serves poisoned tools / results / seeded memory / prompts" ==> AGENT
+    AGENT == "tools/call — the agent's OWN decision" ==> M1
     M1 -- "records observable steps" --> TRACE
+
+    %% ---- Outbound probing only (NOT the agent path) ----
+    M1 <--> MTP
+    MTP <--> SRV
 
     %% ---- Detection (leakage separation) ----
     TRACE -- "feature" --> M4
@@ -195,13 +212,13 @@ fixtures only. Live runs are unlabeled — which is exactly why the detector exi
 ### Routes
 
 A **Home / landing** (`/`) is the front door — the pitch plus the sample-run
-trailer; the app screens sit behind it. Live BYOK runs are gated by sign-in.
+trailer; the app screens sit behind it. Live runs are gated by sign-in.
 
 | Route            | Screen                                                               |
 | ---------------- | -------------------------------------------------------------------- |
 | `/`              | Home / landing — pitch + sample trailer + CTAs                       |
 | `/sign-in`       | Sign-in — Supabase Auth, emailed one-time code (OTP)                 |
-| `/connect`       | Run Setup — sample mode, or BYOK live (target)                       |
+| `/connect`       | Run Setup — sample, or live against our hosted MCP endpoint          |
 | `/runs/[id]`     | Live Attack Replay (the hero)                                        |
 | `/leaderboard`   | Robustness leaderboard heatmap                                       |
 | `/findings/[id]` | Findings / fix report                                                |
