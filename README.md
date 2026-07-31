@@ -2,6 +2,10 @@
 
 > **Bring your own MCP agent → live red-team it against the OWASP Top 10 for Agentic Applications (2026) → get a report from a detector whose accuracy is _measured_** (leakage-separated precision/recall). With a live attack replay, a per-model robustness leaderboard, and engineer-ready fix reports.
 
+**Production: [mcpwn.dev](https://mcpwn.dev)** — the canonical URL. The
+Vercel-generated deployment domain still resolves, but `mcpwn.dev` is the one to
+link, and the one page metadata resolves against.
+
 ## What MCPwn is
 
 MCPwn is a standalone, deployed web app that red-teams an MCP-tool-using agent
@@ -37,18 +41,26 @@ credentials lazily, so the offline app boots with none.
 
 ## Current status
 
-**Phase-0, Step-1 — a CI-first "walking skeleton."**
+Built and deployed at [mcpwn.dev](https://mcpwn.dev): all seven screens, the
+Core-7 attack engine, the detector logic, the eval harness, the fix-report
+generator, the leaderboard aggregator, and Supabase Auth + owner-scoped
+persistence. Every increment landed as a pushed TDD step with a real green CI
+check, in the order set out in [`plan.md`](plan.md).
 
-Today the app renders a landing page and nothing more. The point of this step is
-to stand up the delivery pipeline first: a minimal deployable app plus the full
-quality-gate suite (see [Quality gates](#quality-gates)) wired to run on every
-push and pull request, so that every later increment earns a real green check.
+**What is NOT built, stated plainly, because the rest of this README describes a
+target architecture:**
 
-The eight feature modules — MCP harness, attack engine, runner, detector,
-leaderboard, fix-report generator, HUD UI, and wiring — are being **rebuilt in
-disciplined, pushed TDD increments**, module by module, in the order set out in
-[`plan.md`](plan.md). Nothing beyond the landing page is claimed as built yet;
-this README describes the target architecture and the pipeline that guards it.
+- **No live run can complete.** The validated judge is not wired — that needs the
+  operator's model key — so a live run is refused rather than judged by something
+  unvalidated, and the Connect screen says so.
+- **Every statistic on the site is fixture data**, labelled as such in the UI. No
+  precision/recall number has been measured, because measuring one requires the
+  judge above.
+- **The MCP target layer is built against fakes**, never against a real MCP
+  agent.
+
+`plan.md` carries the honest remaining-work map, including what is blocked and on
+what. Where this README describes the target rather than the present, it says so.
 
 ## Scope — Core-7 (OWASP Agentic Top 10 2026)
 
@@ -188,7 +200,7 @@ trailer; the app screens sit behind it. Live BYOK runs are gated by sign-in.
 | Route            | Screen                                                               |
 | ---------------- | -------------------------------------------------------------------- |
 | `/`              | Home / landing — pitch + sample trailer + CTAs                       |
-| `/sign-in`       | Sign-in — Supabase Auth email magic-link                             |
+| `/sign-in`       | Sign-in — Supabase Auth, emailed one-time code (OTP)                 |
 | `/connect`       | Run Setup — sample mode, or BYOK live (target)                       |
 | `/runs/[id]`     | Live Attack Replay (the hero)                                        |
 | `/leaderboard`   | Robustness leaderboard heatmap                                       |
@@ -207,8 +219,8 @@ trailer; the app screens sit behind it. Live BYOK runs are gated by sign-in.
 - **Supabase Postgres** behind a repository port (the postgres adapter is
   provider-agnostic — any Postgres via `DATABASE_URL`), with an in-memory adapter
   for tests (later phase).
-- **Supabase Auth** — email magic-link sign-in (optional GitHub/Google OAuth) —
-  gating live runs (later phase).
+- **Supabase Auth** — sign-in by emailed one-time code (optional GitHub/Google
+  OAuth) — gating live runs.
 - **Node 22**; deployed on **Vercel**.
 
 ## Quickstart

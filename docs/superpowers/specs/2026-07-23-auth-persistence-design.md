@@ -2,6 +2,12 @@
 
 Status: approved (shape + Slice 1). Date: 2026-07-23.
 
+> **Historical record.** The magic-link VERIFICATION path described below was
+> superseded on 2026-07-25 by code-only email OTP: the email now carries a code
+> and no clickable link, and `/auth/callback` serves GitHub OAuth only. See
+> [the email-OTP design](2026-07-25-email-otp-signin-design.md). Everything here
+> about persistence, RLS and session handling still stands.
+
 ## Why
 
 In production a visitor cannot yet **test their own MCP agent** — sign-in is a
