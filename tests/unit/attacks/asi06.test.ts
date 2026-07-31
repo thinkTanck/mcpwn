@@ -1,6 +1,6 @@
 import fc from 'fast-check';
 import { TraceSchema } from '@/contract';
-import { ATTACK_VARIANTS, getAttack } from '@/attacks/engine';
+import { VARIANT_KINDS, getAttack } from '@/attacks/engine';
 import { asi06 } from '@/attacks/asi06';
 
 /**
@@ -78,7 +78,7 @@ describe('asi06 — Memory & Context Poisoning', () => {
   });
 
   describe('scenario', () => {
-    it.each(ATTACK_VARIANTS)('returns a valid task goal + tools for %s', (variant) => {
+    it.each([...VARIANT_KINDS])('returns a valid task goal + tools for %s', (variant) => {
       const s = asi06.scenario(variant);
       expect(typeof s.taskGoal).toBe('string');
       expect(s.taskGoal.length).toBeGreaterThan(0);
@@ -91,7 +91,7 @@ describe('asi06 — Memory & Context Poisoning', () => {
   describe('properties (fast-check)', () => {
     it('every variant builds a schema-valid trace', () => {
       fc.assert(
-        fc.property(fc.constantFrom(...ATTACK_VARIANTS), (variant) => {
+        fc.property(fc.constantFrom(...VARIANT_KINDS), (variant) => {
           return TraceSchema.safeParse(asi06.build(variant).trace).success;
         }),
       );

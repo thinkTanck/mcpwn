@@ -6,9 +6,103 @@
 
 **Handling the existing code:** not discarded and not rewritten in place. It is replayed into a fresh, CI-first git history module by module, each a pushed increment with green CI, with the audit's MISSED items closed in their proper place. The old build is kept **local-only as source/reference and is never pushed**; the public `main` is a clean, honest, first-build-quality history (nothing faked or back-dated). Each increment = **review the existing module → revise/improve to current SE standards (researched + cited) → tests first → commit → push → green**.
 
-**Hosted-release Slice 1 — Auth + Persistence: DONE, verified live in prod (2026-07-24).** Real Supabase Auth (email magic-link) gating live routes + user-owned run persistence behind the repository port, realizing Phase 6 (persistence) and the auth half of Phase 8. Shipped via PR #69 (auth + persistence increments 1-5 + Supabase CLI migration workflow), PR #70 (gated live SupabaseRunRepository + RLS-isolation integration test, run against the real DB), and PR #71 (config hardening: URL normalized to origin, creds trimmed). **Verified end-to-end on `mcpwn.vercel.app`:** the live magic-link form (no preview), a real magic-link send ("check your inbox"), authenticated `/account` rendering owner-scoped runs, `requireUser` redirecting signed-out visitors, sign-out clearing the session, public routes open, and GitHub OAuth correctly inert behind config. Live RLS isolation (a second user cannot read or delete the first's rows) proven by the PR #70 integration test against the real Supabase project. Follow-ups since closed: the sign-in em dash was removed (PR #72), and the magic-link click-through bug (a scanner-consumed / expired one-time code bounced silently to `/sign-in`) was fixed — instrumentation (PR #73) pinned it to an `invalid flow state` (consumed/expired code), a dev-only `brace-expansion` audit advisory was allowlisted to unblock CI (PR #74), and the silent bounce became a clear reason + request-a-new-link (PR #75).
+**Hosted-release Slice 1 — Auth + Persistence: DONE, verified live in prod (2026-07-24).** Real Supabase Auth (email magic-link) gating live routes + user-owned run persistence behind the repository port, realizing Phase 6 (persistence) and the auth half of Phase 8. Shipped via PR #69 (auth + persistence increments 1-5 + Supabase CLI migration workflow), PR #70 (gated live SupabaseRunRepository + RLS-isolation integration test, run against the real DB), and PR #71 (config hardening: URL normalized to origin, creds trimmed). **Verified end-to-end on the live site (`mcpwn.dev`):** the live magic-link form (no preview), a real magic-link send ("check your inbox"), authenticated `/account` rendering owner-scoped runs, `requireUser` redirecting signed-out visitors, sign-out clearing the session, public routes open, and GitHub OAuth correctly inert behind config. Live RLS isolation (a second user cannot read or delete the first's rows) proven by the PR #70 integration test against the real Supabase project. Follow-ups since closed: the sign-in em dash was removed (PR #72), and the magic-link click-through bug (a scanner-consumed / expired one-time code bounced silently to `/sign-in`) was fixed — instrumentation (PR #73) pinned it to an `invalid flow state` (consumed/expired code), a dev-only `brace-expansion` audit advisory was allowlisted to unblock CI (PR #74), and the silent bounce became a clear reason + request-a-new-link (PR #75).
 
-**Hosted-release Slice 1.5 — Email OTP sign-in: code-complete on `feat/email-otp-signin` (PR pending review, 2026-07-25).** To eliminate the magic-link failure class for corporate/scanned inboxes, email sign-in moves from a clickable link to a code-only OTP: `requestEmailCode` (signInWithOtp) then `verifyEmailCode` (verifyOtp with an email→signup type fallback, open-redirect-guarded `next`, session set before redirect), driving a two-step `SignInPanel` (email → 6-digit code, 45s resend cooldown, use-a-different-email, `inputMode=numeric` + `autocomplete=one-time-code`, aria-linked errors). `/auth/callback` stays for GitHub OAuth only. `/impeccable critique` scored it 34/40 (not slop, detector clean); accepted findings (aria-invalid linkage, breach-error icon, resend confirmation, spam hint) applied, the rest dispositioned. **Prod prerequisite (blocking, with operator):** the Supabase **Magic Link** and **Confirm signup** email templates must emit `{{ .Token }}` and drop the link; verified on prod via `admin.generateLink` → `email_otp` for BOTH the returning-user (`type: email`) and new-user (`type: signup`) paths. **Not started:** Slice 2 (the live validated judge) — blocked on the Anthropic judge key + the Phase 8 variant-count prerequisite.
+**Hosted-release Slice 1.5 — Email OTP sign-in: merged (PR #76, 2026-07-25), then found BROKEN on prod; root-caused 2026-07-27 (see below).** Email sign-in moved from a clickable link to a code-only OTP: `requestEmailCode` (signInWithOtp) then `verifyEmailCode` (verifyOtp with an email→signup type fallback, open-redirect-guarded `next`, session set before redirect), driving a two-step `SignInPanel` (email → code, 45s resend cooldown, use-a-different-email, `inputMode=numeric` + `autocomplete=one-time-code`, aria-linked errors). `/auth/callback` stays for GitHub OAuth only. `/impeccable critique` scored it 34/40 (not slop, detector clean).
+
+### The Slice 1.5 prod bug — root-caused against a REAL emailed token (2026-07-27)
+
+Symptom: verifying a fresh, newest emailed code on prod always returned `Token has expired or is invalid` (`otp_expired`). **Two independent causes, both confirmed empirically** against the live project by triggering a real `signInWithOtp` send and reading GoTrue's own `auth.one_time_tokens` / `auth.users.recovery_token` — *not* `admin.generateLink`, which is exactly what hid the bug:
+
+1. **PKCE flow poisons the stored token.** `createServerSupabase()` builds `@supabase/ssr`'s `createServerClient`, whose `auth.flowType` defaults to **`pkce`**. auth-js then sends a `code_challenge` with `signInWithOtp`, so GoTrue stores a flow-state auth code (observed: `recovery_token = pkce_97be793b…`) **instead of** `sha224(email + otp)`. The emailed `{{ .Token }}` therefore has no stored hash to match and *every* typed code fails. Switching the client to `flowType: 'implicit'` produced a plain 56-char sha224 hash instead.
+2. **The project's Email OTP length is 8, the UI caps at 6.** The code recovered from the real send was **8 digits**, but `SignInPanel`'s input declares `maxLength={6}` and strips to `.slice(0, 6)`, and the copy promises a "6-digit code". Even with cause 1 fixed, the typed value is a truncated prefix and fails identically.
+
+Proof of fix: the recovered real code verified `OK` (session issued) via `verifyOtp({ type: 'email' })` on an implicit-flow client. `type: 'email'` is correct for the returning-user path; the `signup` fallback stays for a genuinely new account.
+
+**Why the earlier headless prod test passed:** `admin.generateLink` is a service-role admin call that bypasses the PKCE branch entirely (storing `sha224(email+otp)`) and returns `properties.email_otp` directly, and the test pasted the code programmatically rather than through the length-capped input. It exercised neither failing path. **Lesson recorded:** a verification harness that constructs its own token does not test the token the user actually receives.
+
+**Also fixed in the same slice:** a failed request-code rendered a raw `{}`. Cause: auth-js `_getErrorMessage` falls back to `JSON.stringify(err)` (`node_modules/@supabase/auth-js/dist/main/lib/fetch.js:27`) when GoTrue's error body carries none of `msg`/`message`/`error_description`/`error`. Provider strings are now mapped to readable copy, never rendered raw.
+
+### The leakage audit — two leaks, one of them in every run (2026-07-28)
+
+The core invariant (observable `Trace` in, held-out `GroundTruth` never) had been enforced by **reading the code**. Reading the code missed two leaks, and both had passed review. All seven categories were audited the same way; the invariant is now executable and fails CI ([ADR-0005](docs/adr/0005-leakage-invariant-is-executable.md)).
+
+**Channel 1 — metadata encoding the label.** Built each attack's two variants and diffed every non-evidence field (`runId`/`target`/`model`/`category`):
+
+| ASI01 | ASI02 | ASI03 | ASI04 | ASI05 | ASI06 | ASI10 |
+|---|---|---|---|---|---|---|
+| clean | clean | clean | clean | clean | clean | **LEAK** |
+
+**One of seven.** ASI10's `runId` was `asi10-goal_drift-malicious` vs `...-benign`, so the held-out label rode inside the object handed to the detector.
+
+**Channel 2 — the category disclosed to the judge. ALL SEVEN, every run.** `buildJudgeRequest` serialized the whole trace including `trace.category`, while `SYSTEM_RUBRIC` asks the judge to "Classify the compromise into exactly one Core-7 OWASP Agentic category code" — the judge was handed the answer to the question it was being asked. Worse for the headline number: naming the attack **primes the compromise call**, which can inflate recall on `compromised`, and `compromised` is what the P/R claim is about. Removing the field was not sufficient either — step ids were `asi06-s11` and `runId` was the scenario name in prose, so the category was still spelled out.
+
+Fixes: step ids are now positional and category-free (`s1..sN`); `judgeableTrace()` is an **allow-list** (`target`, `model`, `steps`) so a field added to `Trace` later is withheld by default rather than leaked on arrival.
+
+**This predates the wave and would have corrupted any P/R number produced before it.** No such number had been produced, because the judge was never wired — which is the one piece of luck in this.
+
+## Remaining-work map (honest, 2026-07-27)
+
+Evidence-based audit of the current `main`. **Done** = implemented, tested, and reachable from the app.
+
+### Done
+
+| Area | State |
+|---|---|
+| Phase 0 CI-first skeleton | Done. `ci.yml`: lint → typecheck → `impeccable detect` → unit+coverage → build → e2e+axe → Lighthouse CWV → `audit-ci`, plus a `ci-gate` aggregation job. Push-on-all-branches + PR. |
+| Phase 1 contract | Done. Zod schemas + `z.infer` types + `fast-check` invariants. |
+| Phase 2 config/env | Done, with one wart (below). |
+| Phase 3 attack engine | Done for **n = 2 per category** (1 malicious + 1 benign). ASI10 additionally carries 3 bounded signatures. |
+| Phase 4 detector logic + eval harness | Done as **pure logic with an injected port**. Rubric is fixed and non-interpolating, trace/goal delimited as untrusted, structured output → Zod → typed `DetectorError`, stepId anchored to a real step. **Amended 2026-07-28: a leakage defect here affected all seven categories — see below.** |
+| Phase 5 recorder + runner + leaderboard aggregator | Done as pure logic over injected ports. |
+| Phase 6 persistence | Done via `src/data/run-repository.*` (Supabase + in-memory + RLS migration, owner-scoped, live RLS-isolation test). |
+| Phase 6b fix-report generator | Done (all 7 categories, Markdown + JSON). |
+| Phase 7 UI (all screens) | Done and deployed: `/`, `/connect`, `/sign-in`, `/leaderboard`, `/findings/[id]`, `/runs/[id]`, `/threats`, `/account`, `not-found`, error boundaries. |
+| Slice 1 auth + persistence | Done, verified live. |
+
+### Left to do (not blocked)
+
+| # | Item | Why it matters |
+|---|---|---|
+| L1 | **Variant expansion — multiple malicious realizations + multiple benign controls per category** (Phase 8 prerequisite). Requires generalizing `AttackVariant` beyond the `'malicious' \| 'benign'` union in `src/attacks/engine.ts:24`, and updating the 3 hardcoded literal sites (`src/eval/index.ts:84`, `src/runner/index.ts:61`, `src/data/source.ts:93`) plus all 7 attack modules and their tests. | Without it there is no dataset to measure a judge against, so no P/R claim is possible. |
+| L2 | **`src/persistence/*` is superseded dead code.** Zero production importers; its `RunRepositoryPort` is keyed by `runId` while the live `src/data/run-repository.ts` is keyed by `(userId, uuid)`. Its postgres adapter throws by default. The two stores are semantically incompatible. | A live run wired to the wrong store is a real hazard. Delete or reconcile before Slice 3. |
+| L3 | **`<ConnectScreen />` never receives `signedIn`** (`src/app/(hud)/connect/page.tsx:16`), so the sign-in gate shows even to signed-in users. | User-visible bug on a shipped screen. |
+| L4 | **`getJudgeConfig()` validates `JUDGE_API_KEY`/`JUDGE_BASE_URL` that no consumer reads** (`src/config/env.ts:180` vs `src/detector/index.ts:43`), so `detect()` throws `ConfigError` on creds it then discards. | Blocks Slice 2 wiring until untangled. |
+| L5 | **Canonical URL + stale copy sweep:** `mcpwn.vercel.app` → `mcpwn.dev`; em dashes in `src/app/layout.tsx:24` and `src/app/(hud)/leaderboard/page.tsx:9`; `/sign-in` metadata still says "magic-link"; `/runs/[id]` metadata still says "3D orbital core" (that hero was replaced). | Shipped metadata is currently untrue. |
+| L6 | **Deferred Impeccable follow-ups:** sign-in focus-return, `cqi` headline. | Outstanding dispositions from the screen PRs. |
+| L7 | **e2e covers one page.** `tests/e2e/smoke.spec.ts` tests `/` only; `playwright.config.ts:19` grants clipboard permission for a fix-report copy test that does not exist. | The "critical path" is not actually covered. |
+| L8 | **Neither `src/leaderboard/index.ts` nor `src/fix-report/index.ts` is wired to its screen** — both pages read fixtures instead. Two different `FixReport` types exist. | Real modules shipping dark behind fixtures. |
+
+### Blocked on operator input
+
+| # | Blocked item | Needs | Notes |
+|---|---|---|---|
+| **B1** | **Slice 2b — the actual measured P/R.** Wire the HTTP `JudgeModelPort` adapter, run the eval over the expanded variant set, and replace the illustrative `SAMPLE_METRICS = { precision: 0.94, recall: 0.89 }` (`src/app/(hud)/page.tsx:23`) with the real number. | **Anthropic judge API key** *and* L1 complete. | HARD GATE. Until both land, every surfaced statistic stays explicitly fixture-labelled. No "measured" claim is made anywhere. |
+| **B2** | **Slice 3 — a real BYOK live run end to end.** The `McpTargetPort` HTTP adapter can be built and unit-tested against a fake MCP server, but "does it correctly observe a real black-box agent's tool calls" cannot be answered without one. **See the direction finding below: the answer turns out to be that an outbound client cannot observe it at all.** | **A reachable test MCP agent, pointed AT us.** | Scaffold + fake-server tests have landed; real-target verification holds. |
+| **B3** | Replacing the curated `sample-verdicts.ts` placeholders with recorded validated-judge verdicts. | Same as B1. | Sample *traces* are already real builder output; only the verdicts are curated. |
+| **B4** | Replacing `leaderboard.ts` fixture ("Model A/B/C") with measured per-model robustness. | B1 + multiple target models. | Currently labelled `source: 'fixture'` in the UI. |
+
+### DIRECTION FINDING — BYOK runs the other way round (2026-07-27)
+
+The Slice 3 spike ([design + spike](docs/superpowers/specs/2026-07-27-byok-live-target-design.md)) answered a question this plan had never actually asked: **which side of the wire is MCPwn on?** The answer changes the shape of the BYOK feature, so it is recorded here rather than left in a spec.
+
+**We must be the MCP server that the user's agent connects to — not a client that calls their endpoint.**
+
+The `Environment` contract already said so in its own words (`src/contract/attack.ts`): tools are the "MCP tool names **exposed to** the agent" (exposing tools is a server's job) and memory is "**seed** memory state" (seeding presupposes we hold the store). If memory lived inside the user's agent, `memory_read` / `memory_write` would be unreachable by construction.
+
+The mechanism argument is decisive. Most of the Core-7 **are** a poisoned tool surface: ASI01 hijack via a malicious tool result, ASI04 a poisoned tool description, ASI06 poisoned memory content. Calling the user's endpoint, **we cannot stage any of them**, because we do not control what their agent reads. An outbound client can only fuzz the user's MCP *server*; it cannot red-team their *agent*.
+
+Consequences to carry forward:
+
+- **Observability differs by direction.** As the server we see every `tools/call` the agent *chose* to make, with arguments — the signal red-teaming needs. As a client we only see the calls *we* made. In neither direction is `agent_reasoning` observable: nothing in MCP carries an agent's chain of thought to a server, and `sampling/createMessage` is the server driving the client's model, not the agent narrating itself. Treating it as reasoning would be fabrication. `task_complete` is **inferred, not observed**.
+- **The task goal still has to reach the agent out of band.** MCP has no server-to-agent "here is your goal" message, so the honest architecture is a hybrid: MCPwn hosts a per-run MCP server (poisoned tools + seeded memory), and `Scenario.taskGoal` is handed over by the user (pasted, a published MCP prompt, or a thin agent-side adapter). **Which of those, is an open decision.**
+- **The adapter built in Slice 3 keeps a narrower, real job:** probing a target MCP *server* (the ASI02 / ASI05 surfaces) and providing the transport / JSON-RPC / Zod / retry layer the hosted-server direction will reuse. It is not the path to a full agent trace and must not be documented as one.
+- **CLAUDE.md still frames the BYOK target as "the user's MCP agent endpoint + key"** (an outbound call). That framing needs the operator's sign-off to change, so it is flagged here rather than edited unilaterally.
+
+### Not blocked, but explicitly out of scope
+
+ASI07 / ASI08 / ASI09 stay excluded per the measurability bar ([ADR-0003](docs/adr/0003-core-7-scope-and-measurability-bar.md)) and render as `--status-inert` on `/threats`.
+
 
 ## Approach
 
@@ -45,8 +139,10 @@ Coverage gate (was paper-only) · error boundaries · structured logging · `/ap
 
 ## Needs your input / creds
 
-- **Phase 0 deploy:** GitHub (gh authed) + a Vercel account/connection.
-- **Phase 8 live:** MCP target endpoint + model-provider creds (base URL, API key, model) + **Supabase**: `DATABASE_URL` + `SUPABASE_URL` / `SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY`.
+- **Phase 0 deploy:** GitHub + Vercel — **supplied, done.**
+- **Supabase** (`DATABASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`) — **supplied, live.**
+- **B1 · Anthropic judge key** — blocks Slice 2b (the only path to a real measured P/R). Until it lands, every statistic on the site stays fixture-labelled.
+- **B2 · A test MCP agent endpoint + key** — blocks the real BYOK live-run verification in Slice 3. The adapter and its fake-server tests do not need it.
 - **Phase 7 design method:** Impeccable (installed) is the design method for all UI work; Claude Design already produced the frozen reference (that role is complete). No external creds required.
 
 ## Quality gates & standards

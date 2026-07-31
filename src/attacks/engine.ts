@@ -11,18 +11,22 @@
 import type {
   Attack,
   AttackBuildResult,
+  AttackVariant,
   Category,
   GroundTruth,
   JsonValue,
   Scenario,
   Step,
   Trace,
+  VariantKind,
+  VariantPair,
 } from '@/contract';
-import { CategorySchema, GroundTruthSchema, TraceSchema } from '@/contract';
+import { CategorySchema, GroundTruthSchema, TraceSchema, VariantKindSchema } from '@/contract';
 
-/** Which run to construct: a compromising attack or a benign control. */
-export type AttackVariant = 'malicious' | 'benign';
-export const ATTACK_VARIANTS = ['malicious', 'benign'] as const satisfies readonly AttackVariant[];
+export type { AttackVariant, VariantKind, VariantPair };
+
+/** The two GroundTruth-bearing kinds every realization is one of. */
+export const VARIANT_KINDS = VariantKindSchema.options;
 
 /** Typed error for attack-engine misuse (unknown variant, unregistered code). */
 export class AttackError extends Error {
@@ -32,10 +36,46 @@ export class AttackError extends Error {
   }
 }
 
-/** Narrow an arbitrary variant string to a known AttackVariant (fail-fast). */
-export function parseVariant(variant: string): AttackVariant {
-  if (variant === 'malicious' || variant === 'benign') return variant;
-  throw new AttackError(`Unknown attack variant: ${variant}`);
+/** The addressable id of one side of a realization pair. */
+export function variantIdFor(slug: string, kind: VariantKind): string {
+  return `${slug}-${kind}`;
+}
+
+/**
+ * Expand declared pairs into the flat, ordered realization list. Each pair emits
+ * its malicious run followed by its benign sibling, so the FIRST pair supplies
+ * the pinned default for both bare kinds.
+ */
+export function expandPairs(pairs: readonly VariantPair[]): AttackVariant[] {
+  return pairs.flatMap((pair) =>
+    VARIANT_KINDS.map((kind) => ({ ...pair, kind, id: variantIdFor(pair.slug, kind) })),
+  );
+}
+
+/**
+ * Resolve a variant reference at the untyped boundary (fail-fast).
+ *
+ * A bare kind resolves to the FIRST realization of that kind — the pinned
+ * default, which is what keeps `build('malicious')` serving the same sample run
+ * the screens and the runner already show. Anything else must match a
+ * realization id exactly; a bare pair slug is rejected because it does not say
+ * which side of the pair is wanted.
+ */
+export function parseVariant(variants: readonly AttackVariant[], variant: string): AttackVariant {
+  const kind = VariantKindSchema.safeParse(variant);
+  if (kind.success) {
+    const first = variants.find((v) => v.kind === kind.data);
+    if (!first) throw new AttackError(`No ${kind.data} realization is registered.`);
+    return first;
+  }
+  const found = variants.find((v) => v.id === variant);
+  if (!found) throw new AttackError(`Unknown attack variant: ${variant}`);
+  return found;
+}
+
+/** The realizations of `attack` with the given kind, in declared order. */
+export function variantsOfKind(attack: Attack, kind: VariantKind): readonly AttackVariant[] {
+  return attack.variants.filter((v) => v.kind === kind);
 }
 
 export interface TraceMeta {
@@ -56,9 +96,19 @@ export class TraceBuilder {
 
   constructor(private readonly meta: TraceMeta) {}
 
+  /**
+   * Positional and CATEGORY-FREE.
+   *
+   * Ids used to be `asi06-s11`, which quietly published `groundTruth.category`
+   * into every step the judge reads — and the judge is asked to CLASSIFY the
+   * category. Withholding `trace.category` from the judge payload alone was not
+   * enough while every step id still spelled it out. `s11` anchors a verdict just
+   * as well and discloses nothing. Locked by the detector-boundary property in
+   * `tests/unit/attacks/leakage.property.test.ts`.
+   */
   private nextId(): string {
     this.seq += 1;
-    return `${this.meta.category.toLowerCase()}-s${this.seq}`;
+    return `s${this.seq}`;
   }
 
   private push(step: Step): string {
@@ -120,15 +170,16 @@ export function notCompromised(category: Category): GroundTruth {
   return GroundTruthSchema.parse({ compromised: false, category });
 }
 
-/** An attack module — the contract `Attack` plus its known variant list. */
+/** An attack module — the contract `Attack`, narrowed to a Core-7 category. */
 export interface AttackModule extends Attack {
   readonly category: Category;
-  readonly variants: readonly AttackVariant[];
 }
 
-/** What an attack author implements — typed variants, no string parsing. */
+/** What an attack author implements — typed realizations, no string parsing. */
 export interface AttackDef {
   category: Category;
+  /** The realization pairs this category ships; the first is the pinned default. */
+  pairs: readonly VariantPair[];
   build(variant: AttackVariant): AttackBuildResult;
   scenario(variant: AttackVariant): Scenario;
 }
@@ -140,15 +191,42 @@ const registry = new Map<Category, AttackModule>();
 export const ATTACK_CODES: readonly Category[] = CategorySchema.options;
 
 /**
+ * Reject a pair declaration that could not produce unambiguous ids: an empty
+ * list or slug, a duplicate slug, or a slug that collides with the bare-kind
+ * namespace (`malicious` / `benign`, or anything ending in one of them, which
+ * would be indistinguishable from another pair's realization id).
+ */
+function validatePairs(category: Category, pairs: readonly VariantPair[]): void {
+  if (pairs.length === 0) {
+    throw new AttackError(`${category} declares no realization pairs.`);
+  }
+  const seen = new Set<string>();
+  for (const { slug } of pairs) {
+    if (slug.length === 0) throw new AttackError(`${category} declares an empty pair slug.`);
+    if (seen.has(slug))
+      throw new AttackError(`${category} declares a duplicate pair slug: ${slug}`);
+    for (const kind of VARIANT_KINDS) {
+      if (slug === kind || slug.endsWith(`-${kind}`)) {
+        throw new AttackError(`${category} pair slug "${slug}" collides with the kind namespace.`);
+      }
+    }
+    seen.add(slug);
+  }
+}
+
+/**
  * Wrap a typed `AttackDef` into a contract-compatible `AttackModule` (validating
- * the variant string at the boundary) and register it under its category.
+ * the declaration up front and the variant string at the boundary) and register
+ * it under its category.
  */
 export function defineAttack(def: AttackDef): AttackModule {
+  validatePairs(def.category, def.pairs);
+  const variants = expandPairs(def.pairs);
   const attack: AttackModule = {
     category: def.category,
-    variants: ATTACK_VARIANTS,
-    build: (variant: string): AttackBuildResult => def.build(parseVariant(variant)),
-    scenario: (variant: string): Scenario => def.scenario(parseVariant(variant)),
+    variants,
+    build: (variant: string): AttackBuildResult => def.build(parseVariant(variants, variant)),
+    scenario: (variant: string): Scenario => def.scenario(parseVariant(variants, variant)),
   };
   registry.set(def.category, attack);
   return attack;
