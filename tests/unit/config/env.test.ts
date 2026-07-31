@@ -7,6 +7,8 @@ import {
   isAuthEnabled,
   isGithubOAuthEnabled,
   getSupabaseServiceRoleKey,
+  getSiteOrigin,
+  DEFAULT_SITE_ORIGIN,
   ConfigError,
 } from '@/config/env';
 
@@ -339,5 +341,46 @@ describe('getSupabaseConfig — offline-safe (absence is a first-class state)', 
         NEXT_PUBLIC_SUPABASE_ANON_KEY: ANON,
       }),
     ).toThrow(ConfigError);
+  });
+});
+
+describe('getSiteOrigin — the canonical public origin (metadataBase)', () => {
+  it('defaults to the canonical production origin when unset', () => {
+    expect(getSiteOrigin({})).toBe(DEFAULT_SITE_ORIGIN);
+    expect(DEFAULT_SITE_ORIGIN).toBe('https://mcpwn.dev');
+  });
+
+  it('treats a blank/whitespace-only value as unset, not an error', () => {
+    expect(getSiteOrigin({ NEXT_PUBLIC_SITE_URL: '   ' })).toBe(DEFAULT_SITE_ORIGIN);
+  });
+
+  it('honors an override (12-Factor III: the origin is configuration)', () => {
+    expect(getSiteOrigin({ NEXT_PUBLIC_SITE_URL: 'https://staging.mcpwn.dev' })).toBe(
+      'https://staging.mcpwn.dev',
+    );
+  });
+
+  it('normalizes a trailing slash, a stray path and surrounding whitespace to the origin', () => {
+    // Every relative metadata URL resolves against this, so a pasted path would
+    // silently prefix every canonical and Open Graph URL the app emits.
+    expect(getSiteOrigin({ NEXT_PUBLIC_SITE_URL: '  https://mcpwn.dev/connect/  ' })).toBe(
+      'https://mcpwn.dev',
+    );
+  });
+
+  it('keeps an explicit port (a local or preview origin stays reachable)', () => {
+    expect(getSiteOrigin({ NEXT_PUBLIC_SITE_URL: 'http://localhost:3000' })).toBe(
+      'http://localhost:3000',
+    );
+  });
+
+  it('throws on a set-but-malformed value, naming the var', () => {
+    const err = caught(() => getSiteOrigin({ NEXT_PUBLIC_SITE_URL: 'mcpwn.dev' }));
+    expect(err).toBeInstanceOf(ConfigError);
+    expect(err.message).toContain('NEXT_PUBLIC_SITE_URL');
+  });
+
+  it('rejects a non-http(s) scheme rather than emitting an unusable base', () => {
+    expect(() => getSiteOrigin({ NEXT_PUBLIC_SITE_URL: 'ftp://mcpwn.dev' })).toThrow(ConfigError);
   });
 });
