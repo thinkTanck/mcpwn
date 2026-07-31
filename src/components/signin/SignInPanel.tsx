@@ -17,14 +17,18 @@ import { requestEmailCode, verifyEmailCode, startGitHubOAuth } from '@/lib/auth/
  * role (mono, 12–13px).
  */
 /**
- * Supabase's Email OTP length is a PROJECT SETTING, not a constant: the
- * dashboard allows 6 to 10 digits and this project emits 8. The first cut
- * hardcoded 6, silently truncating every real code to a prefix so no sign-in
- * could ever succeed. Accept the whole configurable range and let GoTrue be the
- * authority on what a valid code is.
+ * The input's hard cap is Supabase's CEILING, not the expected length.
+ *
+ * Capping at the expected length is what caused the original outage: the project
+ * emitted 8 digits, the field allowed 6, and the real code was silently sliced
+ * into a prefix that looked complete and verified as garbage. Keeping the
+ * ceiling means a longer code survives intact, the length mismatch is visible,
+ * and the form simply stays shut. Loud beats silent.
+ *
+ * The EXPECTED length arrives as `codeLength` from `getEmailOtpLength()` and is
+ * the single source of truth for the copy, the placeholder, and the submit gate.
  */
-const CODE_MIN_LENGTH = 6;
-const CODE_MAX_LENGTH = 10;
+const CODE_CEILING = 10;
 
 function EnvelopeIcon() {
   return (
@@ -128,6 +132,7 @@ export function SignInPanel({
   githubEnabled = false,
   authError = false,
   next,
+  codeLength,
 }: {
   /** Real Supabase auth is wired (else the honest preview state). */
   authEnabled?: boolean;
@@ -139,6 +144,10 @@ export function SignInPanel({
   authError?: boolean;
   /** Post-verify destination (sanitized server-side); flows from `?next=`. */
   next?: string;
+  /** Digits in an emailed code, from getEmailOtpLength(). The SINGLE source of
+   *  truth: the copy, the placeholder and the accepted length all derive from
+   *  it, so a stated number and an accepted number cannot disagree. */
+  codeLength: number;
 }) {
   const emailId = useId();
   const codeId = useId();
@@ -234,7 +243,7 @@ export function SignInPanel({
           </span>
           <h1 className="reading-h1">That is the flow.</h1>
           <p className="reading mt-3">
-            In the live app, a one-time code lands at{' '}
+            In the live app, a {codeLength}-digit code lands at{' '}
             <span className="font-mono text-readout">{email || 'your inbox'}</span> and expires
             shortly after. No email is sent in this preview; sign-in wiring ships with the hosted
             release.
@@ -265,8 +274,9 @@ export function SignInPanel({
           </span>
           <h1 className="reading-h1">Enter your code.</h1>
           <p className="reading mt-3">
-            We emailed a one-time code to <span className="font-mono text-readout">{email}</span>.
-            Enter it below to finish signing in. Codes expire, so use the newest one.
+            We emailed a {codeLength}-digit code to{' '}
+            <span className="font-mono text-readout">{email}</span>. Enter it below to finish
+            signing in. Codes expire, so use the newest one.
           </p>
         </div>
 
@@ -291,20 +301,20 @@ export function SignInPanel({
               inputMode="numeric"
               autoComplete="one-time-code"
               pattern="[0-9]*"
-              maxLength={CODE_MAX_LENGTH}
+              maxLength={CODE_CEILING}
               required
-              placeholder="000000"
+              placeholder={'0'.repeat(codeLength)}
               value={code}
               aria-invalid={error ? true : undefined}
               aria-describedby={error ? errorId : undefined}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, CODE_MAX_LENGTH))}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, CODE_CEILING))}
               className="w-full rounded-md border border-line bg-base px-3 py-3 text-center font-mono text-[18px] tracking-[0.4em] text-readout placeholder:text-ink-faint focus-visible:border-nominal"
             />
           </div>
 
           <Button
             type="submit"
-            disabled={pending || code.length < CODE_MIN_LENGTH}
+            disabled={pending || code.length !== codeLength}
             className="w-full gap-2.5 uppercase tracking-[0.06em]"
           >
             {pending ? 'Verifying…' : 'Verify and continue'}
@@ -424,8 +434,8 @@ export function SignInPanel({
         <p id={helpId} className="reading mt-1 flex items-start gap-2">
           <LockIcon />
           <span>
-            No password. We email a one-time code that expires soon after, so there is nothing to
-            remember and nothing to leak.
+            No password. We email a {codeLength}-digit code that expires soon after, so there is
+            nothing to remember and nothing to leak.
           </span>
         </p>
       </form>

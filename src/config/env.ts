@@ -198,6 +198,55 @@ export function getSupabaseServiceRoleKey(env: Env = process.env): string | null
   return key;
 }
 
+// ── Email OTP length — ONE source of truth for a number humans also read ──
+//
+// The Supabase project decides how many digits an emailed sign-in code has, and
+// the dashboard permits 6 to 10. Nothing in the app can query that setting at
+// runtime, so it is mirrored here as env-only config and EVERYTHING a human
+// reads (the placeholder, the "N-digit code" copy, the length the form accepts)
+// is DERIVED from this one value rather than restated next to it.
+//
+// This exists because the two drifted and shipped: the project emitted 8 while
+// the UI said "6-digit code" and capped input at 6, silently truncating every
+// real code to a prefix so no one could sign in. A mirrored value can still fall
+// out of step with the dashboard, which is why the pairing is proven against the
+// REAL project by the gated `tests/integration/otp-length.live.test.ts`.
+
+/** The range Supabase's dashboard actually allows. */
+export const EMAIL_OTP_LENGTH_BOUNDS = { min: 6, max: 10 } as const;
+
+const EmailOtpLengthSchema = z
+  .string()
+  .trim()
+  .regex(/^\d+$/)
+  .transform(Number)
+  .pipe(z.number().int().min(EMAIL_OTP_LENGTH_BOUNDS.min).max(EMAIL_OTP_LENGTH_BOUNDS.max));
+
+/** Default when unset. MUST match the live project's Email OTP Length setting. */
+const DEFAULT_EMAIL_OTP_LENGTH = 8;
+
+/**
+ * How many digits an emailed sign-in code has. Env-only
+ * (`NEXT_PUBLIC_EMAIL_OTP_LENGTH`), so it can follow the dashboard without a code
+ * change. Throws a typed `ConfigError` on an out-of-range or non-numeric value —
+ * a wrong length breaks every sign-in, so it must fail loudly at the boundary
+ * rather than quietly mis-render a placeholder.
+ */
+export function getEmailOtpLength(env: Env = process.env): number {
+  const raw = env.NEXT_PUBLIC_EMAIL_OTP_LENGTH;
+  if (raw === undefined) return DEFAULT_EMAIL_OTP_LENGTH;
+  const result = EmailOtpLengthSchema.safeParse(raw);
+  if (!result.success) {
+    // The value is not secret, but keeping it out of the message keeps every
+    // config error in this module uniformly value-free.
+    throw new ConfigError(
+      `Invalid NEXT_PUBLIC_EMAIL_OTP_LENGTH: expected an integer ` +
+        `${EMAIL_OTP_LENGTH_BOUNDS.min}-${EMAIL_OTP_LENGTH_BOUNDS.max}.`,
+    );
+  }
+  return result.data;
+}
+
 // ── LAZY: JudgeModelPort (blind LLM alignment-auditor) ──
 const JudgeEnvSchema = z
   .object({

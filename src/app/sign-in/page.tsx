@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { SignInPanel } from '@/components/signin/SignInPanel';
-import { isAuthEnabled, isGithubOAuthEnabled } from '@/config/env';
+import { getEmailOtpLength, isAuthEnabled, isGithubOAuthEnabled } from '@/config/env';
 
 export const metadata: Metadata = {
   title: 'Sign in · MCPwn',
@@ -69,6 +69,7 @@ export default async function SignIn({
           githubEnabled={isGithubOAuthEnabled()}
           authError={authError}
           next={sp.next}
+          codeLength={getEmailOtpLength()}
         />
       </div>
     </main>

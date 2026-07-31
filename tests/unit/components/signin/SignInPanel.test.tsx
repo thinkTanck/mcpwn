@@ -27,7 +27,7 @@ describe('SignInPanel (wired auth)', () => {
 
   it('advances to the code step after a code is requested', async () => {
     const user = userEvent.setup();
-    render(<SignInPanel authEnabled />);
+    render(<SignInPanel authEnabled codeLength={8} />);
     expect(screen.queryByText(/no email is sent yet/i)).not.toBeInTheDocument();
 
     await reachCodeStep(user);
@@ -39,15 +39,14 @@ describe('SignInPanel (wired auth)', () => {
   });
 
   /**
-   * REGRESSION GUARD, half two of the Slice 1.5 prod bug. Supabase's Email OTP
-   * length is a project setting (6 to 10); this project emits 8. The first cut
-   * hardcoded maxLength=6 and sliced input to 6, so the real emailed code was
-   * silently truncated to a prefix and every verify failed. The field must carry
-   * whatever GoTrue issued.
+   * REGRESSION GUARD, half two of the Slice 1.5 prod bug. The first cut hardcoded
+   * maxLength=6 and sliced input to 6 while the project emitted 8, so the real
+   * emailed code was silently truncated to a prefix and every verify failed. The
+   * field must carry whatever GoTrue issued, whole.
    */
-  it('accepts a code longer than six digits and sends it whole', async () => {
+  it('sends a code of the configured length whole', async () => {
     const user = userEvent.setup();
-    render(<SignInPanel authEnabled next="/account" />);
+    render(<SignInPanel authEnabled next="/account" codeLength={8} />);
     await reachCodeStep(user);
 
     vi.mocked(verifyEmailCode).mockResolvedValue({ ok: false, error: 'nope' });
@@ -58,23 +57,79 @@ describe('SignInPanel (wired auth)', () => {
     expect(verifyEmailCode).toHaveBeenCalledWith('real@user.com', '71814917', '/account');
   });
 
-  it('allows up to the ten digits Supabase can be configured to emit', async () => {
-    const user = userEvent.setup();
-    render(<SignInPanel authEnabled />);
-    await reachCodeStep(user);
-    const code = screen.getByLabelText(/code/i);
+  /**
+   * COPY-VERSUS-REALITY GUARD.
+   *
+   * The original bug was two independent lies that each looked fine in isolation:
+   * the UI said "6-digit code" and capped its input at 6, while the project
+   * emitted 8. Everything a human reads must now be DERIVED from `codeLength`, so
+   * a stated number and an accepted number cannot disagree.
+   */
+  describe.each([6, 7, 8, 10])('with codeLength=%i', (codeLength) => {
+    const digits = (n: number) => '1234567890'.slice(0, n);
 
-    await user.type(code, '12345678901234');
-    expect(code).toHaveValue('1234567890');
-  });
+    it('states that length in the copy, and nowhere states a different one', async () => {
+      const user = userEvent.setup();
+      const { container } = render(<SignInPanel authEnabled codeLength={codeLength} />);
+      await reachCodeStep(user);
+      const text = container.textContent ?? '';
+      expect(text).toContain(`${codeLength}-digit`);
+      for (const other of [6, 7, 8, 9, 10].filter((n) => n !== codeLength)) {
+        expect(text, `copy also claims ${other} digits`).not.toContain(`${other}-digit`);
+      }
+    });
 
-  /** The copy must not promise a digit count the project does not emit. */
-  it('does not claim a six-digit code anywhere', async () => {
-    const user = userEvent.setup();
-    const { container } = render(<SignInPanel authEnabled />);
-    expect(container.textContent).not.toMatch(/6-digit|six-digit/i);
-    await reachCodeStep(user);
-    expect(container.textContent).not.toMatch(/6-digit|six-digit/i);
+    it('shows a placeholder of exactly that many characters', async () => {
+      const user = userEvent.setup();
+      render(<SignInPanel authEnabled codeLength={codeLength} />);
+      await reachCodeStep(user);
+      expect(screen.getByLabelText(/code/i).getAttribute('placeholder')).toHaveLength(codeLength);
+    });
+
+    it('accepts exactly that length and refuses to submit any other', async () => {
+      const user = userEvent.setup();
+      render(<SignInPanel authEnabled codeLength={codeLength} />);
+      await reachCodeStep(user);
+      const field = screen.getByLabelText(/code/i);
+      const verify = () => screen.getByRole('button', { name: /verify and continue/i });
+
+      await user.type(field, digits(codeLength - 1));
+      expect(verify(), 'one digit short must not submit').toBeDisabled();
+
+      await user.type(field, digits(codeLength).slice(codeLength - 1));
+      expect(field).toHaveValue(digits(codeLength));
+      expect(verify(), 'the stated length must submit').toBeEnabled();
+    });
+
+    /**
+     * THE ORIGINAL BUG, generalized. If the real project emits MORE digits than
+     * configured, the field must keep what was typed so the mismatch is visible
+     * and the form stays shut. Capping at `codeLength` would re-create the silent
+     * truncation: a prefix that looks complete and verifies as garbage.
+     *
+     * Skipped at the ceiling, where it is not expressible: 10 is the most
+     * Supabase can emit, so when `codeLength` is 10 there is no longer real code
+     * for the field to be mismatched against.
+     */
+    it.skipIf(codeLength >= 10)(
+      'never silently truncates a longer code into a submittable one',
+      async () => {
+        const user = userEvent.setup();
+        render(<SignInPanel authEnabled codeLength={codeLength} />);
+        await reachCodeStep(user);
+        const field = screen.getByLabelText(/code/i);
+
+        // One digit more than configured: exactly the shape of the outage.
+        await user.type(field, digits(codeLength) + '7');
+        expect(field, 'input was truncated to the expected length').toHaveValue(
+          digits(codeLength) + '7',
+        );
+        expect(
+          screen.getByRole('button', { name: /verify and continue/i }),
+          'a wrong-length code must never be submittable',
+        ).toBeDisabled();
+      },
+    );
   });
 
   it('surfaces the request error and stays on the email step', async () => {
@@ -83,7 +138,7 @@ describe('SignInPanel (wired auth)', () => {
       error: 'email rate limit exceeded',
     });
     const user = userEvent.setup();
-    render(<SignInPanel authEnabled />);
+    render(<SignInPanel authEnabled codeLength={8} />);
 
     await user.type(screen.getByLabelText(/email/i), 'real@user.com');
     await user.click(screen.getByRole('button', { name: /email me a code/i }));
@@ -96,18 +151,18 @@ describe('SignInPanel (wired auth)', () => {
 
   it('surfaces a wrong-code error and stays on the code step', async () => {
     const user = userEvent.setup();
-    render(<SignInPanel authEnabled next="/account" />);
+    render(<SignInPanel authEnabled next="/account" codeLength={8} />);
     await reachCodeStep(user);
 
     vi.mocked(verifyEmailCode).mockResolvedValue({
       ok: false,
       error: 'That code is incorrect or has expired. Enter the latest one or resend a new code.',
     });
-    await user.type(screen.getByLabelText(/code/i), '000000');
+    await user.type(screen.getByLabelText(/code/i), '00000000');
     await user.click(screen.getByRole('button', { name: /verify and continue/i }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/incorrect or has expired/i);
-    expect(verifyEmailCode).toHaveBeenCalledWith('real@user.com', '000000', '/account');
+    expect(verifyEmailCode).toHaveBeenCalledWith('real@user.com', '00000000', '/account');
     expect(screen.getByRole('heading', { name: /enter your code/i })).toBeInTheDocument();
     // The field is marked invalid and linked to the error for screen readers.
     const codeInput = screen.getByLabelText(/code/i);
@@ -119,7 +174,7 @@ describe('SignInPanel (wired auth)', () => {
     vi.useFakeTimers();
     try {
       vi.mocked(requestEmailCode).mockResolvedValue({ ok: true });
-      render(<SignInPanel authEnabled />);
+      render(<SignInPanel authEnabled codeLength={8} />);
       const emailInput = screen.getByLabelText(/email/i);
       fireEvent.change(emailInput, { target: { value: 'real@user.com' } });
       fireEvent.submit(emailInput.closest('form')!);
@@ -144,7 +199,7 @@ describe('SignInPanel (wired auth)', () => {
 
   it('returns to the email step from the code step', async () => {
     const user = userEvent.setup();
-    render(<SignInPanel authEnabled />);
+    render(<SignInPanel authEnabled codeLength={8} />);
     await reachCodeStep(user);
 
     await user.click(screen.getByRole('button', { name: /use a different email/i }));
@@ -160,7 +215,7 @@ describe('SignInPanel (wired auth)', () => {
    */
   it('moves focus to the code field forward, and back to the email field on return', async () => {
     const user = userEvent.setup();
-    render(<SignInPanel authEnabled />);
+    render(<SignInPanel authEnabled codeLength={8} />);
     await reachCodeStep(user);
     await waitFor(() => expect(screen.getByLabelText(/code/i)).toHaveFocus());
 
@@ -169,7 +224,7 @@ describe('SignInPanel (wired auth)', () => {
   });
 
   it('does not steal focus on first mount', () => {
-    render(<SignInPanel authEnabled />);
+    render(<SignInPanel authEnabled codeLength={8} />);
     // Nothing was requested yet, so the panel must leave the document's natural
     // entry point (the skip link / top of page) alone.
     expect(screen.getByLabelText(/email/i)).not.toHaveFocus();
@@ -179,7 +234,7 @@ describe('SignInPanel (wired auth)', () => {
     vi.useFakeTimers();
     try {
       vi.mocked(requestEmailCode).mockResolvedValue({ ok: true });
-      render(<SignInPanel authEnabled />);
+      render(<SignInPanel authEnabled codeLength={8} />);
       // fireEvent is synchronous (no userEvent internal delays that stall under
       // fake timers). Drive the email step, then flush the request transition.
       const emailInput = screen.getByLabelText(/email/i);
@@ -201,18 +256,18 @@ describe('SignInPanel (wired auth)', () => {
   });
 
   it('enables the GitHub button when GitHub OAuth is configured', () => {
-    render(<SignInPanel authEnabled githubEnabled />);
+    render(<SignInPanel authEnabled githubEnabled codeLength={8} />);
     expect(screen.getByRole('button', { name: /continue with github/i })).not.toBeDisabled();
   });
 
   it('surfaces a clear reason (not a blank form) on a prior sign-in failure', () => {
-    render(<SignInPanel authEnabled authError />);
+    render(<SignInPanel authEnabled authError codeLength={8} />);
     expect(screen.getByRole('alert')).toHaveTextContent(/could not complete that sign-in/i);
     expect(screen.getByRole('button', { name: /email me a code/i })).toBeInTheDocument();
   });
 
   it('shows no failure notice when there is no prior error', () => {
-    render(<SignInPanel authEnabled />);
+    render(<SignInPanel authEnabled codeLength={8} />);
     expect(screen.queryByText(/could not complete that sign-in/i)).not.toBeInTheDocument();
   });
 });
