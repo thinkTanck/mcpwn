@@ -46,3 +46,4 @@ yarn-error.log*
 
 # Local design-review markups (not part of the app)
 site_revs/
+.claude/worktrees/

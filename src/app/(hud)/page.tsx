@@ -153,7 +153,7 @@ export default async function Home() {
             <div className="relative flex aspect-[4/3] max-h-[240px] items-center justify-center overflow-hidden rounded-xl border border-line bg-[radial-gradient(120%_120%_at_50%_40%,color-mix(in_srgb,var(--cyan-700)_16%,transparent),var(--surface-base)_70%)]">
               <SentinelCore
                 size={200}
-                label="Sentinel core — the detector reads only the observable trace"
+                label="Sentinel core: the detector reads only the observable trace"
                 className="relative z-10"
               />
               <svg

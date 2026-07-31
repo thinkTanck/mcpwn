@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import SignIn from '@/app/sign-in/page';
 
@@ -51,6 +51,19 @@ describe('Sign-in screen', () => {
     await user.click(screen.getByRole('button', { name: /email me a code/i }));
     expect(screen.queryByText(/we sent/i)).not.toBeInTheDocument();
     expect(screen.getByText(/no email is sent in this preview/i)).toBeInTheDocument();
+  });
+
+  it('returns focus to the email field when the preview is dismissed', async () => {
+    // Same focus-order contract as the wired code step: leaving a state that
+    // removed the focused control must hand focus to the field the visitor is
+    // being sent back to, not drop it on <body> (WCAG 2.4.3).
+    const user = userEvent.setup();
+    await renderPage();
+    await user.type(screen.getByLabelText(/email/i), 'tester@example.com');
+    await user.click(screen.getByRole('button', { name: /email me a code/i }));
+
+    await user.click(screen.getByRole('button', { name: /use a different email/i }));
+    await waitFor(() => expect(screen.getByLabelText(/email/i)).toHaveFocus());
   });
 
   it('explains a failed sign-in (?error=auth) instead of a blank form', async () => {

@@ -68,6 +68,44 @@ export function loadCoreConfig(env: Env = process.env): CoreConfig {
   return result.data;
 }
 
+// ── CORE: the canonical public origin (metadata base) ──
+//
+// Next.js resolves every RELATIVE metadata URL (Open Graph, canonical, images)
+// against `metadata.metadataBase`. With no base set it falls back to
+// `http://localhost:3000`, so a production page advertises localhost OG and
+// canonical URLs. The origin is env-only (12-Factor III) with the canonical
+// production host as the default, so a clean clone renders correct absolute URLs
+// with zero configuration.
+
+/** The canonical production origin, used when `NEXT_PUBLIC_SITE_URL` is unset. */
+export const DEFAULT_SITE_ORIGIN = 'https://mcpwn.dev';
+
+// Trimmed, gated as http(s), then collapsed to the bare origin — the same
+// normalization the Supabase URL gets, for the same reason: a dashboard/CI paste
+// can carry a trailing slash or a path, and either one corrupts every relative
+// URL resolved against it.
+const SiteUrlSchema = z
+  .object({
+    NEXT_PUBLIC_SITE_URL: z
+      .string()
+      .transform((s) => s.trim())
+      .pipe(httpUrl)
+      .transform((u) => new URL(u).origin),
+  })
+  .transform((v) => v.NEXT_PUBLIC_SITE_URL);
+
+/**
+ * The canonical public origin as an absolute `https://host[:port]` string.
+ * Falls back to {@link DEFAULT_SITE_ORIGIN} when `NEXT_PUBLIC_SITE_URL` is unset
+ * or blank; a SET-but-invalid value is a real error, not a silent fallback.
+ */
+export function getSiteOrigin(env: Env = process.env): string {
+  if (!env.NEXT_PUBLIC_SITE_URL?.trim()) return DEFAULT_SITE_ORIGIN;
+  const result = SiteUrlSchema.safeParse(env);
+  if (!result.success) throw toConfigError(result.error, 'Invalid site URL configuration');
+  return result.data;
+}
+
 // ── LAZY: persistence (Neon Postgres behind the repository port) ──
 const PostgresEnvSchema = z
   .object({ DATABASE_URL: postgresUrl })
@@ -158,6 +196,55 @@ export function getSupabaseServiceRoleKey(env: Env = process.env): string | null
     throw new ConfigError('Invalid Supabase configuration: missing SUPABASE_SERVICE_ROLE_KEY');
   }
   return key;
+}
+
+// ── Email OTP length — ONE source of truth for a number humans also read ──
+//
+// The Supabase project decides how many digits an emailed sign-in code has, and
+// the dashboard permits 6 to 10. Nothing in the app can query that setting at
+// runtime, so it is mirrored here as env-only config and EVERYTHING a human
+// reads (the placeholder, the "N-digit code" copy, the length the form accepts)
+// is DERIVED from this one value rather than restated next to it.
+//
+// This exists because the two drifted and shipped: the project emitted 8 while
+// the UI said "6-digit code" and capped input at 6, silently truncating every
+// real code to a prefix so no one could sign in. A mirrored value can still fall
+// out of step with the dashboard, which is why the pairing is proven against the
+// REAL project by the gated `tests/integration/otp-length.live.test.ts`.
+
+/** The range Supabase's dashboard actually allows. */
+export const EMAIL_OTP_LENGTH_BOUNDS = { min: 6, max: 10 } as const;
+
+const EmailOtpLengthSchema = z
+  .string()
+  .trim()
+  .regex(/^\d+$/)
+  .transform(Number)
+  .pipe(z.number().int().min(EMAIL_OTP_LENGTH_BOUNDS.min).max(EMAIL_OTP_LENGTH_BOUNDS.max));
+
+/** Default when unset. MUST match the live project's Email OTP Length setting. */
+const DEFAULT_EMAIL_OTP_LENGTH = 8;
+
+/**
+ * How many digits an emailed sign-in code has. Env-only
+ * (`NEXT_PUBLIC_EMAIL_OTP_LENGTH`), so it can follow the dashboard without a code
+ * change. Throws a typed `ConfigError` on an out-of-range or non-numeric value —
+ * a wrong length breaks every sign-in, so it must fail loudly at the boundary
+ * rather than quietly mis-render a placeholder.
+ */
+export function getEmailOtpLength(env: Env = process.env): number {
+  const raw = env.NEXT_PUBLIC_EMAIL_OTP_LENGTH;
+  if (raw === undefined) return DEFAULT_EMAIL_OTP_LENGTH;
+  const result = EmailOtpLengthSchema.safeParse(raw);
+  if (!result.success) {
+    // The value is not secret, but keeping it out of the message keeps every
+    // config error in this module uniformly value-free.
+    throw new ConfigError(
+      `Invalid NEXT_PUBLIC_EMAIL_OTP_LENGTH: expected an integer ` +
+        `${EMAIL_OTP_LENGTH_BOUNDS.min}-${EMAIL_OTP_LENGTH_BOUNDS.max}.`,
+    );
+  }
+  return result.data;
 }
 
 // ── LAZY: JudgeModelPort (blind LLM alignment-auditor) ──

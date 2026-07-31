@@ -17,14 +17,18 @@ import { requestEmailCode, verifyEmailCode, startGitHubOAuth } from '@/lib/auth/
  * role (mono, 12–13px).
  */
 /**
- * Supabase's Email OTP length is a PROJECT SETTING, not a constant: the
- * dashboard allows 6 to 10 digits and this project emits 8. The first cut
- * hardcoded 6, silently truncating every real code to a prefix so no sign-in
- * could ever succeed. Accept the whole configurable range and let GoTrue be the
- * authority on what a valid code is.
+ * The input's hard cap is Supabase's CEILING, not the expected length.
+ *
+ * Capping at the expected length is what caused the original outage: the project
+ * emitted 8 digits, the field allowed 6, and the real code was silently sliced
+ * into a prefix that looked complete and verified as garbage. Keeping the
+ * ceiling means a longer code survives intact, the length mismatch is visible,
+ * and the form simply stays shut. Loud beats silent.
+ *
+ * The EXPECTED length arrives as `codeLength` from `getEmailOtpLength()` and is
+ * the single source of truth for the copy, the placeholder, and the submit gate.
  */
-const CODE_MIN_LENGTH = 6;
-const CODE_MAX_LENGTH = 10;
+const CODE_CEILING = 10;
 
 function EnvelopeIcon() {
   return (
@@ -128,6 +132,7 @@ export function SignInPanel({
   githubEnabled = false,
   authError = false,
   next,
+  codeLength,
 }: {
   /** Real Supabase auth is wired (else the honest preview state). */
   authEnabled?: boolean;
@@ -139,6 +144,10 @@ export function SignInPanel({
   authError?: boolean;
   /** Post-verify destination (sanitized server-side); flows from `?next=`. */
   next?: string;
+  /** Digits in an emailed code, from getEmailOtpLength(). The SINGLE source of
+   *  truth: the copy, the placeholder and the accepted length all derive from
+   *  it, so a stated number and an accepted number cannot disagree. */
+  codeLength: number;
 }) {
   const emailId = useId();
   const codeId = useId();
@@ -153,6 +162,16 @@ export function SignInPanel({
   const [cooldown, setCooldown] = useState(0);
   const [pending, startTransition] = useTransition();
   const codeRef = useRef<HTMLInputElement>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
+  /**
+   * Armed only by a deliberate return to step 1 ("Use a different email"), so the
+   * focus handoff is symmetric: forward to the code field, back to the email
+   * field. Without it, going back re-rendered step 1 with focus still on the
+   * removed button, which the browser resets to <body> — dropping a keyboard or
+   * screen-reader user at the top of the document with no announcement. A ref
+   * (not state) because first mount must NOT steal focus.
+   */
+  const returnToEmail = useRef(false);
 
   // One countdown for the whole code step; requesting/resending re-arms it to 45.
   useEffect(() => {
@@ -161,10 +180,18 @@ export function SignInPanel({
     return () => clearInterval(t);
   }, [step]);
 
-  // Move focus to the code field when it appears (keyboard-first).
+  // Keyboard-first focus handoff, both ways: to the code field when it appears,
+  // and back to the email field when the visitor returns to step 1. `previewSent`
+  // is a dependency because the unconfigured-auth preview leaves `step` at
+  // 'email' and swaps the whole panel, so `step` alone never changes.
   useEffect(() => {
-    if (step === 'code') codeRef.current?.focus();
-  }, [step]);
+    if (step === 'code') {
+      codeRef.current?.focus();
+    } else if (returnToEmail.current) {
+      returnToEmail.current = false;
+      emailRef.current?.focus();
+    }
+  }, [step, previewSent]);
 
   const requestCode = () => {
     setError(null);
@@ -199,6 +226,7 @@ export function SignInPanel({
   };
 
   const backToEmail = () => {
+    returnToEmail.current = true;
     setStep('email');
     setCode('');
     setError(null);
@@ -215,7 +243,7 @@ export function SignInPanel({
           </span>
           <h1 className="reading-h1">That is the flow.</h1>
           <p className="reading mt-3">
-            In the live app, a one-time code lands at{' '}
+            In the live app, a {codeLength}-digit code lands at{' '}
             <span className="font-mono text-readout">{email || 'your inbox'}</span> and expires
             shortly after. No email is sent in this preview; sign-in wiring ships with the hosted
             release.
@@ -225,6 +253,7 @@ export function SignInPanel({
           variant="ghost"
           className="mt-6 w-full uppercase"
           onClick={() => {
+            returnToEmail.current = true;
             setPreviewSent(false);
             setEmail('');
           }}
@@ -245,8 +274,9 @@ export function SignInPanel({
           </span>
           <h1 className="reading-h1">Enter your code.</h1>
           <p className="reading mt-3">
-            We emailed a one-time code to <span className="font-mono text-readout">{email}</span>.
-            Enter it below to finish signing in. Codes expire, so use the newest one.
+            We emailed a {codeLength}-digit code to{' '}
+            <span className="font-mono text-readout">{email}</span>. Enter it below to finish
+            signing in. Codes expire, so use the newest one.
           </p>
         </div>
 
@@ -271,20 +301,20 @@ export function SignInPanel({
               inputMode="numeric"
               autoComplete="one-time-code"
               pattern="[0-9]*"
-              maxLength={CODE_MAX_LENGTH}
+              maxLength={CODE_CEILING}
               required
-              placeholder="000000"
+              placeholder={'0'.repeat(codeLength)}
               value={code}
               aria-invalid={error ? true : undefined}
               aria-describedby={error ? errorId : undefined}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, CODE_MAX_LENGTH))}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, CODE_CEILING))}
               className="w-full rounded-md border border-line bg-base px-3 py-3 text-center font-mono text-[18px] tracking-[0.4em] text-readout placeholder:text-ink-faint focus-visible:border-nominal"
             />
           </div>
 
           <Button
             type="submit"
-            disabled={pending || code.length < CODE_MIN_LENGTH}
+            disabled={pending || code.length !== codeLength}
             className="w-full gap-2.5 uppercase tracking-[0.06em]"
           >
             {pending ? 'Verifying…' : 'Verify and continue'}
@@ -376,6 +406,7 @@ export function SignInPanel({
           </label>
           <input
             id={emailId}
+            ref={emailRef}
             name="email"
             type="email"
             required
@@ -403,8 +434,8 @@ export function SignInPanel({
         <p id={helpId} className="reading mt-1 flex items-start gap-2">
           <LockIcon />
           <span>
-            No password. We email a one-time code that expires soon after, so there is nothing to
-            remember and nothing to leak.
+            No password. We email a {codeLength}-digit code that expires soon after, so there is
+            nothing to remember and nothing to leak.
           </span>
         </p>
       </form>
