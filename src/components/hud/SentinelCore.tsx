@@ -113,7 +113,11 @@ export function SentinelCore({
           ctx.fillStyle = i < DEPTH_BANDS ? NOMINAL : BREACH;
           ctx.beginPath();
           for (const p of points) {
-            ctx.arc(p.x, p.y, p.s * pass.scale, 0, Math.PI * 2);
+            const r = p.s * pass.scale;
+            // moveTo first: without it each arc is joined to the previous one by
+            // a connecting line and the batch fills as streaks, not discs.
+            ctx.moveTo(p.x + r, p.y);
+            ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
           }
           ctx.fill();
         }

@@ -32,6 +32,7 @@ function recordingContext() {
     state,
     clearRect: record('clearRect'),
     beginPath: record('beginPath'),
+    moveTo: record('moveTo'),
     arc: record('arc'),
     fill: record('fill'),
     fillRect: record('fillRect'),
@@ -124,6 +125,17 @@ describe('SentinelCore', () => {
     expect(arcs).toBeGreaterThanOrEqual(500);
     // ...but a frame costs a bounded number of draw calls, not one per point.
     expect(fills).toBeLessThanOrEqual(32);
+  });
+
+  it('starts a fresh subpath per point, so a batch draws discs and not streaks', () => {
+    render(<SentinelCore size={120} />);
+    tick(0);
+
+    // Consecutive arc() calls in one path are joined by a connecting line, so a
+    // batch without a moveTo per point fills as streaks across the sphere.
+    const moveTos = ctx.calls.filter((c) => c.op === 'moveTo').length;
+    const arcs = ctx.calls.filter((c) => c.op === 'arc').length;
+    expect(moveTos).toBe(arcs);
   });
 
   it('never enables canvas shadow blur (a per-fill gaussian blur, 500+ times a frame)', () => {
