@@ -9,7 +9,8 @@ import { SentinelCore } from '@/components/hud';
  * long task, so the main thread never reached the 5s quiet window Lighthouse
  * needs for Time to Interactive: TBT and TTI errored out (NO_TTI_CPU_IDLE_PERIOD)
  * and the whole performance category scored `null` in some runs. Measured on
- * Home, n=7 vs n=5: TBT p75 637ms -> 242ms, main-thread work p75 14.4s -> 3.5s.
+ * Home, n=7 before vs n=7 after: performance p75 0.81 (2 runs null) -> 0.915
+ * (zero null), TBT p75 637ms -> 215ms, TTI p75 12.4s -> 3.3s.
  *
  * These are executable frame-budget invariants, not style preferences. They are
  * what keeps the CWV gate from going back to a coin flip.
