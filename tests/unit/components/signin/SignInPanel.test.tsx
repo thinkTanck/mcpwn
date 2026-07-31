@@ -207,6 +207,29 @@ describe('SignInPanel (wired auth)', () => {
     expect(screen.queryByRole('heading', { name: /enter your code/i })).not.toBeInTheDocument();
   });
 
+  /**
+   * The focus handoff must be symmetric. Going FORWARD already focused the code
+   * field; going BACK left focus on a button that no longer exists, so the browser
+   * reset it to <body> and a keyboard or screen-reader user was silently dropped
+   * at the top of the document (WCAG 2.4.3 Focus Order).
+   */
+  it('moves focus to the code field forward, and back to the email field on return', async () => {
+    const user = userEvent.setup();
+    render(<SignInPanel authEnabled />);
+    await reachCodeStep(user);
+    await waitFor(() => expect(screen.getByLabelText(/code/i)).toHaveFocus());
+
+    await user.click(screen.getByRole('button', { name: /use a different email/i }));
+    await waitFor(() => expect(screen.getByLabelText(/email/i)).toHaveFocus());
+  });
+
+  it('does not steal focus on first mount', () => {
+    render(<SignInPanel authEnabled />);
+    // Nothing was requested yet, so the panel must leave the document's natural
+    // entry point (the skip link / top of page) alone.
+    expect(screen.getByLabelText(/email/i)).not.toHaveFocus();
+  });
+
   it('disables resend during the cooldown then re-enables it', async () => {
     vi.useFakeTimers();
     try {

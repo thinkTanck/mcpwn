@@ -238,6 +238,23 @@ describe('DTCG token layer (globals.css)', () => {
     expect(cssNoComments).toMatch(/\.type-flow\s*\{[^}]*container-type:\s*inline-size/);
   });
 
+  it('NO type-size token anywhere uses a viewport unit', () => {
+    // CLAUDE.md locks it for the whole scale, not just h1: "headline sizing is
+    // cqi, never vw — the column tracks the command deck, not the viewport". A
+    // viewport unit on any type size reintroduces the deck-collapse overflow, so
+    // the guard sweeps every READING / INSTRUMENT / DISPLAY size token rather
+    // than naming one.
+    const sizeTokens = [...vars.entries()].filter(([name]) =>
+      /^--(reading|instrument|display)-(body|lead|h1|h2|h3|label|base|sm|md|lg|xl)$/.test(name),
+    );
+    expect(sizeTokens.length, 'type-size tokens found').toBeGreaterThanOrEqual(11);
+    for (const [name, value] of sizeTokens) {
+      expect(value, `${name} (${value}) must not use a viewport unit`).not.toMatch(
+        /\d(vw|vh|vmin|vmax|dvw|dvh|svw|svh|lvw|lvh)\b/,
+      );
+    }
+  });
+
   it('DISPLAY (focal data values) is a display scale whose FAMILY the design owns', () => {
     expect(vars.get('--display-sm')).toBe('15px'); // heatmap cell value
     expect(vars.get('--display-md')).toBe('20px'); // OVERALL column
