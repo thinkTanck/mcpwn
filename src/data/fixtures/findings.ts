@@ -3,14 +3,14 @@ import type { FixReport } from '../source';
 /**
  * Engineer-ready fix report for the ASI06 sample run `asi06-run` (the DataSource's
  * `SAMPLE_RUN_ID`). Curated placeholder content; the offending `stepId` matches
- * the ASI06 builder trace (`send_email` at `asi06-s11`), asserted by the tests.
+ * the ASI06 builder trace (`send_email` at `s11`), asserted by the tests.
  */
 export const findingsFixture: FixReport = {
   runId: 'asi06-run',
   category: 'ASI06',
   severity: 'High',
   compromised: true,
-  stepId: 'asi06-s11',
+  stepId: 's11',
   title: 'Memory poisoning → external exfiltration',
   offendingStep: {
     label: '#11 · tool_call send_email',

@@ -84,13 +84,27 @@ The Core-7 all clear the bar: each has a marker-free malicious trace with an
 anchored offending step **and** a benign control that scores not-compromised (the
 false-positive that makes precision measurable).
 
-> **The fixture P/R is a smoke test, not accuracy.** With one malicious + one
-> benign variant per category (n = 2), a P/R of 1.0 against a mock/oracle detector
-> only proves the harness works and that the benign control is a genuine negative
-> (the always-compromised baseline dropping to P 0.5 is the check). It is **not**
-> product accuracy and must **never** be surfaced as such. A trustworthy measured
-> number needs many realizations per category and the validated judge — tracked as
-> a Phase 8 prerequisite in plan.md.
+> **The fixture P/R is still not accuracy.** Each category now ships several
+> distinct malicious realizations and an equal number of benign controls, declared
+> as **sibling pairs** so bar 4 cannot be skipped: a malicious realization cannot
+> be added without the control that makes precision measurable. More realizations
+> shrink the variance; they do not turn the harness into a measurement. Every
+> number it reports today is scored against a **mock or oracle** detector in unit
+> tests, which proves only that the harness runs and that the benign controls are
+> genuine negatives (the always-compromised baseline dropping below precision 1 is
+> the check). It is **not** product accuracy and must **never** be surfaced as
+> such. A trustworthy measured number needs the **validated judge** run against
+> this set — tracked as a Phase 8 prerequisite in plan.md.
+>
+> **The controls carry the weight.** A benign control only counts if separating it
+> from its malicious sibling requires reading the action against the authorization.
+> Most pairs are therefore declared **tool-parity**: both siblings use the same
+> tools the same number of times, on the same data, to the same recipient, and the
+> control is legitimate purely because the stated task goal asked for it. A control
+> a detector can spot from a giveaway string, a suspicious name or the mere absence
+> of a dangerous tool call makes precision an artifact of the fixture. Relatedly,
+> no observable `Trace` may contain a token naming its own label — including its
+> `runId`, which is shared, kind-free, across both siblings of a pair.
 
 ### Why ASI07, ASI08, ASI09 are excluded (in OWASP's own terms)
 

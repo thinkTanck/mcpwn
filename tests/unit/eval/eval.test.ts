@@ -1,8 +1,20 @@
-import { getAttack, listAttackCodes, type AttackModule } from '@/attacks';
+import { getAttack, listAttackCodes, variantsOfKind, type AttackModule } from '@/attacks';
 import type { Category, GroundTruth, Trace } from '@/contract';
 import { metricsFrom, evaluate, evaluateAll, type DetectorFn } from '@/eval';
 
 const CORE_7 = ['ASI01', 'ASI02', 'ASI03', 'ASI04', 'ASI05', 'ASI06', 'ASI10'] as const;
+
+/**
+ * Expected counts are DERIVED from the registry, never hard-coded: the whole
+ * point of the variant expansion is that n grows, and a test that pins n = 2 per
+ * category would have to be edited every time a realization is added — which is
+ * exactly how a stale "measurement" gets frozen into a suite.
+ */
+const countsFor = (attacks: readonly AttackModule[]) => {
+  const malicious = attacks.reduce((n, a) => n + variantsOfKind(a, 'malicious').length, 0);
+  const benign = attacks.reduce((n, a) => n + variantsOfKind(a, 'benign').length, 0);
+  return { malicious, benign, total: malicious + benign };
+};
 const rec = (category: Category, actual: boolean, predicted: boolean) => ({
   category,
   actual,
@@ -36,8 +48,8 @@ const alwaysNotCompromised: DetectorFn = (trace) => ({
 function perfectDetector(attacks: AttackModule[]): DetectorFn {
   const answers = new Map<string, GroundTruth>();
   for (const a of attacks) {
-    for (const v of ['malicious', 'benign'] as const) {
-      const { trace, groundTruth } = a.build(v);
+    for (const v of a.variants) {
+      const { trace, groundTruth } = a.build(v.id);
       answers.set(JSON.stringify(trace), groundTruth);
     }
   }
@@ -131,23 +143,48 @@ describe('metricsFrom — precision/recall math (deterministic)', () => {
 });
 
 describe('evaluate — mock detectors over the 7 attacks (leakage-safe)', () => {
-  it('a perfect detector scores P = R = 1 overall and per category', async () => {
+  it('scores EVERY realization, not just the two defaults', async () => {
     const attacks = listAttackCodes().map(getAttack);
-    const report = await evaluate(attacks, perfectDetector(attacks));
-    expect(report.overall).toMatchObject({ precision: 1, recall: 1, total: 14 });
+    const report = await evaluateAll(alwaysCompromised);
+    expect(report.overall.total).toBe(countsFor(attacks).total);
     for (const code of CORE_7) {
-      expect(report.byCategory[code]).toMatchObject({ precision: 1, recall: 1, total: 2 });
+      expect(report.byCategory[code]?.total).toBe(countsFor([getAttack(code)]).total);
     }
   });
 
-  it('always-compromised -> recall 1, precision 0.5 (false positives on benign)', async () => {
+  it('a perfect detector scores P = R = 1 overall and per category', async () => {
+    const attacks = listAttackCodes().map(getAttack);
+    const report = await evaluate(attacks, perfectDetector(attacks));
+    expect(report.overall).toMatchObject({
+      precision: 1,
+      recall: 1,
+      total: countsFor(attacks).total,
+    });
+    for (const code of CORE_7) {
+      expect(report.byCategory[code]).toMatchObject({
+        precision: 1,
+        recall: 1,
+        total: countsFor([getAttack(code)]).total,
+      });
+    }
+  });
+
+  it('always-compromised -> recall 1, precision = the malicious share (benign are FPs)', async () => {
+    const { malicious, benign, total } = countsFor(listAttackCodes().map(getAttack));
     const report = await evaluateAll(alwaysCompromised);
-    expect(report.overall).toMatchObject({ recall: 1, precision: 0.5, tp: 7, fp: 7, total: 14 });
+    expect(report.overall).toMatchObject({
+      recall: 1,
+      precision: malicious / total,
+      tp: malicious,
+      fp: benign,
+      total,
+    });
   });
 
   it('always-not-compromised -> recall 0 on malicious', async () => {
+    const { malicious, total } = countsFor(listAttackCodes().map(getAttack));
     const report = await evaluateAll(alwaysNotCompromised);
-    expect(report.overall).toMatchObject({ recall: 0, fn: 7, tp: 0, total: 14 });
+    expect(report.overall).toMatchObject({ recall: 0, fn: malicious, tp: 0, total });
   });
 
   it('the detector only ever receives (trace, taskGoal) — never groundTruth', async () => {
@@ -164,7 +201,7 @@ describe('evaluate — mock detectors over the 7 attacks (leakage-safe)', () => 
       };
     };
     await evaluateAll(spy);
-    expect(seen).toHaveLength(14);
+    expect(seen).toHaveLength(countsFor(listAttackCodes().map(getAttack)).total);
     for (const [trace, taskGoal] of seen) {
       expect(typeof taskGoal).toBe('string');
       expect(trace).toHaveProperty('steps');
@@ -174,57 +211,58 @@ describe('evaluate — mock detectors over the 7 attacks (leakage-safe)', () => 
   });
 });
 
-// The two categories added this wave get their own P/R fixtures. Each needs a
-// BENIGN control that scores not-compromised — without it precision is undefined
-// and we could only ever measure recall.
-describe('P/R for the new Core-7 categories (ASI03, ASI05)', () => {
-  const NEW_CODES = ['ASI03', 'ASI05'] as const;
-
-  it.each(NEW_CODES)(
-    '%s: a perfect detector scores P = R = 1 (malicious = TP, benign = TN)',
+// Every Core-7 category must be precision-bearing (ADR-0003 bar 4): its benign
+// controls have to score not-compromised, or precision is undefined and we could
+// only ever measure recall. Asserted per category over its FULL realization set.
+describe('P/R is measurable for every Core-7 category', () => {
+  it.each(CORE_7)(
+    '%s: a perfect detector scores P = R = 1 (every malicious a TP, every benign a TN)',
     async (code) => {
       const attack = getAttack(code);
+      const { malicious, benign, total } = countsFor([attack]);
       const report = await evaluate([attack], perfectDetector([attack]));
       expect(report.byCategory[code]).toMatchObject({
         precision: 1,
         recall: 1,
-        tp: 1,
+        tp: malicious,
         fp: 0,
         fn: 0,
-        tn: 1,
-        total: 2,
+        tn: benign,
+        total,
       });
     },
   );
 
-  it.each(NEW_CODES)('%s: the benign control is a not-compromised true negative', (code) => {
-    const { trace, groundTruth } = getAttack(code).build('benign');
-    expect(groundTruth).toEqual({ compromised: false, category: code });
-    // A perfect detector predicts not-compromised on that benign trace (a TN).
-    const verdict = perfectDetector([getAttack(code)])(
-      trace,
-      getAttack(code).scenario('benign').taskGoal,
-    );
-    return Promise.resolve(verdict).then((v) => expect(v.compromised).toBe(false));
+  it.each(CORE_7)('%s: every benign control is a not-compromised true negative', (code) => {
+    const attack = getAttack(code);
+    const detect = perfectDetector([attack]);
+    for (const v of variantsOfKind(attack, 'benign')) {
+      const { trace, groundTruth } = attack.build(v.id);
+      expect(groundTruth).toEqual({ compromised: false, category: code });
+      expect(detect(trace, attack.scenario(v.id).taskGoal)).toMatchObject({ compromised: false });
+    }
   });
 
-  it.each(NEW_CODES)(
-    '%s: the benign control is what makes precision measurable (always-compromised -> P 0.5)',
+  it.each(CORE_7)(
+    '%s: the benign controls are what make precision measurable (always-compromised -> P < 1)',
     async (code) => {
-      const report = await evaluate([getAttack(code)], alwaysCompromised);
-      // malicious -> TP, benign -> FP: recall stays 1 but precision drops to 0.5.
+      const attack = getAttack(code);
+      const { malicious, benign, total } = countsFor([attack]);
+      const report = await evaluate([attack], alwaysCompromised);
+      // every malicious -> TP, every benign -> FP: recall stays 1, precision drops.
       expect(report.byCategory[code]).toMatchObject({
         recall: 1,
-        precision: 0.5,
-        tp: 1,
-        fp: 1,
-        total: 2,
+        precision: malicious / total,
+        tp: malicious,
+        fp: benign,
+        total,
       });
+      expect(report.byCategory[code]!.precision).toBeLessThan(1);
     },
   );
 
   it('leakage barrier holds: the detector only ever sees (trace, taskGoal), never groundTruth', async () => {
-    const attacks = NEW_CODES.map(getAttack);
+    const attacks = (['ASI03', 'ASI05'] as const).map(getAttack);
     const seen: [Trace, string][] = [];
     const spy: DetectorFn = (trace, taskGoal) => {
       seen.push([trace, taskGoal]);
@@ -238,7 +276,7 @@ describe('P/R for the new Core-7 categories (ASI03, ASI05)', () => {
       };
     };
     await evaluate(attacks, spy);
-    expect(seen).toHaveLength(4); // 2 categories x {malicious, benign}
+    expect(seen).toHaveLength(countsFor(attacks).total);
     for (const [trace] of seen) {
       expect(trace).not.toHaveProperty('groundTruth');
       expect(trace).not.toHaveProperty('compromised');
