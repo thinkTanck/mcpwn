@@ -38,6 +38,45 @@ describe('SignInPanel (wired auth)', () => {
     expect(code).toHaveAttribute('autocomplete', 'one-time-code');
   });
 
+  /**
+   * REGRESSION GUARD, half two of the Slice 1.5 prod bug. Supabase's Email OTP
+   * length is a project setting (6 to 10); this project emits 8. The first cut
+   * hardcoded maxLength=6 and sliced input to 6, so the real emailed code was
+   * silently truncated to a prefix and every verify failed. The field must carry
+   * whatever GoTrue issued.
+   */
+  it('accepts a code longer than six digits and sends it whole', async () => {
+    const user = userEvent.setup();
+    render(<SignInPanel authEnabled next="/account" />);
+    await reachCodeStep(user);
+
+    vi.mocked(verifyEmailCode).mockResolvedValue({ ok: false, error: 'nope' });
+    await user.type(screen.getByLabelText(/code/i), '71814917');
+    expect(screen.getByLabelText(/code/i)).toHaveValue('71814917');
+
+    await user.click(screen.getByRole('button', { name: /verify and continue/i }));
+    expect(verifyEmailCode).toHaveBeenCalledWith('real@user.com', '71814917', '/account');
+  });
+
+  it('allows up to the ten digits Supabase can be configured to emit', async () => {
+    const user = userEvent.setup();
+    render(<SignInPanel authEnabled />);
+    await reachCodeStep(user);
+    const code = screen.getByLabelText(/code/i);
+
+    await user.type(code, '12345678901234');
+    expect(code).toHaveValue('1234567890');
+  });
+
+  /** The copy must not promise a digit count the project does not emit. */
+  it('does not claim a six-digit code anywhere', async () => {
+    const user = userEvent.setup();
+    const { container } = render(<SignInPanel authEnabled />);
+    expect(container.textContent).not.toMatch(/6-digit|six-digit/i);
+    await reachCodeStep(user);
+    expect(container.textContent).not.toMatch(/6-digit|six-digit/i);
+  });
+
   it('surfaces the request error and stays on the email step', async () => {
     vi.mocked(requestEmailCode).mockResolvedValue({
       ok: false,

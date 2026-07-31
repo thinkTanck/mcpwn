@@ -6,7 +6,7 @@ import { isAuthEnabled, isGithubOAuthEnabled } from '@/config/env';
 export const metadata: Metadata = {
   title: 'Sign in · MCPwn',
   description:
-    'Sign in to MCPwn to live red-team your own MCP agent against the Core-7. Email magic-link sign-in gates live runs; sample playback stays open to everyone.',
+    'Sign in to MCPwn to live red-team your own MCP agent against the Core-7. A one-time code emailed to you gates live runs; sample playback stays open to everyone.',
 };
 
 /**
