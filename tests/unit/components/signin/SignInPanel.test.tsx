@@ -215,7 +215,7 @@ describe('SignInPanel (wired auth)', () => {
    */
   it('moves focus to the code field forward, and back to the email field on return', async () => {
     const user = userEvent.setup();
-    render(<SignInPanel authEnabled />);
+    render(<SignInPanel authEnabled codeLength={8} />);
     await reachCodeStep(user);
     await waitFor(() => expect(screen.getByLabelText(/code/i)).toHaveFocus());
 
@@ -224,7 +224,7 @@ describe('SignInPanel (wired auth)', () => {
   });
 
   it('does not steal focus on first mount', () => {
-    render(<SignInPanel authEnabled />);
+    render(<SignInPanel authEnabled codeLength={8} />);
     // Nothing was requested yet, so the panel must leave the document's natural
     // entry point (the skip link / top of page) alone.
     expect(screen.getByLabelText(/email/i)).not.toHaveFocus();
