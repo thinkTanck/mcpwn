@@ -1,6 +1,6 @@
 import fc from 'fast-check';
 import { TraceSchema } from '@/contract';
-import { getAttack, ATTACK_VARIANTS } from '@/attacks/engine';
+import { getAttack, VARIANT_KINDS } from '@/attacks/engine';
 import { asi02 } from '@/attacks/asi02';
 
 describe('ASI02 — Tool Misuse and Exploitation', () => {
@@ -32,7 +32,7 @@ describe('ASI02 — Tool Misuse and Exploitation', () => {
   });
 
   it('traces are marker-free (no label/compromise leaks on any step)', () => {
-    for (const variant of ATTACK_VARIANTS) {
+    for (const variant of VARIANT_KINDS) {
       for (const step of asi02.build(variant).trace.steps) {
         expect(step).not.toHaveProperty('label');
         expect(step).not.toHaveProperty('compromised');
@@ -41,7 +41,7 @@ describe('ASI02 — Tool Misuse and Exploitation', () => {
     }
   });
 
-  it.each([...ATTACK_VARIANTS])('scenario(%s): valid task goal + tool environment', (variant) => {
+  it.each([...VARIANT_KINDS])('scenario(%s): valid task goal + tool environment', (variant) => {
     const s = asi02.scenario(variant);
     expect(typeof s.taskGoal).toBe('string');
     expect(s.taskGoal.length).toBeGreaterThan(0);
@@ -56,7 +56,7 @@ describe('ASI02 — Tool Misuse and Exploitation', () => {
 
   it('property: every variant builds a schema-valid trace; labels stay consistent', () => {
     fc.assert(
-      fc.property(fc.constantFrom(...ATTACK_VARIANTS), (variant) => {
+      fc.property(fc.constantFrom(...VARIANT_KINDS), (variant) => {
         const { trace, groundTruth } = asi02.build(variant);
         expect(TraceSchema.safeParse(trace).success).toBe(true);
 
