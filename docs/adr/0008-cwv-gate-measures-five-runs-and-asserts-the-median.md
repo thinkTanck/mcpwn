@@ -94,6 +94,26 @@ performance 0.91 and TBT 217 ms, indistinguishable from the warm runs, and
 `server-response-time` stayed between 17 and 50 ms throughout. No warm-up step
 is needed and none was added.
 
+### 4. Confirmed on the runner, not just locally
+
+The numbers above come from a developer machine, which is noisier than CI and
+sits closer to the budget than the runner does. The gate was therefore verified
+where it actually runs. On `ubuntu-latest` with five runs and median
+aggregation, the median LHR reported:
+
+| metric                   | CI median run | budget        |
+| ------------------------ | ------------- | ------------- |
+| performance score        | **0.95**      | ≥ 0.90        |
+| largest contentful paint | **1.7 s**     | ≤ 2.5s        |
+| cumulative layout shift  | **0.003**     | ≤ 0.1         |
+| total blocking time      | 210 ms        | 200 ms (warn) |
+| accessibility            | **1.0**       | 1.0           |
+
+`lhci` printed `All results processed!` — every assertion passed, with not even
+the total-blocking-time warning firing, so the median TBT across the five runs
+was at or under 200 ms. The remaining long tasks are all React hydration on the
+framework chunk (175 ms and below); none come from the canvas.
+
 ## Decision
 
 1. **Fix the defect, do not loosen the budget.** SentinelCore keeps its 520
@@ -133,12 +153,15 @@ is needed and none was added.
 
 **Negative / costs**
 
-- Five runs instead of three adds roughly a minute to CI.
-- A stricter aggregation leaves less headroom. Home's remaining performance
-  score is dominated by React hydration on the 232 KB framework chunk (the only
-  long tasks left in the trace) and by an FCP/LCP of ~2.3s that is gated on the
-  render-blocking stylesheet. Those are baseline costs of a hydrated App Router
-  page, not a defect, and they are the next lever if the gate tightens further.
+- Five runs instead of three adds roughly a minute to CI (measured: 3m14s).
+- A stricter aggregation leaves less headroom. On the runner there is plenty
+  (0.95 against a 0.90 budget), but on a loaded developer machine the same page
+  measures 0.87-0.93, so a local `npx lhci autorun` can fail where CI passes.
+  Home's remaining score is dominated by React hydration on the 232 KB framework
+  chunk (the only long tasks left in the trace) and by an FCP/LCP gated on the
+  render-blocking stylesheet, which is fetched behind two preloaded font files.
+  Those are baseline costs of a hydrated App Router page, not a defect, and they
+  are the next lever if the gate ever tightens further.
 
 **Known gap (unchanged by this ADR)**
 
