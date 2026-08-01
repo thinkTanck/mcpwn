@@ -27,7 +27,7 @@ describe('SignInPanel (wired auth)', () => {
 
   it('advances to the code step after a code is requested', async () => {
     const user = userEvent.setup();
-    render(<SignInPanel authEnabled codeLength={8} />);
+    render(<SignInPanel authEnabled codeLength={6} />);
     expect(screen.queryByText(/no email is sent yet/i)).not.toBeInTheDocument();
 
     await reachCodeStep(user);
@@ -46,15 +46,15 @@ describe('SignInPanel (wired auth)', () => {
    */
   it('sends a code of the configured length whole', async () => {
     const user = userEvent.setup();
-    render(<SignInPanel authEnabled next="/account" codeLength={8} />);
+    render(<SignInPanel authEnabled next="/account" codeLength={6} />);
     await reachCodeStep(user);
 
     vi.mocked(verifyEmailCode).mockResolvedValue({ ok: false, error: 'nope' });
-    await user.type(screen.getByLabelText(/code/i), '71814917');
-    expect(screen.getByLabelText(/code/i)).toHaveValue('71814917');
+    await user.type(screen.getByLabelText(/code/i), '718149');
+    expect(screen.getByLabelText(/code/i)).toHaveValue('718149');
 
     await user.click(screen.getByRole('button', { name: /verify and continue/i }));
-    expect(verifyEmailCode).toHaveBeenCalledWith('real@user.com', '71814917', '/account');
+    expect(verifyEmailCode).toHaveBeenCalledWith('real@user.com', '718149', '/account');
   });
 
   /**
@@ -138,7 +138,7 @@ describe('SignInPanel (wired auth)', () => {
       error: 'email rate limit exceeded',
     });
     const user = userEvent.setup();
-    render(<SignInPanel authEnabled codeLength={8} />);
+    render(<SignInPanel authEnabled codeLength={6} />);
 
     await user.type(screen.getByLabelText(/email/i), 'real@user.com');
     await user.click(screen.getByRole('button', { name: /email me a code/i }));
@@ -151,18 +151,18 @@ describe('SignInPanel (wired auth)', () => {
 
   it('surfaces a wrong-code error and stays on the code step', async () => {
     const user = userEvent.setup();
-    render(<SignInPanel authEnabled next="/account" codeLength={8} />);
+    render(<SignInPanel authEnabled next="/account" codeLength={6} />);
     await reachCodeStep(user);
 
     vi.mocked(verifyEmailCode).mockResolvedValue({
       ok: false,
       error: 'That code is incorrect or has expired. Enter the latest one or resend a new code.',
     });
-    await user.type(screen.getByLabelText(/code/i), '00000000');
+    await user.type(screen.getByLabelText(/code/i), '000000');
     await user.click(screen.getByRole('button', { name: /verify and continue/i }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/incorrect or has expired/i);
-    expect(verifyEmailCode).toHaveBeenCalledWith('real@user.com', '00000000', '/account');
+    expect(verifyEmailCode).toHaveBeenCalledWith('real@user.com', '000000', '/account');
     expect(screen.getByRole('heading', { name: /enter your code/i })).toBeInTheDocument();
     // The field is marked invalid and linked to the error for screen readers.
     const codeInput = screen.getByLabelText(/code/i);
@@ -174,7 +174,7 @@ describe('SignInPanel (wired auth)', () => {
     vi.useFakeTimers();
     try {
       vi.mocked(requestEmailCode).mockResolvedValue({ ok: true });
-      render(<SignInPanel authEnabled codeLength={8} />);
+      render(<SignInPanel authEnabled codeLength={6} />);
       const emailInput = screen.getByLabelText(/email/i);
       fireEvent.change(emailInput, { target: { value: 'real@user.com' } });
       fireEvent.submit(emailInput.closest('form')!);
@@ -199,7 +199,7 @@ describe('SignInPanel (wired auth)', () => {
 
   it('returns to the email step from the code step', async () => {
     const user = userEvent.setup();
-    render(<SignInPanel authEnabled codeLength={8} />);
+    render(<SignInPanel authEnabled codeLength={6} />);
     await reachCodeStep(user);
 
     await user.click(screen.getByRole('button', { name: /use a different email/i }));
@@ -215,7 +215,7 @@ describe('SignInPanel (wired auth)', () => {
    */
   it('moves focus to the code field forward, and back to the email field on return', async () => {
     const user = userEvent.setup();
-    render(<SignInPanel authEnabled codeLength={8} />);
+    render(<SignInPanel authEnabled codeLength={6} />);
     await reachCodeStep(user);
     await waitFor(() => expect(screen.getByLabelText(/code/i)).toHaveFocus());
 
@@ -224,7 +224,7 @@ describe('SignInPanel (wired auth)', () => {
   });
 
   it('does not steal focus on first mount', () => {
-    render(<SignInPanel authEnabled codeLength={8} />);
+    render(<SignInPanel authEnabled codeLength={6} />);
     // Nothing was requested yet, so the panel must leave the document's natural
     // entry point (the skip link / top of page) alone.
     expect(screen.getByLabelText(/email/i)).not.toHaveFocus();
@@ -234,7 +234,7 @@ describe('SignInPanel (wired auth)', () => {
     vi.useFakeTimers();
     try {
       vi.mocked(requestEmailCode).mockResolvedValue({ ok: true });
-      render(<SignInPanel authEnabled codeLength={8} />);
+      render(<SignInPanel authEnabled codeLength={6} />);
       // fireEvent is synchronous (no userEvent internal delays that stall under
       // fake timers). Drive the email step, then flush the request transition.
       const emailInput = screen.getByLabelText(/email/i);
@@ -256,18 +256,18 @@ describe('SignInPanel (wired auth)', () => {
   });
 
   it('enables the GitHub button when GitHub OAuth is configured', () => {
-    render(<SignInPanel authEnabled githubEnabled codeLength={8} />);
+    render(<SignInPanel authEnabled githubEnabled codeLength={6} />);
     expect(screen.getByRole('button', { name: /continue with github/i })).not.toBeDisabled();
   });
 
   it('surfaces a clear reason (not a blank form) on a prior sign-in failure', () => {
-    render(<SignInPanel authEnabled authError codeLength={8} />);
+    render(<SignInPanel authEnabled authError codeLength={6} />);
     expect(screen.getByRole('alert')).toHaveTextContent(/could not complete that sign-in/i);
     expect(screen.getByRole('button', { name: /email me a code/i })).toBeInTheDocument();
   });
 
   it('shows no failure notice when there is no prior error', () => {
-    render(<SignInPanel authEnabled codeLength={8} />);
+    render(<SignInPanel authEnabled codeLength={6} />);
     expect(screen.queryByText(/could not complete that sign-in/i)).not.toBeInTheDocument();
   });
 });
