@@ -2,16 +2,22 @@
 
 import { useId, useState, type ReactNode } from 'react';
 import Link from 'next/link';
-import { Button } from '@/components/hud';
 import { cn } from '@/lib/utils';
 import { CORE7 } from './categories';
 import type { Category } from '@/contract';
 
 /**
  * Connect / Run Setup — the targeting console (register: PRODUCT, the instrument
- * surface). Two modes share one console: SAMPLE playback (no key) and LIVE BYOK
- * red-teaming. The detector is fixed and BLIND · LOCKED in both — never
- * user-swappable — and live runs are gated behind sign-in.
+ * surface). Two modes share one console: SAMPLE playback (no key), and LIVE,
+ * which under [ADR-0006](docs/adr/0006-mcpwn-is-the-mcp-server.md) means the
+ * user points THEIR agent at an MCP endpoint WE host. The detector is fixed and
+ * BLIND · LOCKED in both, never user-swappable, and live runs are gated behind
+ * sign-in.
+ *
+ * LIVE IS INTERIM-DISABLED. It shows a notice, not a form. See the live branch
+ * in section 02 for why, and
+ * [the Connect design](docs/superpowers/specs/2026-07-31-connect-inverted-design.md)
+ * for the reshape that replaces it once the hypothesis spike reports.
  *
  * Type roles (globals.css): every sentence a human reads is a READING role
  * (sans, ≥16px); every readout / label / chip is an INSTRUMENT role (mono,
@@ -112,9 +118,9 @@ const LockIcon = () => (
 export function ConnectScreen({ signedIn = false }: { signedIn?: boolean }) {
   const [mode, setMode] = useState<Mode>('sample');
   const [demoModel, setDemoModel] = useState<string>(DEMO_MODELS[0].id);
-  const [endpoint, setEndpoint] = useState('');
-  const [apiKey, setApiKey] = useState('');
-  const [modelId, setModelId] = useState('');
+  // No endpoint / apiKey / modelId state: the live form that held them is gone
+  // until the Connect reshape (ADR-0006). Keeping the state around would leave a
+  // credential-shaped slot in the component waiting to be refilled.
   const [runs, setRuns] = useState('5');
   const [seed, setSeed] = useState('1337');
   const [selected, setSelected] = useState<Set<Category>>(() => new Set(CORE7.map((c) => c.id)));
@@ -122,9 +128,6 @@ export function ConnectScreen({ signedIn = false }: { signedIn?: boolean }) {
   const live = mode === 'live';
   const showGate = live && !signedIn;
   const selectedCount = selected.size;
-  // A live run needs an endpoint, a key, and at least one category. Sample is a
-  // fixed playback, so it launches unconditionally (navigates to the replay).
-  const liveReady = endpoint.trim() !== '' && apiKey.trim() !== '' && selectedCount > 0;
 
   const toggleCategory = (id: Category) =>
     setSelected((prev) => {
@@ -140,8 +143,9 @@ export function ConnectScreen({ signedIn = false }: { signedIn?: boolean }) {
       <p className="micro-label !text-nominal mb-2.5 tracking-[0.18em]">CONNECT / RUN</p>
       <h1 className="reading-h2 mb-2.5">Set up a red-team run.</h1>
       <p className="reading-lead mb-7">
-        Play a no-key sample, or connect your own MCP agent for a live run. Either way the same
-        fixed, blind detector judges every trace.
+        Play a no-key sample now. Live red-teaming, where you point your own MCP agent at an
+        endpoint we host, is coming soon. Either way the same fixed, blind detector judges every
+        trace.
       </p>
 
       {/* 01 · Mode */}
@@ -185,44 +189,26 @@ export function ConnectScreen({ signedIn = false }: { signedIn?: boolean }) {
       <Section>
         <StepHeader n="02" label="AGENT & DETECTOR" />
         <div className="grid gap-6 md:grid-cols-2">
-          {/* Left: agent (sample picker or BYOK form) */}
+          {/* Left: agent (sample picker, or the interim live notice) */}
           <div>
             {live ? (
               <>
-                <p className="micro-label mb-3">CONNECT YOUR MCP AGENT</p>
-                <div className="flex flex-col gap-3.5">
-                  <Field
-                    label="MCP ENDPOINT"
-                    type="url"
-                    inputMode="url"
-                    autoComplete="off"
-                    placeholder="https://your-agent.example/mcp"
-                    value={endpoint}
-                    onChange={setEndpoint}
-                  />
-                  <Field
-                    label="API KEY / TOKEN"
-                    type="password"
-                    autoComplete="off"
-                    placeholder="••••••••••••••••"
-                    value={apiKey}
-                    onChange={setApiKey}
-                    helper={
-                      <>
-                        <span className="text-ink-faint">
-                          <LockIcon />
-                        </span>
-                        Used server-side only, never stored.
-                      </>
-                    }
-                  />
-                  <Field
-                    label="MODEL ID"
-                    optional
-                    placeholder="e.g. gpt-4.1 / claude-sonnet"
-                    value={modelId}
-                    onChange={setModelId}
-                  />
+                <p className="micro-label mb-3">YOUR MCP AGENT</p>
+                {/* INTERIM. This panel used to collect an agent endpoint and an
+                    API key, under "Used server-side only, never stored" — a claim
+                    about a credential ADR-0006 decided we will never take, since
+                    the agent connects to US. Asking for a secret we have no use
+                    for is worse than an unbuilt feature, so the form is gone
+                    until the Connect reshape lands (it waits on the hypothesis
+                    spike). Deliberately a notice, not a redesign. */}
+                <div className="flex flex-col gap-3 rounded-lg border border-line bg-nominal/5 px-5 py-4">
+                  <p className="reading text-ink">
+                    Live red-teaming is coming soon. You will point your own MCP agent at an
+                    endpoint we host, and we will record what it does.
+                  </p>
+                  <p className="reading text-[15px] text-ink-muted">
+                    We will never ask for your agent{"'"}s key. There is nothing to paste here yet.
+                  </p>
                 </div>
               </>
             ) : (
@@ -417,12 +403,18 @@ export function ConnectScreen({ signedIn = false }: { signedIn?: boolean }) {
         )}
         <div className="flex flex-wrap items-center gap-4">
           {live ? (
-            <Button disabled={showGate || !liveReady} aria-disabled={showGate || !liveReady}>
+            /* No LAUNCH control while live is interim-disabled. A disabled button
+               invites a click and implies the feature is one condition away; a
+               link to the thing that does work is more honest and more useful. */
+            <Link
+              href="/runs/sample"
+              className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-md border border-line-em bg-transparent px-5 py-3 font-mono text-[14px] tracking-[0.08em] text-ink transition-colors hover:border-nominal hover:text-readout"
+            >
               <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
                 <polygon points="2,1 11,6 2,11" fill="currentColor" />
               </svg>
-              LAUNCH LIVE RUN
-            </Button>
+              WATCH THE SAMPLE RUN
+            </Link>
           ) : (
             <Link
               href="/runs/sample"
