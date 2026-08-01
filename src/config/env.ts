@@ -222,8 +222,17 @@ const EmailOtpLengthSchema = z
   .transform(Number)
   .pipe(z.number().int().min(EMAIL_OTP_LENGTH_BOUNDS.min).max(EMAIL_OTP_LENGTH_BOUNDS.max));
 
-/** Default when unset. MUST match the live project's Email OTP Length setting. */
-const DEFAULT_EMAIL_OTP_LENGTH = 8;
+/**
+ * Default when unset. **MUST match the live project's Email OTP Length setting.**
+ *
+ * 6 as of 2026-08-01, verified against the live project rather than assumed: the
+ * dashboard setting was changed and `admin.generateLink` returned a 6-digit
+ * `email_otp`. It was 8 before, and a previous attempt to change it silently did
+ * not take effect, which is why this value is never edited on the strength of an
+ * intention. The gated `tests/integration/otp-length.live.test.ts` is what proves
+ * this number still matches reality; run it after any dashboard change.
+ */
+const DEFAULT_EMAIL_OTP_LENGTH = 6;
 
 /**
  * How many digits an emailed sign-in code has. Env-only
