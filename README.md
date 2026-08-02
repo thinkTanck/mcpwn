@@ -311,6 +311,8 @@ and every pull request to `main`**:
 - [`docs/adr/`](docs/adr/) — Architecture Decision Records (Nygard format):
   [ADR-0001](docs/adr/0001-record-architecture-decisions.md) (using ADRs),
   [ADR-0002](docs/adr/0002-lighthouse-devtools-throttling.md) (Lighthouse CI
-  DevTools throttling — measured over simulated), and
+  DevTools throttling — measured over simulated),
   [ADR-0003](docs/adr/0003-core-7-scope-and-measurability-bar.md) (Core-7 scope +
-  the measurability bar).
+  the measurability bar), and
+  [ADR-0008](docs/adr/0008-cwv-gate-measures-five-runs-and-asserts-the-median.md)
+  (the CWV gate measures five runs and asserts the median, amending ADR-0002).

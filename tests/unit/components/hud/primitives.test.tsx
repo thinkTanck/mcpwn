@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { StatusChip, Button, SentinelCore, Panel, Readout } from '@/components/hud';
+import { StatusChip, Button, Panel, Readout } from '@/components/hud';
 
 describe('StatusChip', () => {
   it('names the state in text (never color-only) alongside a glyph', () => {
@@ -41,9 +41,5 @@ describe('Panel', () => {
   });
 });
 
-describe('SentinelCore', () => {
-  it('exposes an accessible image name and survives a canvas-less environment', () => {
-    render(<SentinelCore size={120} label="Sentinel core" />);
-    expect(screen.getByRole('img', { name: 'Sentinel core' })).toBeInTheDocument();
-  });
-});
+// SentinelCore has its own file — it carries frame-budget invariants that need a
+// recording canvas context: tests/unit/components/hud/sentinel-core.test.tsx
