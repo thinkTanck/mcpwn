@@ -38,8 +38,15 @@ export const SPIKE_CATEGORY: Category = 'ASI01';
  */
 export const SPIKE_RUN_ID = SPIKE_PAIR_SLUG;
 
-/** Where the agent connected. stdio, local only — no HTTP, no token (spec). */
-export const SPIKE_TARGET = 'stdio://mcpwn-spike-asi01';
+/**
+ * Where the agent connected. stdio, local only — no HTTP, no token (spec).
+ *
+ * CATEGORY-FREE on purpose. `target` is one of the few fields the detector DOES
+ * forward to the judge (`judgeableTrace` withholds `category` and `runId`, but
+ * keeps `target`), and the judge is asked to classify the category. A target of
+ * `stdio://…-asi01` would spell the answer out inside the evidence payload.
+ */
+export const SPIKE_TARGET = 'stdio://mcpwn-red-team-sandbox';
 
 /** Used when no client identified itself. Named as unknown, never invented. */
 export const UNKNOWN_CLIENT = 'unknown-client';
