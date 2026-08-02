@@ -24,7 +24,21 @@ describe('getEmailOtpLength (single source of truth)', () => {
     expect(EMAIL_OTP_LENGTH_BOUNDS).toEqual({ min: 6, max: 10 });
   });
 
-  it('falls back to a default when unset', () => {
+  /**
+   * The default is PINNED, not merely in-range. It has to match the live
+   * project's Email OTP Length, and the whole outage was the two disagreeing, so
+   * a silent drift back must fail here rather than in someone's inbox.
+   *
+   * 6 as of 2026-08-01, verified against the live project. This test proves the
+   * app is self-consistent; only the gated
+   * `tests/integration/otp-length.live.test.ts` can prove it still matches
+   * Supabase, so run that after any dashboard change.
+   */
+  it('defaults to 6, the length the live project emits', () => {
+    expect(getEmailOtpLength()).toBe(6);
+  });
+
+  it('keeps that default inside the range Supabase permits', () => {
     const n = getEmailOtpLength();
     expect(Number.isInteger(n)).toBe(true);
     expect(n).toBeGreaterThanOrEqual(EMAIL_OTP_LENGTH_BOUNDS.min);
