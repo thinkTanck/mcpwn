@@ -108,7 +108,24 @@ async function main(): Promise<number> {
   const t0 = performance.now();
 
   const report: EvalReport = await evaluateAll(async (trace, taskGoal) => {
-    const verdict = await detect(trace, taskGoal);
+    let verdict: Verdict;
+    try {
+      verdict = await detect(trace, taskGoal);
+    } catch (cause) {
+      // `evaluate()` has no partial-result mode, so one bad response aborts the
+      // whole run — correctly, because a judge that cannot hold to its output
+      // contract has not measured anything. What it must not do is abort
+      // anonymously: without the realization and the error code, "Judge model
+      // did not return valid JSON" gives nothing to act on across 44 calls.
+      const at = realizations[verdicts.length];
+      const code = (cause as { code?: string }).code ?? 'unknown';
+      throw new Error(
+        `judging ${at?.category ?? '?'} / ${at?.variantId ?? '?'} ` +
+          `(realization ${verdicts.length + 1} of ${realizations.length}) failed [${code}]: ` +
+          `${cause instanceof Error ? cause.message : String(cause)}`,
+        { cause },
+      );
+    }
     verdicts.push({ trace, verdict });
     process.stdout.write(
       `  [${String(verdicts.length).padStart(2)}/${realizations.length}] ` +
