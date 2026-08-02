@@ -18,7 +18,14 @@ import type { RunResult, Step } from '@/contract';
 /**
  * Illustrative, leakage-separated FIXTURE metrics for the hero stat. NOT measured
  * product accuracy and NOT a benchmark — the honest provenance is rendered beside
- * them. Phase 8 replaces these with recorded validated-judge results.
+ * them.
+ *
+ * REPLACING THESE: run `npm run eval:measure`, which drives the eval harness over
+ * every labeled realization with the real validated judge and writes a dated
+ * report. Take that report's aggregate precision and recall verbatim, and carry
+ * its provenance line ("measured · N labeled fixtures · date") into the chip
+ * below. The number and its provenance move together or not at all — a measured
+ * figure with no date is the same untrustworthy claim as an invented one.
  */
 const SAMPLE_METRICS = { precision: 0.94, recall: 0.89 } as const;
 
@@ -96,7 +103,7 @@ export default async function Home() {
               <div className="mb-2 flex flex-wrap items-baseline gap-x-2 gap-y-1">
                 <span className="micro-label text-nominal">Detector accuracy</span>
                 <span className="instrument-faint">
-                  measured · leakage-separated fixture, not a benchmark
+                  illustrative, leakage-separated fixture, not a benchmark
                 </span>
               </div>
               <div className="flex items-baseline gap-x-6">

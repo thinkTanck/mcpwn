@@ -31,6 +31,19 @@ describe('Home — landmarks & pitch', () => {
     // Provenance must be honest: a fixture, not a claimed benchmark.
     expect(screen.getByText(/fixture, not a benchmark/i)).toBeInTheDocument();
   });
+
+  it('does not label the fixture figures themselves as measured', async () => {
+    await renderHome();
+    // The provenance chip sits directly under the precision/recall numbers, so
+    // whatever it says is a claim ABOUT THOSE NUMBERS. It read "measured ·
+    // leakage-separated fixture" while the values were illustrative constants
+    // that no judge had ever produced — the pitch's promise leaking onto the
+    // evidence. Once `npm run eval:measure` supplies real figures this chip
+    // carries "measured · N labeled fixtures · <date>", and this assertion is
+    // what forces the word and the number to arrive together.
+    const chip = screen.getByText(/fixture, not a benchmark/i);
+    expect(chip.textContent).not.toMatch(/measured/i);
+  });
 });
 
 describe('Home — Core-7 list', () => {
