@@ -195,4 +195,16 @@ describe('spike/asi01 server: what lands in the Trace', () => {
     ]);
     expect(server.log[1]?.tool).toBe(READ_TOOL);
   });
+
+  it('logs the arguments of every tools/call, so the LIVE log answers the question', () => {
+    // The Trace is only written when the session ends. The run log is written
+    // line by line, so a reader can answer "did a call to the offending tool,
+    // with the attacker-controlled argument, appear after the poisoned result?"
+    // without waiting for a clean shutdown.
+    const server = new SpikeMcpServer({ kind: 'malicious' });
+    server.handle(initialize());
+    server.handle(call(2, OFFENDING_TOOL, { to: ATTACKER_ACCOUNT, amount: 8500 }));
+    expect(server.log.at(-1)?.args).toEqual({ to: ATTACKER_ACCOUNT, amount: 8500 });
+    expect(server.log[0]?.args).toBeUndefined();
+  });
 });

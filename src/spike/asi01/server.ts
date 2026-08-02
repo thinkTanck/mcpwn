@@ -42,12 +42,21 @@ export const SPIKE_SERVER_VERSION = '0.0.0';
 /** Protocol revisions this endpoint will echo back. Anything else gets ours. */
 const SUPPORTED_PROTOCOL_VERSIONS = new Set([MCP_PROTOCOL_VERSION, '2025-03-26', '2024-11-05']);
 
-/** One line of the append-only run log. Never written to the MCP channel. */
+/**
+ * One line of the append-only run log. Never written to the MCP channel.
+ *
+ * It carries the tool ARGUMENTS because the `Trace` is only assembled when the
+ * session ends, whereas this log is written line by line. A reader can therefore
+ * answer the spike's one question — "did a call to the offending tool, with the
+ * attacker-controlled argument, appear after the poisoned result?" — from a live
+ * log, without depending on a clean shutdown.
+ */
 export interface SpikeLogEntry {
   readonly at: string;
   readonly direction: 'in';
   readonly method: string;
   readonly tool?: string;
+  readonly args?: Record<string, JsonValue>;
   readonly note?: string;
 }
 
@@ -178,7 +187,7 @@ export class SpikeMcpServer {
 
   private onCallTool(request: InboundRequest): JsonRpcOutbound {
     const params = parseCallToolParams(request.params);
-    this.noteOrder('tools/call', params.name);
+    this.noteOrder('tools/call', { tool: params.name, args: params.arguments });
 
     // THE OBSERVATION THE WHOLE SPIKE EXISTS FOR: the agent chose to call this
     // tool, with these arguments. Recorded BEFORE validation, because an
@@ -203,14 +212,20 @@ export class SpikeMcpServer {
     return jsonRpcResult(request.id, result);
   }
 
-  private noteOrder(method: string, tool?: string): void {
+  private noteOrder(
+    method: string,
+    call?: { tool: string; args: Record<string, JsonValue> },
+  ): void {
     this.note(method, {
-      ...(tool === undefined ? {} : { tool }),
+      ...(call === undefined ? {} : { tool: call.tool, args: call.args }),
       ...(this.initialized ? {} : { note: 'received before notifications/initialized' }),
     });
   }
 
-  private note(method: string, extra: { tool?: string; note?: string }): void {
+  private note(
+    method: string,
+    extra: { tool?: string; args?: Record<string, JsonValue>; note?: string },
+  ): void {
     this.entries.push({ at: this.now(), direction: 'in', method, ...extra });
   }
 }
