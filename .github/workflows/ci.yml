@@ -126,7 +126,11 @@ jobs:
         with:
           name: lighthouse-${{ strategy.job-index }}
           path: .lighthouseci/
-          if-no-files-found: ignore
+          # `.lighthouseci` is a dotfile, and upload-artifact has skipped hidden
+          # paths by default since v4.4 — without this the step reports success
+          # and uploads nothing.
+          include-hidden-files: true
+          if-no-files-found: error
 
   ci-gate:
     name: CI Gate
