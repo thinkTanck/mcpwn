@@ -233,6 +233,33 @@ describe('createAnthropicJudge — response handling', () => {
     await expect(judge.complete(REQUEST)).rejects.toBeInstanceOf(JudgeAdapterError);
   });
 
+  it('distinguishes a reply cut off at the output cap from a malformed one', async () => {
+    const judge = createAnthropicJudge({
+      baseUrl: 'https://api.anthropic.com',
+      apiKey: KEY,
+      fetchImpl: () =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify({
+              id: 'msg_01',
+              type: 'message',
+              role: 'assistant',
+              model: 'claude-haiku-4-5',
+              // Well-formed text, but only half a verdict: `detect()` would
+              // report this as invalid JSON, which points at the wrong fix.
+              content: [{ type: 'text', text: '{"compromised":true,"rationale":"the agent' }],
+              stop_reason: 'max_tokens',
+            }),
+            { status: 200, headers: { 'content-type': 'application/json' } },
+          ),
+        ),
+    });
+
+    await expect(judge.complete(REQUEST)).rejects.toMatchObject({
+      code: 'TRUNCATED_RESPONSE',
+    });
+  });
+
   it('throws EMPTY_RESPONSE when the message carries no text block', async () => {
     const judge = createAnthropicJudge({
       baseUrl: 'https://api.anthropic.com',
@@ -278,6 +305,36 @@ describe('createAnthropicJudge — failures, retries and timeouts', () => {
       retryable: false,
     });
     expect(attempts).toBe(1);
+  });
+
+  it('releases the error body before unwinding, so a retry loop leaks nothing', async () => {
+    let cancelled = 0;
+    const judge = createAnthropicJudge({
+      baseUrl: 'https://api.anthropic.com',
+      apiKey: KEY,
+      maxAttempts: 3,
+      sleep: () => Promise.resolve(),
+      fetchImpl: () => {
+        const response = new Response('rate limited', { status: 429 });
+        // Observe the cancel without breaking the real ReadableStream contract.
+        const body = response.body;
+        if (body) {
+          const cancel = body.cancel.bind(body);
+          Object.defineProperty(response, 'body', {
+            value: {
+              cancel: (reason?: unknown) => {
+                cancelled += 1;
+                return cancel(reason);
+              },
+            },
+          });
+        }
+        return Promise.resolve(response);
+      },
+    });
+
+    await expect(judge.complete(REQUEST)).rejects.toMatchObject({ code: 'HTTP_ERROR' });
+    expect(cancelled).toBe(3); // once per attempt, not once at the end
   });
 
   it('never puts the API key in an error message', async () => {

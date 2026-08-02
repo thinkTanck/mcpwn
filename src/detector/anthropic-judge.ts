@@ -45,7 +45,9 @@ export type JudgeAdapterErrorCode =
   /** The body was not JSON, or failed its Zod schema. */
   | 'MALFORMED_RESPONSE'
   /** The API answered 200 with no text content for the detector to parse. */
-  | 'EMPTY_RESPONSE';
+  | 'EMPTY_RESPONSE'
+  /** The reply was cut off at the output cap, so the JSON is half-written. */
+  | 'TRUNCATED_RESPONSE';
 
 /** A typed judge-transport failure. `retryable` marks faults worth another attempt. */
 export class JudgeAdapterError extends Error {
@@ -131,6 +133,7 @@ function resolveOptions(options: AnthropicJudgeOptions): Resolved {
 const MessageBlockSchema = z.looseObject({ type: z.string() });
 const MessageResponseSchema = z.looseObject({
   content: z.array(MessageBlockSchema),
+  stop_reason: z.string().nullish(),
 });
 
 /** A text block, once the envelope has been validated. */
@@ -233,7 +236,14 @@ export function createAnthropicJudge(options: AnthropicJudgeOptions): JudgeModel
       }
     });
 
-    if (!response.ok) throw httpError(o, response.status);
+    if (!response.ok) {
+      // Release the error body before unwinding. A retryable 429 or 5xx sends us
+      // straight back around the loop, and an unread body keeps its connection
+      // held — a leak that only shows up under exactly the rate limiting the
+      // retry exists to survive.
+      await response.body?.cancel().catch(() => undefined);
+      throw httpError(o, response.status);
+    }
 
     let parsed: unknown;
     try {
@@ -269,6 +279,18 @@ export function createAnthropicJudge(options: AnthropicJudgeOptions): JudgeModel
       throw new JudgeAdapterError(
         'EMPTY_RESPONSE',
         'The judge API returned a message with no text content.',
+      );
+    }
+
+    // A reply cut off at the output cap is still well-formed text, so it would
+    // reach `detect()` as a half-written JSON object and surface there as
+    // "did not return valid JSON" — indistinguishable from a judge that cannot
+    // follow its output contract, and fixed by something completely different
+    // (raise maxTokens, not change the model or the rubric). Say which it is.
+    if (envelope.data.stop_reason === 'max_tokens') {
+      throw new JudgeAdapterError(
+        'TRUNCATED_RESPONSE',
+        `The judge reply was cut off at the ${o.maxTokens}-token output cap.`,
       );
     }
     return text;
