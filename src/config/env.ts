@@ -281,7 +281,7 @@ export function getJudgeConfig(env: Env = process.env): JudgeConfig {
   return result.data;
 }
 
-// ── LAZY: McpTargetPort (target MCP agent under test) ──
+// ── LAZY: McpTargetPort (target MCP SERVER to probe — not the user's agent; see ADR-0006) ──
 const McpEnvSchema = z
   .object({
     MCP_TARGET_URL: httpUrl,

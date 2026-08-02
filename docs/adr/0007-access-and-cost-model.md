@@ -68,12 +68,20 @@ as the primary cost control.**
 - **Email-OTP sign-in** — an account requires a deliverable, verified address, so
   the allowance cannot be reset by minting throwaway accounts at zero effort.
 - **Sign-up rate limiting** — bounds automated account creation.
-- **A global Anthropic spend cap** — when hit, live runs **pause gracefully**
-  rather than failing raggedly or overspending. The existing fail-safe already
-  has the right shape: `resolveLiveDetector()` returning `null` makes
-  `startLiveRun` refuse with a typed `JUDGE_UNAVAILABLE` outcome, and the UI says
-  live runs are unavailable instead of pretending. A budget stop reuses that
-  path.
+- **A global Anthropic spend cap** — when hit, live runs should **pause
+  gracefully** rather than failing raggedly or overspending.
+
+  > **Correction (2026-08-01).** As accepted, this bullet said "the existing
+  > fail-safe already has the right shape: `resolveLiveDetector()` returning
+  > `null` makes `startLiveRun` refuse with a typed `JUDGE_UNAVAILABLE` outcome".
+  > **That code does not exist on `main`.** It was removed with the outbound
+  > re-scope (#86) and survives only on `archive/outbound-pipeline`; `src/live/`
+  > is absent from `main` entirely. The ADR described a mechanism to reuse, and
+  > then the mechanism was deleted without the ADR being updated — so this
+  > backstop has no implementation to lean on and must be **built**, not reused.
+  > The decision (pause rather than overspend) stands; the claim that the path
+  > already existed did not survive contact with the code. The shape is still the
+  > right one and the archived implementation is the reference.
 
 ### Future, explicitly not built
 
@@ -87,9 +95,10 @@ ceiling. Nothing about it is designed, priced, or built.
 since)` exists on the repository port and its Supabase adapter, and **has no
 caller**.
 
-**PR #80, unmerged, implements a DIFFERENT model**: `LIVE_RUN_CAP` (default 20)
-per `LIVE_RUN_WINDOW_HOURS` (default 24) — a rolling window, which this ADR
-supersedes. Reconciling it means:
+**PR #80 implemented a DIFFERENT model** — `LIVE_RUN_CAP` (default 20) per
+`LIVE_RUN_WINDOW_HOURS` (default 24), a rolling window, which this ADR
+supersedes. **#80 was closed unmerged** when Slice 3 was re-scoped to ADR-0006;
+its code is preserved on `archive/outbound-pipeline`. Reconciling it means:
 
 - treating the allowance as a **total**, i.e. counting from account creation
   rather than from a rolling window boundary (the existing `countRunsSince`

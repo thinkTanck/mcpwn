@@ -3,14 +3,21 @@ import { z } from 'zod';
 /**
  * Probe endpoint validation.
  *
- * A user-supplied MCP endpoint is external input, so it is validated with Zod
- * before anything is sent to it (CLAUDE.md: Zod on all external inputs). The
- * rules exist for security, not tidiness:
+ * SCOPE, since this module predates the inversion: under
+ * [ADR-0006](docs/adr/0006-mcpwn-is-the-mcp-server.md) MCPwn IS the MCP server
+ * and the user's agent connects TO us. This is **not** that path. It keeps the
+ * narrower job of probing a target MCP *server* — the ASI02 / ASI05 surfaces —
+ * so the endpoint here is a server we are pointed at, never the user's agent,
+ * and there is no user API key anywhere in this flow.
  *
- *  - **HTTPS only.** The bearer credential rides an `Authorization` header; over plain
+ * A supplied MCP endpoint is external input, so it is validated with Zod before
+ * anything is sent to it (CLAUDE.md: Zod on all external inputs). The rules
+ * exist for security, not tidiness:
+ *
+ *  - **HTTPS only.** A bearer credential rides an `Authorization` header; over plain
  *    `http:` it would cross the wire in clear. The single exception is a
  *    loopback host (`localhost`, `127.0.0.1`, `[::1]`) so a developer can point
- *    MCPwn at an agent on their own machine.
+ *    MCPwn at a server on their own machine.
  *  - **No credentials in the URL.** `https://user:pass@host/` would smuggle a
  *    secret into somewhere it could be logged or persisted.
  *  - **No opaque/unparseable URLs.**
@@ -30,7 +37,7 @@ export function isLoopbackHost(hostname: string): boolean {
 /** Parse + validate a probe endpoint, returning a user-readable reason on failure. */
 export function checkEndpoint(raw: string): { ok: true; url: URL } | { ok: false; reason: string } {
   const trimmed = raw.trim();
-  if (trimmed === '') return { ok: false, reason: 'Enter the MCP endpoint URL of your agent.' };
+  if (trimmed === '') return { ok: false, reason: 'Enter the URL of the MCP server to probe.' };
 
   let url: URL;
   try {
@@ -46,7 +53,7 @@ export function checkEndpoint(raw: string): { ok: true; url: URL } | { ok: false
     return {
       ok: false,
       reason:
-        'Remove the username and password from the URL. Send your key in the API key field instead.',
+        'Remove the username and password from the URL. Credentials belong in a header, never in the address.',
     };
   }
 
