@@ -19,11 +19,9 @@ describe('ConnectScreen · mode tabs', () => {
     expect(live).toHaveAttribute('aria-pressed', 'false');
   });
 
-  it('switches to LIVE and reveals the BYOK agent form', async () => {
+  it('switches the aria-pressed mode tabs', async () => {
     const user = userEvent.setup();
     render(<ConnectScreen />);
-    // SAMPLE default: no endpoint field yet.
-    expect(screen.queryByLabelText(/MCP ENDPOINT/i)).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /LIVE · bring your agent/i }));
     expect(screen.getByRole('button', { name: /LIVE · bring your agent/i })).toHaveAttribute(
       'aria-pressed',
@@ -33,21 +31,20 @@ describe('ConnectScreen · mode tabs', () => {
       'aria-pressed',
       'false',
     );
-    expect(screen.getByLabelText(/MCP ENDPOINT/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/MODEL ID/i)).toBeInTheDocument();
+    // What live mode reveals is covered by ConnectScreen.live-disabled.test.tsx:
+    // an interim notice, with no endpoint field and no key field (ADR-0006).
   });
 });
 
-describe('ConnectScreen · BYOK key field', () => {
-  it('renders a masked, labelled key input with the server-side-only helper', async () => {
-    const user = userEvent.setup();
-    render(<ConnectScreen />);
-    await user.click(screen.getByRole('button', { name: /LIVE · bring your agent/i }));
-    const key = screen.getByLabelText(/API KEY \/ TOKEN/i);
-    expect(key).toHaveAttribute('type', 'password');
-    expect(screen.getByText(/Used server-side only, never stored\./i)).toBeInTheDocument();
-  });
-});
+/**
+ * The key-field suite is deliberately GONE, not moved. It asserted a masked API
+ * key input and the copy "Used server-side only, never stored" — a promise about
+ * a credential ADR-0006 decided we will never take. The behaviour it locked in is
+ * the behaviour being removed, so the test goes with it.
+ *
+ * Its replacement asserts the opposite: `ConnectScreen.live-disabled.test.tsx`
+ * proves no key field and no such claim exists.
+ */
 
 describe('ConnectScreen · detector', () => {
   it('shows the BLIND · LOCKED detector, never user-swappable', () => {
@@ -94,28 +91,19 @@ describe('ConnectScreen · Core-7 category checklist', () => {
 });
 
 describe('ConnectScreen · launch + sign-in gate', () => {
-  it('links the sample launch to the replay and labels the live launch by mode', async () => {
-    const user = userEvent.setup();
+  it('links the sample launch straight to the replay', () => {
     render(<ConnectScreen />);
-    // Sample is a fixed playback: the launch is a link straight to the replay.
+    // Sample is a fixed playback: the launch is a link, not a form submission.
     expect(screen.getByRole('link', { name: /PLAY SAMPLE RUN/i })).toHaveAttribute(
       'href',
       '/runs/sample',
     );
-    await user.click(screen.getByRole('button', { name: /LIVE · bring your agent/i }));
-    expect(screen.getByRole('button', { name: /LAUNCH LIVE RUN/i })).toBeInTheDocument();
   });
 
-  it('disables the live launch until endpoint, key, and a category are provided', async () => {
-    const user = userEvent.setup();
-    render(<ConnectScreen signedIn />);
-    await user.click(screen.getByRole('button', { name: /LIVE · bring your agent/i }));
-    const launch = screen.getByRole('button', { name: /LAUNCH LIVE RUN/i });
-    expect(launch).toBeDisabled();
-    await user.type(screen.getByLabelText(/MCP ENDPOINT/i), 'https://a.example/mcp');
-    await user.type(screen.getByLabelText(/API KEY \/ TOKEN/i), 'sk-test');
-    expect(launch).toBeEnabled();
-  });
+  // The live-launch readiness rule ("enabled once endpoint, key and a category
+  // are present") described a form that no longer exists. Live mode offers no
+  // launch control at all while it is interim-disabled; see
+  // ConnectScreen.live-disabled.test.tsx.
 
   it('shows the amber sign-in gate only when live and signed-out', async () => {
     const user = userEvent.setup();
