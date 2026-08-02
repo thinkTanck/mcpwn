@@ -93,3 +93,24 @@ export function parseSpikeOptions(argv: readonly string[]): SpikeCliOptions {
     ...(runId === undefined ? {} : { runId }),
   };
 }
+
+/**
+ * Pick a trace path that does not already exist, suffixing `-2`, `-3`, … .
+ *
+ * A client's MCP config names ONE `--trace` path and is reused run after run,
+ * but each session is a separate observation and the spike explicitly expects
+ * several of each framing. Overwriting run 1 with run 3 would destroy the only
+ * data this experiment produces, silently.
+ */
+export function uniqueTracePath(requested: string, exists: (path: string) => boolean): string {
+  if (!exists(requested)) return requested;
+  const dot = requested.lastIndexOf('.');
+  const slash = Math.max(requested.lastIndexOf('/'), requested.lastIndexOf('\\'));
+  const hasExtension = dot > slash + 1;
+  const stem = hasExtension ? requested.slice(0, dot) : requested;
+  const extension = hasExtension ? requested.slice(dot) : '';
+  for (let n = 2; ; n += 1) {
+    const candidate = `${stem}-${n}${extension}`;
+    if (!exists(candidate)) return candidate;
+  }
+}

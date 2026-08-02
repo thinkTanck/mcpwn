@@ -1,4 +1,9 @@
-import { SPIKE_USAGE, SpikeOptionsError, parseSpikeOptions } from '@/spike/asi01/options';
+import {
+  SPIKE_USAGE,
+  SpikeOptionsError,
+  parseSpikeOptions,
+  uniqueTracePath,
+} from '@/spike/asi01/options';
 
 /**
  * The operator-facing flags. Small on purpose: the spike has no auth, no
@@ -67,5 +72,23 @@ describe('spike/asi01 options', () => {
     expect(SPIKE_USAGE).toContain('--framing');
     expect(SPIKE_USAGE).toContain('malicious');
     expect(SPIKE_USAGE).toContain('benign');
+  });
+});
+
+describe('spike/asi01 options: a recorded run is never overwritten', () => {
+  it('uses the requested path when nothing is there', () => {
+    expect(uniqueTracePath('out/trace.json', () => false)).toBe('out/trace.json');
+  });
+
+  it('suffixes rather than clobbering an existing record', () => {
+    // A client config names one --trace path and is reused run after run. Each
+    // session is one observation, and silently overwriting run 1 with run 3 is
+    // the cheapest way to lose the only data this experiment produces.
+    const taken = new Set(['out/trace.json', 'out/trace-2.json']);
+    expect(uniqueTracePath('out/trace.json', (p) => taken.has(p))).toBe('out/trace-3.json');
+  });
+
+  it('suffixes a path with no extension too', () => {
+    expect(uniqueTracePath('trace', (p) => p === 'trace')).toBe('trace-2');
   });
 });

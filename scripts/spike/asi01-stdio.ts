@@ -17,9 +17,14 @@
  *        --import ./scripts/spike/register-ts-alias.mjs \
  *        scripts/spike/asi01-stdio.ts --framing malicious
  */
-import { createWriteStream } from 'node:fs';
+import { createWriteStream, existsSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
-import { SPIKE_USAGE, SpikeOptionsError, parseSpikeOptions } from '@/spike/asi01/options';
+import {
+  SPIKE_USAGE,
+  SpikeOptionsError,
+  parseSpikeOptions,
+  uniqueTracePath,
+} from '@/spike/asi01/options';
 import { SpikeMcpServer } from '@/spike/asi01/server';
 import { serveStdio } from '@/spike/asi01/stdio';
 import { buildSurface } from '@/spike/asi01/surface';
@@ -57,8 +62,10 @@ async function main(): Promise<number> {
     logLine: log,
   });
 
-  await writeFile(options.tracePath, `${JSON.stringify(trace, null, 2)}\n`, 'utf8');
-  log(`# session ended; recorded ${trace.steps.length} steps to ${options.tracePath}`);
+  // Never clobber an earlier session: each run is one observation.
+  const tracePath = uniqueTracePath(options.tracePath, existsSync);
+  await writeFile(tracePath, `${JSON.stringify(trace, null, 2)}\n`, 'utf8');
+  log(`# session ended; recorded ${trace.steps.length} steps to ${tracePath}`);
   logSink?.end();
   return 0;
 }
