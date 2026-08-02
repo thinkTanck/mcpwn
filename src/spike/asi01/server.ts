@@ -29,7 +29,6 @@ import {
   parseInitializeParams,
   parseListToolsParams,
   RPC_INVALID_PARAMS,
-  RPC_METHOD_NOT_FOUND,
   type InboundRequest,
   type JsonRpcOutbound,
 } from '@/spike/asi01/protocol';
