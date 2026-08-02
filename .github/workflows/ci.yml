@@ -50,9 +50,6 @@ jobs:
       - name: E2E + accessibility
         run: npm run test:e2e
 
-      - name: Lighthouse CI (CWV budgets)
-        run: npx lhci autorun
-
       - name: Dependency audit
         run: npm run audit
 
@@ -64,10 +61,85 @@ jobs:
           path: playwright-report/
           if-no-files-found: ignore
 
+  # The list of audited routes lives in ONE place — lighthouserc.json — and is
+  # read back out here so the matrix cannot drift from what the budgets cover.
+  # (`tests/unit/config/lighthouse-gate.test.ts` holds that list to the routes
+  # CLAUDE.md documents, and holds every one of them to a budget entry.)
+  cwv-routes:
+    name: CWV route list
+    runs-on: ubuntu-latest
+    outputs:
+      urls: ${{ steps.read.outputs.urls }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Read the audited routes from lighthouserc.json
+        id: read
+        run: echo "urls=$(jq -c '.ci.collect.url' lighthouserc.json)" >> "$GITHUB_OUTPUT"
+
+  # WHY A MATRIX, not another step in build-test: the gate is a median of five
+  # devtools-throttled runs per route (ADR-0008), so seven routes in series would
+  # be ~23 min bolted onto every push. Fanned out one runner per route, each job
+  # is install + build + its five runs and MEASURES 164-230s, so the CWV gate
+  # costs the same wall clock whether it covers one route or seven, and it keeps
+  # running on EVERY push and PR — no narrowed trigger, no sampled subset.
+  #
+  # Measured: `Build & Test` on main was 331-395s WITH the single-route Lighthouse
+  # step inside it. Without it, it is 212-229s, and the CWV jobs run beside it.
+  # Total CI wall clock went DOWN (~6.5 min to ~4 min) while route coverage went
+  # 1 -> 7. What it costs is runner-minutes: ~30 instead of ~6.
+  lighthouse:
+    name: CWV ${{ matrix.url }}
+    runs-on: ubuntu-latest
+    needs: cwv-routes
+    strategy:
+      # One route's budget failing must not cancel the other six — a partial
+      # picture is how a regression gets attributed to the wrong screen.
+      fail-fast: false
+      matrix:
+        url: ${{ fromJSON(needs.cwv-routes.outputs.urls) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      # `--collect.url` REPLACES the config's url array (yargs: an explicit flag
+      # beats a `.config()` default), so each job measures exactly its own route
+      # while the per-route budgets in `assert.assertMatrix` still apply — an
+      # entry whose pattern matches nothing in the set is skipped, not failed.
+      - name: Lighthouse CI (median of 5, devtools throttling)
+        run: npx lhci autorun --collect.url="${{ matrix.url }}"
+
+      # The raw LHRs are how a budget gets set from a measurement instead of a
+      # guess: `docs/perf/cwv.md`'s numbers come out of these, not off a laptop.
+      - name: Upload Lighthouse results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: lighthouse-${{ strategy.job-index }}
+          path: .lighthouseci/
+          # `.lighthouseci` is a dotfile, and upload-artifact has skipped hidden
+          # paths by default since v4.4 — without this the step reports success
+          # and uploads nothing.
+          include-hidden-files: true
+          if-no-files-found: error
+
   ci-gate:
     name: CI Gate
     runs-on: ubuntu-latest
-    needs: build-test
+    needs: [build-test, lighthouse]
     steps:
       - name: All gates passed
         run: echo "All gates passed."
