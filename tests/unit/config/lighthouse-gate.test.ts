@@ -137,3 +137,17 @@ describe('lighthouserc.json — budgets stay at or under the CWV ceiling', () =>
     expect(entry.assertions['categories:accessibility']).toEqual(['error', { minScore: 1 }]);
   });
 });
+
+/**
+ * A budget is only honest if the measurement it came from is written down. Add a
+ * route to the gate and its numbers have to land in `docs/perf/cwv.md` too,
+ * otherwise the next person tuning that budget has nothing to tune it against
+ * and will reach for whatever makes the build go green.
+ */
+describe('docs/perf/cwv.md records a measurement for every audited route', () => {
+  const doc = readFileSync(resolve(process.cwd(), 'docs/perf/cwv.md'), 'utf8');
+
+  it.each(ROUTES)('documents %s', (url) => {
+    expect(doc).toContain(`\`${new URL(url).pathname}\``);
+  });
+});

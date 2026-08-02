@@ -22,12 +22,12 @@
           "matchingUrlPattern": "^http://localhost:3000/$",
           "aggregationMethod": "median",
           "assertions": {
-            "categories:performance": ["error", { "minScore": 0.9 }],
+            "categories:performance": ["error", { "minScore": 0.92 }],
             "categories:accessibility": ["error", { "minScore": 1 }],
             "categories:best-practices": ["warn", { "minScore": 0.9 }],
             "categories:seo": ["warn", { "minScore": 0.9 }],
-            "largest-contentful-paint": ["error", { "maxNumericValue": 2500 }],
-            "cumulative-layout-shift": ["error", { "maxNumericValue": 0.1 }],
+            "largest-contentful-paint": ["error", { "maxNumericValue": 2000 }],
+            "cumulative-layout-shift": ["error", { "maxNumericValue": 0.01 }],
             "total-blocking-time": ["warn", { "maxNumericValue": 200 }]
           }
         },
@@ -35,12 +35,12 @@
           "matchingUrlPattern": "^http://localhost:3000/sign-in$",
           "aggregationMethod": "median",
           "assertions": {
-            "categories:performance": ["error", { "minScore": 0.9 }],
+            "categories:performance": ["error", { "minScore": 0.94 }],
             "categories:accessibility": ["error", { "minScore": 1 }],
             "categories:best-practices": ["warn", { "minScore": 0.9 }],
             "categories:seo": ["warn", { "minScore": 0.9 }],
-            "largest-contentful-paint": ["error", { "maxNumericValue": 2500 }],
-            "cumulative-layout-shift": ["error", { "maxNumericValue": 0.1 }],
+            "largest-contentful-paint": ["error", { "maxNumericValue": 1900 }],
+            "cumulative-layout-shift": ["error", { "maxNumericValue": 0.01 }],
             "total-blocking-time": ["warn", { "maxNumericValue": 200 }]
           }
         },
@@ -48,12 +48,12 @@
           "matchingUrlPattern": "^http://localhost:3000/connect$",
           "aggregationMethod": "median",
           "assertions": {
-            "categories:performance": ["error", { "minScore": 0.9 }],
+            "categories:performance": ["error", { "minScore": 0.94 }],
             "categories:accessibility": ["error", { "minScore": 1 }],
             "categories:best-practices": ["warn", { "minScore": 0.9 }],
             "categories:seo": ["warn", { "minScore": 0.9 }],
-            "largest-contentful-paint": ["error", { "maxNumericValue": 2500 }],
-            "cumulative-layout-shift": ["error", { "maxNumericValue": 0.1 }],
+            "largest-contentful-paint": ["error", { "maxNumericValue": 1950 }],
+            "cumulative-layout-shift": ["error", { "maxNumericValue": 0.01 }],
             "total-blocking-time": ["warn", { "maxNumericValue": 200 }]
           }
         },
@@ -61,12 +61,12 @@
           "matchingUrlPattern": "^http://localhost:3000/runs/",
           "aggregationMethod": "median",
           "assertions": {
-            "categories:performance": ["error", { "minScore": 0.9 }],
+            "categories:performance": ["error", { "minScore": 0.92 }],
             "categories:accessibility": ["error", { "minScore": 1 }],
             "categories:best-practices": ["warn", { "minScore": 0.9 }],
             "categories:seo": ["warn", { "minScore": 0.9 }],
-            "largest-contentful-paint": ["error", { "maxNumericValue": 2500 }],
-            "cumulative-layout-shift": ["error", { "maxNumericValue": 0.1 }],
+            "largest-contentful-paint": ["error", { "maxNumericValue": 2000 }],
+            "cumulative-layout-shift": ["error", { "maxNumericValue": 0.01 }],
             "total-blocking-time": ["warn", { "maxNumericValue": 200 }]
           }
         },
@@ -74,12 +74,12 @@
           "matchingUrlPattern": "^http://localhost:3000/leaderboard$",
           "aggregationMethod": "median",
           "assertions": {
-            "categories:performance": ["error", { "minScore": 0.9 }],
+            "categories:performance": ["error", { "minScore": 0.92 }],
             "categories:accessibility": ["error", { "minScore": 1 }],
             "categories:best-practices": ["warn", { "minScore": 0.9 }],
             "categories:seo": ["warn", { "minScore": 0.9 }],
-            "largest-contentful-paint": ["error", { "maxNumericValue": 2500 }],
-            "cumulative-layout-shift": ["error", { "maxNumericValue": 0.1 }],
+            "largest-contentful-paint": ["error", { "maxNumericValue": 2050 }],
+            "cumulative-layout-shift": ["error", { "maxNumericValue": 0.01 }],
             "total-blocking-time": ["warn", { "maxNumericValue": 200 }]
           }
         },
@@ -87,12 +87,12 @@
           "matchingUrlPattern": "^http://localhost:3000/findings/",
           "aggregationMethod": "median",
           "assertions": {
-            "categories:performance": ["error", { "minScore": 0.9 }],
+            "categories:performance": ["error", { "minScore": 0.95 }],
             "categories:accessibility": ["error", { "minScore": 1 }],
             "categories:best-practices": ["warn", { "minScore": 0.9 }],
             "categories:seo": ["warn", { "minScore": 0.9 }],
-            "largest-contentful-paint": ["error", { "maxNumericValue": 2500 }],
-            "cumulative-layout-shift": ["error", { "maxNumericValue": 0.1 }],
+            "largest-contentful-paint": ["error", { "maxNumericValue": 1950 }],
+            "cumulative-layout-shift": ["error", { "maxNumericValue": 0.01 }],
             "total-blocking-time": ["warn", { "maxNumericValue": 200 }]
           }
         },
@@ -100,12 +100,12 @@
           "matchingUrlPattern": "^http://localhost:3000/threats$",
           "aggregationMethod": "median",
           "assertions": {
-            "categories:performance": ["error", { "minScore": 0.9 }],
+            "categories:performance": ["error", { "minScore": 0.94 }],
             "categories:accessibility": ["error", { "minScore": 1 }],
             "categories:best-practices": ["warn", { "minScore": 0.9 }],
             "categories:seo": ["warn", { "minScore": 0.9 }],
-            "largest-contentful-paint": ["error", { "maxNumericValue": 2500 }],
-            "cumulative-layout-shift": ["error", { "maxNumericValue": 0.1 }],
+            "largest-contentful-paint": ["error", { "maxNumericValue": 2000 }],
+            "cumulative-layout-shift": ["error", { "maxNumericValue": 0.01 }],
             "total-blocking-time": ["warn", { "maxNumericValue": 200 }]
           }
         }
