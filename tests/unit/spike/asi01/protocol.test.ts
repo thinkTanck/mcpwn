@@ -132,9 +132,12 @@ describe('spike/asi01 protocol: response envelopes', () => {
   });
 
   it('exposes the standard JSON-RPC codes it answers with', () => {
-    expect([RPC_PARSE_ERROR, RPC_INVALID_REQUEST, RPC_METHOD_NOT_FOUND, RPC_INVALID_PARAMS]).toEqual(
-      [-32700, -32600, -32601, -32602],
-    );
+    expect([
+      RPC_PARSE_ERROR,
+      RPC_INVALID_REQUEST,
+      RPC_METHOD_NOT_FOUND,
+      RPC_INVALID_PARAMS,
+    ]).toEqual([-32700, -32600, -32601, -32602]);
   });
 
   it('carries a typed code on every protocol error it raises', () => {

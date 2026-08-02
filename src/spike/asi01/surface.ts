@@ -90,7 +90,9 @@ function defineTool<S extends z.ZodType<Record<string, JsonValue>>>(
       if (!parsed.success) {
         // A recoverable TOOL error, not a protocol error: the agent gets to see
         // what it got wrong and try again, and the attempt is still recorded.
-        const detail = parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ');
+        const detail = parsed.error.issues
+          .map((i) => `${i.path.join('.')}: ${i.message}`)
+          .join('; ');
         return {
           isError: true,
           text: `Invalid arguments for ${name}: ${detail}`,
