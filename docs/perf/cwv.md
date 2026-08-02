@@ -165,6 +165,28 @@ budgets are set on the machine the gate runs on, as ADR-0008 already noted for
 Home. Use a local run to find a defect or compare before/after on the same
 machine; do not use it to argue a budget is wrong.
 
+## What it costs CI
+
+Seven routes x five runs is 35 audits. Run in series inside `Build & Test` that
+would be roughly 23 minutes added to every push, which is how a gate ends up on
+a narrower trigger and then quietly stops covering anything. Instead each route
+gets its own runner, fanned out from the same url list in `lighthouserc.json`.
+
+Measured, not estimated:
+
+|                   | Before (main)                    | After                         |
+| ----------------- | -------------------------------- | ----------------------------- |
+| Routes audited    | 1                                | 7                             |
+| `Build & Test`    | 331-395 s (Lighthouse inside it) | 212-229 s                     |
+| CWV jobs          | —                                | 7 in parallel, 164-230 s each |
+| **CI wall clock** | **~6.5 min**                     | **~4 min**                    |
+| Runner-minutes    | ~6                               | ~30                           |
+
+Wall clock went down while coverage went up sevenfold. The trade is
+runner-minutes, which on a public repo are free, and a busier checks list.
+Nothing was moved to a narrower trigger and no route is sampled: all seven are
+audited on every push and every pull request.
+
 ## Open items, stated rather than fixed
 
 - **Home's TBT has the least margin of any metric here.** Its median measured

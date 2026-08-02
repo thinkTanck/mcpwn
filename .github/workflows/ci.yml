@@ -79,12 +79,16 @@ jobs:
         run: echo "urls=$(jq -c '.ci.collect.url' lighthouserc.json)" >> "$GITHUB_OUTPUT"
 
   # WHY A MATRIX, not another step in build-test: the gate is a median of five
-  # devtools-throttled runs per route (ADR-0008), ~3 min of wall clock each. Seven
-  # routes in series is ~23 min bolted onto every push. Fanned out one runner per
-  # route, each job is build (~2 min) + its five runs, so the CWV gate costs about
-  # 6 min of wall clock no matter how many routes it covers, and it keeps running
-  # on EVERY push and PR — no narrowed trigger, no sampled subset. The cost is
-  # runner-minutes (7 jobs instead of 1), not developer minutes.
+  # devtools-throttled runs per route (ADR-0008), so seven routes in series would
+  # be ~23 min bolted onto every push. Fanned out one runner per route, each job
+  # is install + build + its five runs and MEASURES 164-230s, so the CWV gate
+  # costs the same wall clock whether it covers one route or seven, and it keeps
+  # running on EVERY push and PR — no narrowed trigger, no sampled subset.
+  #
+  # Measured: `Build & Test` on main was 331-395s WITH the single-route Lighthouse
+  # step inside it. Without it, it is 212-229s, and the CWV jobs run beside it.
+  # Total CI wall clock went DOWN (~6.5 min to ~4 min) while route coverage went
+  # 1 -> 7. What it costs is runner-minutes: ~30 instead of ~6.
   lighthouse:
     name: CWV ${{ matrix.url }}
     runs-on: ubuntu-latest
