@@ -14,32 +14,33 @@ of five, on a GitHub `ubuntu-latest` runner — the machine the gate runs on. Th
 are read out of the raw LHRs, which each CWV job uploads as a
 `lighthouse-<n>` artifact.
 
-**Three** independent CI executions are reported side by side, because a single
+**Four** independent CI executions are reported side by side, because a single
 median is still a single reading of a median. Where they disagree, the budget is
-derived from the **worst** of the three.
+derived from the **worst** of the four.
 
 ## Measured (median of 5 · ubuntu-latest · devtools throttling)
 
 Executions A and B are the two attempts of workflow run `30727190996` (commit
-`e2c27bd`, still on the CLAUDE.md ceilings). Execution C is run `30727679033`
-(commit `65b075d`) — the first run under the derived budgets below, so it is
-the check that they hold, not just that they were computed.
+`e2c27bd`, still on the CLAUDE.md ceilings). C is run `30727679033` (commit
+`65b075d`) and D is run `30727952613` (commit `434fb8e`), both under the
+derived budgets below — so C and D are the check that the budgets hold, not
+just that they were computed.
 
-| Route              | Perf score         | LCP (ms)           | CLS                      | TBT (ms)        | A11y |
-| ------------------ | ------------------ | ------------------ | ------------------------ | --------------- | ---- |
-| `/`                | 0.97 / 0.95 / 0.97 | 1679 / 1717 / 1684 | 0.0032 / 0.0032 / 0.0032 | 147 / 208 / 146 | 1.00 |
-| `/sign-in`         | 0.97 / 0.98 / 0.98 | 1640 / 1606 / 1625 | 0.0032 / 0.0032 / 0.0032 | 124 / 82 / 93   | 1.00 |
-| `/connect`         | 0.97 / 0.97 / 0.99 | 1686 / 1693 / 1600 | 0.0032 / 0.0032 / 0.0032 | 150 / 138 / 51  | 1.00 |
-| `/runs/sample`     | 0.95 / 0.96 / 0.97 | 1729 / 1706 / 1635 | 0.0032 / 0.0032 / 0.0032 | 164 / 151 / 87  | 1.00 |
-| `/leaderboard`     | 0.95 / 0.96 / 0.97 | 1769 / 1765 / 1700 | 0.0032 / 0.0032 / 0.0032 | 193 / 164 / 131 | 1.00 |
-| `/findings/sample` | 0.98 / 0.99 / 0.97 | 1680 / 1620 / 1655 | 0.0032 / 0.0032 / 0.0032 | 120 / 75 / 126  | 1.00 |
-| `/threats`         | 0.97 / 0.97 / 0.97 | 1715 / 1698 / 1695 | 0.0032 / 0.0032 / 0.0032 | 133 / 142 / 126 | 1.00 |
+| Route              | Perf score                | LCP (ms)                  | CLS                               | TBT (ms)              | A11y |
+| ------------------ | ------------------------- | ------------------------- | --------------------------------- | --------------------- | ---- |
+| `/`                | 0.97 / 0.95 / 0.97 / 0.97 | 1679 / 1717 / 1684 / 1678 | 0.0032 / 0.0032 / 0.0032 / 0.0032 | 147 / 208 / 146 / 143 | 1.00 |
+| `/sign-in`         | 0.97 / 0.98 / 0.98 / 0.97 | 1640 / 1606 / 1625 / 1631 | 0.0032 / 0.0032 / 0.0032 / 0.0032 | 124 / 82 / 93 / 103   | 1.00 |
+| `/connect`         | 0.97 / 0.97 / 0.99 / 0.96 | 1686 / 1693 / 1600 / 1719 | 0.0032 / 0.0032 / 0.0032 / 0.0032 | 150 / 138 / 51 / 166  | 1.00 |
+| `/runs/sample`     | 0.95 / 0.96 / 0.97 / 0.97 | 1729 / 1706 / 1635 / 1666 | 0.0032 / 0.0032 / 0.0032 / 0.0032 | 164 / 151 / 87 / 132  | 1.00 |
+| `/leaderboard`     | 0.95 / 0.96 / 0.97 / 0.96 | 1769 / 1765 / 1700 / 1715 | 0.0032 / 0.0032 / 0.0032 / 0.0032 | 193 / 164 / 131 / 145 | 1.00 |
+| `/findings/sample` | 0.98 / 0.99 / 0.97 / 0.98 | 1680 / 1620 / 1655 / 1658 | 0.0032 / 0.0032 / 0.0032 / 0.0032 | 120 / 75 / 126 / 120  | 1.00 |
+| `/threats`         | 0.97 / 0.97 / 0.97 / 0.97 | 1715 / 1698 / 1695 / 1694 | 0.0032 / 0.0032 / 0.0032 / 0.0032 | 133 / 142 / 126 / 119 | 1.00 |
 
-Best-practices and SEO measured 1.00 on every route in all three executions.
+Best-practices and SEO measured 1.00 on every route in all four executions.
 
-The medians are stable: across the three executions no route's LCP median moved
-by more than 93 ms, no performance median by more than 0.02, and CLS did not
-move at all.
+The medians are stable: across the four executions no route's LCP median moved
+by more than 119 ms (`/connect`, 1600 to 1719), no performance median by more
+than 0.03, and CLS did not move at all.
 
 `INP` is a field metric and cannot be produced by a lab run at all; **TBT is the
 lab proxy** reported in its place, which is why the DoD line reads
@@ -64,9 +65,9 @@ and signed in it needs a session no CI run has, so auditing it would measure
 `lighthouserc.json` asserts these per route, via `assert.assertMatrix`. They are
 **derived from the table above, not chosen**:
 
-- **LCP** — the **slowest** of the three measured medians, `+15%`, rounded up to
-  the next 50 ms. Fifteen percent is about 2.5x the largest spread seen between
-  executions (93 ms, on `/connect`), so ordinary runner noise cannot trip it
+- **LCP** — the **slowest** of the four measured medians, `+15%`, rounded up to
+  the next 50 ms. Fifteen percent is about 2x the largest spread seen between
+  executions (119 ms, on `/connect`), so ordinary runner noise cannot trip it
   while a real regression can. Every route's budget lands
   450-600 ms _under_ the 2500 ms web.dev line, so the gate now fails long
   before the app stops being "good".
@@ -74,7 +75,7 @@ and signed in it needs a session no CI run has, so auditing it would measure
   run, a number set by the shell rather than by any screen. `0.01` is 3x the
   measurement and 10x tighter than the 0.1 ceiling; a genuine new layout shift
   would clear it immediately.
-- **Performance score** — the **lowest** of the three measured medians minus
+- **Performance score** — the **lowest** of the four measured medians minus
   `0.03`. Every route therefore sits at or above the 0.90 the gate previously
   demanded of Home; none was relaxed.
 - **TBT** — left at the `warn` / 200 ms that
@@ -89,7 +90,7 @@ and signed in it needs a session no CI run has, so auditing it would measure
 | ---------------- | ---------- | ---------- | ----------- | ---- |
 | `/`              | 2000 ms    | 0.01       | 0.92        | warn |
 | `/sign-in`       | 1900 ms    | 0.01       | 0.94        | warn |
-| `/connect`       | 1950 ms    | 0.01       | 0.94        | warn |
+| `/connect`       | 2000 ms    | 0.01       | 0.93        | warn |
 | `/runs/[id]`     | 2000 ms    | 0.01       | 0.92        | warn |
 | `/leaderboard`   | 2050 ms    | 0.01       | 0.92        | warn |
 | `/findings/[id]` | 1950 ms    | 0.01       | 0.94        | warn |
@@ -117,8 +118,8 @@ single lever that would move all seven at once. Not pulled here.
 ### The cold first run, and what it is not
 
 `lhci` starts `npm run start` and begins collecting the moment the port opens,
-so run #1 of each route hits a cold server. Across the 21 route-executions
-above (7 routes x 3 executions), **run #1 was the slowest in 19**. In the
+so run #1 of each route hits a cold server. Across the 28 route-executions
+above (7 routes x 4 executions), **run #1 was the slowest in 26**. In the
 remaining two (`/sign-in` and `/findings/sample` in execution B) there was no
 cold penalty to find at all — the five runs spanned 32 ms and 29 ms
 respectively, so which one came out "worst" was noise.
@@ -166,9 +167,10 @@ machine; do not use it to argue a budget is wrong.
 
 ## Open items, stated rather than fixed
 
-- **Home's TBT has no margin.** Its median measured 147 ms, 208 ms and 146 ms
-  across the three executions, straddling the 200 ms warn line, while the other
-  six sit between 51 ms and 193 ms. Home is the only screen with a
+- **Home's TBT has the least margin of any metric here.** Its median measured
+  147, 208, 146 and 143 ms across the four executions — one of them over the
+  200 ms warn line — while the other six sit between 51 ms and 193 ms. Home is
+  the only screen with a
   `requestAnimationFrame` canvas (`SentinelCore`), already cut down once in
   ADR-0008. TBT was
   deliberately **not** promoted from `warn` to `error`: doing so honestly would
