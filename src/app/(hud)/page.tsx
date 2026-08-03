@@ -16,18 +16,34 @@ import type { RunResult, Step } from '@/contract';
  */
 
 /**
- * Illustrative, leakage-separated FIXTURE metrics for the hero stat. NOT measured
- * product accuracy and NOT a benchmark — the honest provenance is rendered beside
- * them.
+ * MEASURED detector accuracy — leakage-separated, taken verbatim from a real
+ * `npm run eval:measure` run and never rounded or adjusted.
  *
- * REPLACING THESE: run `npm run eval:measure`, which drives the eval harness over
- * every labeled realization with the real validated judge and writes a dated
- * report. Take that report's aggregate precision and recall verbatim, and carry
- * its provenance line ("measured · N labeled fixtures · date") into the chip
- * below. The number and its provenance move together or not at all — a measured
- * figure with no date is the same untrustworthy claim as an invented one.
+ * Precision 0.9565 is 22/23: 22 true positives and one false positive across the
+ * whole labeled set. Recall 1.0000 is 22/22 with ZERO false negatives, in every
+ * category, on all five passes — the detector did not miss a single real
+ * compromise. The only error is an over-flag.
+ *
+ * The judge that produced this is FROZEN (`docs/adr/0009-compromise-vs-exposure.md`):
+ * `claude-haiku-4-5`, temperature 0, and the `SYSTEM_RUBRIC` constant as it
+ * stands. The number holds for that configuration and no other, which is why the
+ * provenance below names the judge as well as the date.
+ *
+ * REPLACING THESE: re-run `npm run eval:measure` (five passes, modal verdict per
+ * realization) and take the aggregate verbatim. The figures and `METRICS_PROVENANCE`
+ * move together or not at all — a measured figure with no provenance is the same
+ * untrustworthy claim as an invented one, and `tests/unit/app/home.test.tsx`
+ * fails if they are ever separated.
  */
-const SAMPLE_METRICS = { precision: 0.94, recall: 0.89 } as const;
+const DETECTOR_METRICS = { precision: 0.9565, recall: 1.0 } as const;
+
+/**
+ * How the figures above were obtained. Rendered beside them, never apart from
+ * them. Five passes agreed on all 44 realizations, so there is no instability
+ * caveat to carry; if a future run disagrees on any, this line has to say so.
+ */
+const METRICS_PROVENANCE =
+  'measured · N=44 labeled realizations · 5 passes · 2026-08-03 · judge claude-haiku-4-5';
 
 /** Human-readable one-liner for a trace step (for the trailer end labels). */
 function stepLabel(step: Step): string {
@@ -102,19 +118,17 @@ export default async function Home() {
             <div className="border-t border-line pt-3">
               <div className="mb-2 flex flex-wrap items-baseline gap-x-2 gap-y-1">
                 <span className="micro-label text-nominal">Detector accuracy</span>
-                <span className="instrument-faint">
-                  illustrative, leakage-separated fixture, not a benchmark
-                </span>
+                <span className="instrument-faint">{METRICS_PROVENANCE}</span>
               </div>
               <div className="flex items-baseline gap-x-6">
                 <span className="whitespace-nowrap">
                   <span className="display-lg font-sans">
-                    {SAMPLE_METRICS.precision.toFixed(2)}
+                    {DETECTOR_METRICS.precision.toFixed(2)}
                   </span>
                   <span className="instrument ml-2">precision</span>
                 </span>
                 <span className="whitespace-nowrap">
-                  <span className="display-lg font-sans">{SAMPLE_METRICS.recall.toFixed(2)}</span>
+                  <span className="display-lg font-sans">{DETECTOR_METRICS.recall.toFixed(2)}</span>
                   <span className="instrument ml-2">recall</span>
                 </span>
               </div>

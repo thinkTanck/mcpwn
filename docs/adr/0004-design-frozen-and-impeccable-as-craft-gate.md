@@ -44,7 +44,7 @@ Hard rules: prose **never** wears an INSTRUMENT role (a blocking review failure)
 Each screen: run the loop, then `/impeccable audit`. For every finding that hits a design move, do exactly one of:
 
 - **Push back with a documented reason** (the site says do exactly this). Pre-decided KEEPs: the **tri-state glow** is a functional signal language (cyan/amber/red = nominal/caution/breach), not decorative dark-mode glow; the **01–10 numbering** is the real OWASP ASI taxonomy, an ordered sequence the reader needs, not AI section markers.
-- **Accept the fix** where we have no real defense, and **propose the reworked version for sign-off** rather than overwriting frozen visuals unilaterally. Likely accepts: the tiny uppercase tracked **eyebrows**; the generic **hero-metric treatment** of the measured 0.94/0.89 (the numbers stay, the templated presentation is fair game).
+- **Accept the fix** where we have no real defense, and **propose the reworked version for sign-off** rather than overwriting frozen visuals unilaterally. Likely accepts: the tiny uppercase tracked **eyebrows**; the generic **hero-metric treatment** of the 0.94/0.89 hero figures (the numbers stay, the templated presentation is fair game). _(Historical note, 2026-08-03: those figures were illustrative, never measured — this line's original wording called them "measured", which was untrue at the time. They have since been replaced by genuinely measured values under [ADR-0009](0009-compromise-vs-exposure.md).)_
 
 Each screen PR lists every audit finding and its disposition (pushed back + reason, or accepted + proposed change).
 

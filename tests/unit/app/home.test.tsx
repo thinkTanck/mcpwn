@@ -23,26 +23,45 @@ describe('Home — landmarks & pitch', () => {
     expect(screen.getByRole('region', { name: /pwn your mcp agent/i })).toBeInTheDocument();
   });
 
-  it('states the measured-detector claim with honest fixture provenance', async () => {
+  it('states the measured-detector claim in the pitch', async () => {
     await renderHome();
     // The pitch's emphasised claim: the detector accuracy was measured. Emphasis is
     // sans weight+colour, never the mono INSTRUMENT role (prose never wears it).
     expect(screen.getByText('measured')).toBeInTheDocument();
-    // Provenance must be honest: a fixture, not a claimed benchmark.
-    expect(screen.getByText(/fixture, not a benchmark/i)).toBeInTheDocument();
   });
 
-  it('does not label the fixture figures themselves as measured', async () => {
+  it('couples the word "measured" to a real figure and its full provenance', async () => {
     await renderHome();
-    // The provenance chip sits directly under the precision/recall numbers, so
-    // whatever it says is a claim ABOUT THOSE NUMBERS. It read "measured ·
-    // leakage-separated fixture" while the values were illustrative constants
-    // that no judge had ever produced — the pitch's promise leaking onto the
-    // evidence. Once `npm run eval:measure` supplies real figures this chip
-    // carries "measured · N labeled fixtures · <date>", and this assertion is
-    // what forces the word and the number to arrive together.
-    const chip = screen.getByText(/fixture, not a benchmark/i);
-    expect(chip.textContent).not.toMatch(/measured/i);
+    // THE GUARD. The chip sits directly under the precision/recall numbers, so
+    // whatever it says is a claim ABOUT THOSE NUMBERS. It once read "measured ·
+    // leakage-separated fixture" while the values were illustrative constants no
+    // judge had ever produced, which is the pitch's promise leaking onto the
+    // evidence. It later read "illustrative" precisely because no measurement
+    // existed yet.
+    //
+    // Both of those states are now wrong: the figures ARE measured. So the guard
+    // inverts rather than relaxes. It no longer asks "is the word absent" — it
+    // demands the word AND everything needed to check the claim: how many
+    // realizations, how many passes, when, and by which judge. A number that
+    // loses any part of its provenance fails here, and so does provenance with
+    // no number.
+    const chip = screen.getByText(/^measured ·/);
+    expect(chip.textContent).toMatch(/N=44 labeled realizations/);
+    expect(chip.textContent).toMatch(/5 passes/);
+    expect(chip.textContent).toMatch(/\d{4}-\d{2}-\d{2}/);
+    expect(chip.textContent).toMatch(/judge claude-haiku-4-5/);
+    // The figures themselves must be present and non-zero next to it.
+    expect(screen.getByText('0.96')).toBeInTheDocument();
+    expect(screen.getByText('1.00')).toBeInTheDocument();
+  });
+
+  it('never re-labels the measured figures as illustrative or a fixture', async () => {
+    await renderHome();
+    // The reverse drift: quietly downgrading the claim while leaving real numbers
+    // on screen would be just as untrue as the original overclaim.
+    const chip = screen.getByText(/^measured ·/);
+    expect(chip.textContent).not.toMatch(/illustrative/i);
+    expect(chip.textContent).not.toMatch(/fixture, not a benchmark/i);
   });
 });
 
