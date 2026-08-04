@@ -104,7 +104,7 @@ describe('Findings / fix report screen', () => {
     render(<FindingsReport report={customReport} />);
     const list = screen.getByRole('list', { name: /remediation/i });
     const items = within(list).getAllByRole('listitem');
-    const steps = customReport.finding!.remediation.steps;
+    const steps = customReport.finding!.remediation!.steps;
     expect(items).toHaveLength(steps.length);
     for (const step of steps) {
       expect(within(list).getByText(step)).toBeInTheDocument();
@@ -190,11 +190,65 @@ describe('Findings / fix report screen', () => {
   it('shows the ASI10 sample under the category the judge REALLY returned (ASI01)', async () => {
     // Not relabelled to the ground truth. A recorded verdict rewritten to match
     // our own label is the leakage this project exists to avoid, so the screen
-    // shows the real answer and the caveat explains what it is.
+    // shows the real answer and the note explains what it is.
     await renderPage(sampleRun('ASI10').runId);
     expect(SAMPLE_VERDICTS.ASI10.category).toBe('ASI01');
     expect(screen.getByText('ASI01')).toBeInTheDocument();
-    expect(screen.queryByText('ASI10')).not.toBeInTheDocument();
+  });
+
+  /**
+   * D1 — the ASI10 class. Remediation is derived from the category, and the
+   * category for a staged ASI10 run measured 0 of 4. The screen must not hand an
+   * engineer ASI01 remediation to work top to bottom.
+   */
+  describe('a class whose classification measured zero (ASI10)', () => {
+    it('withholds the misfiled category remediation instead of presenting it as authoritative', async () => {
+      await renderPage(sampleRun('ASI10').runId);
+      expect(screen.queryByRole('list', { name: /remediation/i })).not.toBeInTheDocument();
+      // Not one ASI01 remediation action may reach the screen.
+      expect(
+        screen.queryByText(/Pin the agent to its authorized objective/i),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByText(/Require confirmation for high-impact operations/i),
+      ).not.toBeInTheDocument();
+    });
+
+    it('still shows what IS reliable: the confirmed compromise and its anchored step', async () => {
+      await renderPage(sampleRun('ASI10').runId);
+      expect(screen.getByText('COMPROMISED')).toBeInTheDocument();
+      expect(screen.getByRole('region', { name: /offending step/i })).toBeInTheDocument();
+      expect(screen.getByText(SAMPLE_VERDICTS.ASI10.rationale)).toBeInTheDocument();
+    });
+
+    it('states the class, the measured tally, and the pending category-v2 rubric', async () => {
+      await renderPage(sampleRun('ASI10').runId);
+      const note = screen.getByTestId('classification-unreliable');
+      expect(note).toHaveTextContent('ASI10');
+      expect(note).toHaveTextContent(/0 of 4/);
+      expect(note).toHaveTextContent(/category-v2/i);
+    });
+
+    it('marks the state with an icon AND a text label, in the inert token, never breach red', async () => {
+      const { container } = await renderPage(sampleRun('ASI10').runId);
+      const badge = screen.getByTestId('classification-badge');
+      expect(badge).toHaveTextContent(/classification unreliable/i);
+      expect(badge.querySelector('svg')).not.toBeNull();
+      expect(badge.getAttribute('style')).toContain('--status-inert');
+      expect(badge.className).not.toMatch(/breach/i);
+      expect(
+        container.querySelector('[data-testid="classification-badge"] [class*="breach"]'),
+      ).toBeNull();
+    });
+  });
+
+  it('leaves a class that classified above zero reading normally', async () => {
+    // customReport is ASI02, which classified 1.0000. Nothing is withheld and no
+    // unreliable badge appears: the caveat stays proportionate to the measurement.
+    render(<FindingsReport report={customReport} />);
+    expect(screen.getByRole('list', { name: /remediation/i })).toBeInTheDocument();
+    expect(screen.queryByTestId('classification-badge')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('classification-unreliable')).not.toBeInTheDocument();
     expect(screen.getByTestId('classification-caveat')).toBeInTheDocument();
   });
 
@@ -203,7 +257,7 @@ describe('Findings / fix report screen', () => {
     // deliberately not rewritten to satisfy a copy rule. Everything the product
     // itself writes — titles, summary, remediation — must obey it.
     const f = customReport.finding!;
-    const authored = [customReport.summary, f.categoryTitle, ...f.remediation.steps];
+    const authored = [customReport.summary, f.categoryTitle, ...f.remediation!.steps];
     for (const s of authored) expect(s).not.toMatch(/—/);
   });
 });

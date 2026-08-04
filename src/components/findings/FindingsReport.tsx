@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import { StatusChip } from '@/components/hud';
 import { stepMeta, stepPayload } from '@/components/replay/step-meta';
-import { MEASURED_CLASSIFICATION, MEASURED_CLASSIFICATION_PROVENANCE } from '@/eval/measured';
+import { CoverageIcon } from '@/components/threats/CoverageIcon';
 import type { FixReport } from '@/fix-report';
 import { CopyReportButton } from './CopyReportButton';
 
@@ -49,6 +49,11 @@ export function FindingsReport({
 }) {
   const finding = report.finding;
   const step = finding?.step;
+  const classification = finding?.classification;
+  // A class the measurement scored at ZERO. The screen keeps everything that was
+  // measured to work (the compromise, the anchored step, the rationale) and
+  // withholds the one thing derived from the code that never came out right.
+  const unreliable = classification !== undefined && !classification.reliable;
 
   return (
     <article aria-label="Fix report" className="mx-auto max-w-[1440px] px-6 py-10 md:py-12">
@@ -56,14 +61,36 @@ export function FindingsReport({
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
           <p className="micro-label text-nominal">Findings · Fix report</p>
+          {/* The headline is the strongest claim on the page, so it states only
+              what survived measurement. For a class that classified at zero the
+              category title would be that claim, and it is the part we cannot
+              stand behind; the confirmed compromise is. */}
           <h1 className="reading-h1 mt-3 max-w-[640px]">
-            {finding ? finding.categoryTitle : 'No findings'}
+            {finding
+              ? unreliable
+                ? 'Compromise confirmed'
+                : finding.categoryTitle
+              : 'No findings'}
           </h1>
           <div className="mt-3 flex flex-wrap items-center gap-3">
             <StatusChip
               state={report.compromised ? 'breach' : 'nominal'}
               label={report.compromised ? 'COMPROMISED' : 'NOT COMPROMISED'}
             />
+            {unreliable ? (
+              // The neutral fourth state (`--status-inert`), never the breach red:
+              // an unreliable filing is not a second breach, and red is reserved
+              // for an actual compromise (ADR-0003). Icon AND label, never color
+              // alone.
+              <span
+                data-testid="classification-badge"
+                className="inline-flex items-center gap-2 rounded-full border border-line px-2.5 py-1 font-mono text-[13px] uppercase tracking-[0.12em]"
+                style={{ color: 'var(--status-inert)' }}
+              >
+                <CoverageIcon kind="inert" size={12} />
+                CLASSIFICATION UNRELIABLE
+              </span>
+            ) : null}
             <p className="instrument">
               {finding ? (
                 <>
@@ -117,46 +144,66 @@ export function FindingsReport({
             <p className="reading mt-2">{finding.rationale}</p>
           </section>
 
-          {/* Remediation — an ordered sequence, so numbering is meaningful */}
-          <section aria-label="Remediation" className="mt-7 border-t border-line-em/40 pt-5">
-            <SectionHeading tone="cyan">Remediation</SectionHeading>
+          {/* Remediation — an ordered sequence, so numbering is meaningful.
+              THE CATEGORY IS A PREDICTION, AND THIS LIST IS DERIVED FROM IT. The
+              steps are keyed off the category the detector returned, and that
+              category is the judge's own blind read of the trace, never a label
+              (it is never shown `Trace.category`). So the list only appears when
+              the measurement says the filing is worth deriving from. */}
+          {finding.remediation && classification ? (
+            <section aria-label="Remediation" className="mt-7 border-t border-line-em/40 pt-5">
+              <SectionHeading tone="cyan">Remediation</SectionHeading>
 
-            {/* THE CATEGORY IS A PREDICTION, AND THIS LIST IS DERIVED FROM IT.
-                The remediation steps are keyed off the category the detector
-                returned, and that category is the judge's own blind read of the
-                trace, never a label (it is never shown `Trace.category`). B3
-                found the cost is real: the ASI10 sample came back classified
-                ASI01, so its report cites ASI01 remediation. An engineer working
-                this list top to bottom deserves the measured figure and the
-                check that goes with it, not a hedge and not silence. */}
-            <div data-testid="classification-caveat" className="mt-3">
-              <p className="reading">
-                The category above is the detector’s own blind classification of the trace, and
-                these steps follow from it. Measured accuracy on our labeled set is{' '}
-                {MEASURED_CLASSIFICATION.accuracy.toFixed(2)}, so confirm the category against the
-                offending step before you act on this list.
-              </p>
-              <p className="instrument mt-2 text-ink-faint">{MEASURED_CLASSIFICATION_PROVENANCE}</p>
-            </div>
+              <div data-testid="classification-caveat" className="mt-3">
+                <p className="reading">
+                  The category above is the detector’s own blind classification of the trace, and
+                  these steps follow from it. Measured accuracy on our labeled set is{' '}
+                  {classification.accuracy.toFixed(2)}, so confirm the category against the
+                  offending step before you act on this list.
+                </p>
+                <p className="instrument mt-2 text-ink-faint">{classification.provenance}</p>
+              </div>
 
-            <ol aria-label="Remediation" className="mt-3">
-              {finding.remediation.steps.map((remedy, i) => (
-                <li
-                  key={remedy}
-                  className="flex items-baseline gap-4 border-t border-line/60 py-3 first:border-t-0"
-                >
-                  <span
-                    aria-hidden="true"
-                    className="min-w-[1.75rem] font-sans text-[20px] font-semibold text-nominal"
+              <ol aria-label="Remediation" className="mt-3">
+                {finding.remediation.steps.map((remedy, i) => (
+                  <li
+                    key={remedy}
+                    className="flex items-baseline gap-4 border-t border-line/60 py-3 first:border-t-0"
                   >
-                    {i + 1}
+                    <span
+                      aria-hidden="true"
+                      className="min-w-[1.75rem] font-sans text-[20px] font-semibold text-nominal"
+                    >
+                      {i + 1}
+                    </span>
+                    <p className="reading">{remedy}</p>
+                  </li>
+                ))}
+              </ol>
+              <p className="instrument mt-4 text-ink-faint">{finding.remediation.reference}</p>
+            </section>
+          ) : classification ? (
+            /* WITHHELD, and it says so in full. The neighbouring category's
+               actions are not printed at a lower confidence, because a list an
+               engineer can work top to bottom IS the authoritative claim,
+               whatever hedge sits above it. */
+            <section
+              aria-label="Remediation withheld"
+              className="mt-7 border-t border-line-em/40 pt-5"
+            >
+              <SectionHeading>Remediation withheld</SectionHeading>
+              <div data-testid="classification-unreliable" className="mt-3">
+                <p className="reading max-w-[72ch]">{classification.note}</p>
+                <p className="instrument mt-3">
+                  <span style={{ color: 'var(--status-inert)' }}>
+                    {classification.staged} {classification.stagedTitle} filed correctly{' '}
+                    {classification.classScore.correct} of {classification.classScore.scored}
                   </span>
-                  <p className="reading">{remedy}</p>
-                </li>
-              ))}
-            </ol>
-            <p className="instrument mt-4 text-ink-faint">{finding.remediation.reference}</p>
-          </section>
+                </p>
+                <p className="instrument mt-1 text-ink-faint">{classification.provenance}</p>
+              </div>
+            </section>
+          ) : null}
         </>
       ) : (
         <section aria-label="Summary" className="mt-8 border-t border-line pt-6">

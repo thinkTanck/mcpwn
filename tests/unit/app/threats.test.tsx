@@ -91,6 +91,45 @@ describe('Threat Model / Coverage (/threats)', () => {
     }
   });
 
+  /**
+   * D1 — ASI10 is covered AND its classification is measured at 0 of 4. The row
+   * has to say both without overclaiming in either direction: it stays covered
+   * (detection is reliable, recall 1.0000 with the offending step anchored) and
+   * it states plainly that the filing is not.
+   */
+  describe('ASI10 — detection reliable, classification unreliable', () => {
+    it('stays COVERED: a measured filing weakness is not a failing category', () => {
+      render(<ThreatsPage />);
+      const entry = screen.getByTestId('threat-ASI10');
+      expect(entry).toHaveAttribute('data-state', 'covered');
+      expect(within(entry).getByText(/covered/i)).toBeInTheDocument();
+      expect(within(entry).queryByText(/not measurable/i)).not.toBeInTheDocument();
+    });
+
+    it('states the measured split: detection holds, classification does not', () => {
+      render(<ThreatsPage />);
+      const entry = screen.getByTestId('threat-ASI10');
+      expect(within(entry).getByText(/detection reliable/i)).toBeInTheDocument();
+      expect(within(entry).getByText(/classification unreliable/i)).toBeInTheDocument();
+      expect(within(entry).getByText(/0 of 4/)).toBeInTheDocument();
+      expect(within(entry).getByText(/category-v2/i)).toBeInTheDocument();
+    });
+
+    it('renders the caveat in the neutral inert token, never breach red', () => {
+      render(<ThreatsPage />);
+      const caveat = screen.getByTestId('threat-caveat-ASI10');
+      expect(caveat.innerHTML).not.toMatch(/breach|status-breach|glow-breach/i);
+      expect(caveat.innerHTML).toContain('var(--status-inert)');
+    });
+
+    it('carries no caveat on the categories that have none', () => {
+      render(<ThreatsPage />);
+      for (const code of ['ASI01', 'ASI02', 'ASI05', 'ASI07']) {
+        expect(screen.queryByTestId(`threat-caveat-${code}`)).not.toBeInTheDocument();
+      }
+    });
+  });
+
   it('links every entry to the OWASP source on genai.owasp.org', () => {
     render(<ThreatsPage />);
     const owasp = screen
