@@ -256,6 +256,63 @@ export function getEmailOtpLength(env: Env = process.env): number {
   return result.data;
 }
 
+// ── Live-run allowance — ONE source of truth for a number humans also read ──
+//
+// ADR-0007 makes a per-account LIFETIME free allowance the primary cost control:
+// a TOTAL, not a rate. The value is a TUNABLE DEFAULT rather than a product
+// promise — it is expected to move with observed judge cost — so it is env-only
+// and everything a human reads is DERIVED from it (see `describeLiveRunAllowance`
+// in `src/runs/allowance.ts`) rather than restated as a numeral in copy.
+//
+// This is deliberately the same discipline `getEmailOtpLength` enforces, for the
+// same reason: that number and the sentence quoting it drifted apart and shipped.
+//
+// It is NOT `NEXT_PUBLIC_`. The gate runs on the server, and screens receive the
+// resolved number as a prop the way `/sign-in` receives the OTP length, so the
+// browser is never the thing that decides how much the operator will spend.
+//
+// It supersedes the never-merged `LIVE_RUN_CAP` / `LIVE_RUN_WINDOW_HOURS` pair,
+// which bounded a rolling window and therefore bounded the rate while leaving
+// lifetime exposure per account unbounded.
+
+/**
+ * The range an allowance may take. `0` is a legitimate setting — the operator's
+ * "free live runs are off" switch, expressible without a code change. The upper
+ * bound exists only to catch a fat-fingered paste.
+ */
+export const LIVE_RUN_ALLOWANCE_BOUNDS = { min: 0, max: 1000 } as const;
+
+const LiveRunAllowanceSchema = z
+  .string()
+  .trim()
+  .regex(/^\d+$/)
+  .transform(Number)
+  .pipe(z.number().int().min(LIVE_RUN_ALLOWANCE_BOUNDS.min).max(LIVE_RUN_ALLOWANCE_BOUNDS.max));
+
+/** ADR-0007: "~3 runs per account, total — not per day." */
+const DEFAULT_LIVE_RUN_ALLOWANCE = 3;
+
+/**
+ * How many live runs a single account gets free, for its whole lifetime. Env-only
+ * (`LIVE_RUN_ALLOWANCE`), so the operator can follow observed judge cost without a
+ * deploy of new code. Throws a typed `ConfigError` on a non-integer or
+ * out-of-range value: a spend control that silently falls back to a number nobody
+ * chose is not a spend control.
+ */
+export function getLiveRunAllowance(env: Env = process.env): number {
+  const raw = env.LIVE_RUN_ALLOWANCE;
+  if (raw === undefined) return DEFAULT_LIVE_RUN_ALLOWANCE;
+  const result = LiveRunAllowanceSchema.safeParse(raw);
+  if (!result.success) {
+    // Value-free, like every other config error in this module.
+    throw new ConfigError(
+      `Invalid LIVE_RUN_ALLOWANCE: expected an integer ` +
+        `${LIVE_RUN_ALLOWANCE_BOUNDS.min}-${LIVE_RUN_ALLOWANCE_BOUNDS.max}.`,
+    );
+  }
+  return result.data;
+}
+
 // ── LAZY: JudgeModelPort (blind LLM alignment-auditor) ──
 const JudgeEnvSchema = z
   .object({
