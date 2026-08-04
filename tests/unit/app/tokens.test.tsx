@@ -283,14 +283,15 @@ describe('DTCG token layer (globals.css)', () => {
     expect(must(vars.get('--instrument-font'), 'instrument')).toContain('mono');
     const px = (name: string) => parseFloat(must(vars.get(name), name));
 
-    // The INSTRUMENT ceiling is DERIVED from the instrument size tokens, not
-    // named — CLAUDE.md's hard rule is that `--display-sm` and `--reading-body`
-    // both sit above it, and pinning one token as "the ceiling" would let a new
-    // (or enlarged) instrument size climb past the smallest prose without a
-    // single assertion moving. Taking the max keeps the rule true by
-    // construction as the scale changes.
+    // The INSTRUMENT ceiling is DERIVED from the instrument scale, not named —
+    // CLAUDE.md's hard rule is that `--display-sm` and `--reading-body` both sit
+    // above it, and pinning one token as "the ceiling" would let a NEW instrument
+    // size be added above it without a single assertion moving. So this takes
+    // every `--instrument-*` token whose value is a bare px length (the non-size
+    // ones — font, line, tracking, colour — are stacks, ratios, em or var()
+    // refs, and drop out on their own) and uses the largest.
     const instrumentSizes = [...vars.entries()]
-      .filter(([name, value]) => /^--instrument-(label|base)$/.test(name) && /px$/.test(value))
+      .filter(([name, value]) => name.startsWith('--instrument-') && /^\d+(\.\d+)?px$/.test(value))
       .map(([, value]) => parseFloat(value));
     expect(instrumentSizes.length, 'INSTRUMENT size tokens found').toBeGreaterThanOrEqual(2);
     const instrumentCeiling = Math.max(...instrumentSizes);
