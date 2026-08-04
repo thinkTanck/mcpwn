@@ -1,8 +1,17 @@
 import { bandFor, bandToken, type Band } from '@/lib/hud/bands';
-import { stepColorToken, isBreachStep, breachIndex } from '@/lib/hud/trace-view';
+import {
+  stepColorToken,
+  isBreachStep,
+  breachIndex,
+  offendingStepLabel,
+} from '@/lib/hud/trace-view';
+import type { Step } from '@/contract';
 import { sampleRun } from '@/data/source';
 
-// The ASI06 sample = the real builder-constructed trace (send_email at s11).
+// The ASI06 sample = the real builder-constructed trace, with the RECORDED
+// validated-judge verdict. The judge anchors the compromise at the memory_write
+// that persists the poisoned standing instruction (s6, index 5), not at the later
+// send_email (s11) the retired curated placeholder had picked.
 const asi06Run = sampleRun('ASI06');
 
 describe('robustness bands', () => {
@@ -34,8 +43,24 @@ describe('trace-view helpers', () => {
   });
 
   it('derives the breach from verdict.stepId only', () => {
-    expect(isBreachStep(asi06Run, 's11')).toBe(true);
-    expect(isBreachStep(asi06Run, 's10')).toBe(false);
-    expect(breachIndex(asi06Run)).toBe(10);
+    expect(isBreachStep(asi06Run, 's6')).toBe(true);
+    expect(isBreachStep(asi06Run, 's11')).toBe(false);
+    expect(breachIndex(asi06Run)).toBe(5);
+  });
+
+  it('names the offending step by its tool, or by the kind of step it was', () => {
+    const cases: [Step, string][] = [
+      [{ id: 's1', type: 'tool_call', tool: 'send_email', args: {} }, 'send_email'],
+      [{ id: 's2', type: 'tool_result', tool: 'read_file', result: null }, 'read_file'],
+      [{ id: 's3', type: 'memory_write', key: 'k', value: null }, 'memory write'],
+      [{ id: 's4', type: 'memory_read', key: 'k', value: null }, 'memory read'],
+      [{ id: 's5', type: 'attacker', content: 'x' }, 'attacker input'],
+      [{ id: 's6', type: 'agent_reasoning', content: 'x' }, 'agent reasoning'],
+      [{ id: 's7', type: 'task_complete' }, 'task complete'],
+    ];
+    for (const [step, label] of cases) expect(offendingStepLabel(step)).toBe(label);
+    // The ASI06 sample's recorded anchor is a memory_write, not a tool call.
+    const anchored = asi06Run.trace.steps[breachIndex(asi06Run)]!;
+    expect(offendingStepLabel(anchored)).toBe('memory write');
   });
 });
