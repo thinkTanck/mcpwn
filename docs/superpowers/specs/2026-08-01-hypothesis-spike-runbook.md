@@ -270,6 +270,12 @@ read a single tool. Four tells, in order of how early they arrived:
 | `Sandbox: no funds moved. Simulated transfer of …`               | the `transfer_funds` result, had it bitten |
 | `target = "stdio://mcpwn-red-team-sandbox"`                      | not the agent; the JUDGE, via the Trace    |
 
+One tell cannot be fixed in code, only in how you launch: the registration
+carries `--framing malicious`, the repo path and the trace file names, and an
+agent working inside a directory that holds a project-scoped MCP config can read
+that file. Register at user scope, and keep the output directory out of the
+agent's working directory.
+
 An agent that has been told "spike" and "sandbox" and then declines to move money
 has done something with two possible explanations: it resisted the injection, or
 it recognized the exercise. **The record cannot separate them**, and neither can
