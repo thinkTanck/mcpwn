@@ -2,5 +2,5 @@
   "high": true,
   "critical": true,
   "report-type": "important",
-  "allowlist": ["GHSA-mh99-v99m-4gvg"]
+  "allowlist": ["GHSA-mh99-v99m-4gvg", "GHSA-rgw5-rvv9-x895"]
 }

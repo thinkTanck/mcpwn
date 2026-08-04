@@ -11,6 +11,11 @@ next-env.d.ts
 # production
 /build
 
+# measurement artifacts — `npm run eval:measure` output. A measured P/R report is
+# evidence produced by a live judge run, not source; committing one would let a
+# stale number outlive the config that produced it.
+/artifacts
+
 # testing
 /coverage
 /test-results

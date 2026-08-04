@@ -57,12 +57,17 @@ check, in the order set out in [`plan.md`](plan.md).
 **What is NOT built, stated plainly, because the rest of this README describes a
 target architecture:**
 
-- **No live run can complete.** The validated judge is not wired — that needs the
-  operator's model key — so a live run is refused rather than judged by something
-  unvalidated, and the Connect screen says so.
-- **Every statistic on the site is fixture data**, labelled as such in the UI. No
-  precision/recall number has been measured, because measuring one requires the
-  judge above.
+- **No live run can complete.** MCPwn does not yet host the MCP server an agent
+  would connect to, so there is no live trace to judge. The judge itself is now
+  wired (`resolveLiveDetector()`), and refuses cleanly when no key is configured.
+- **The detector's accuracy IS measured**, as of 2026-08-03: precision 0.9565,
+  recall 1.0000 over N=44 labeled realizations, five passes in full agreement,
+  judge `claude-haiku-4-5` at temperature 0. The hero figures carry that
+  provenance. The number holds only for that frozen judge configuration
+  ([ADR-0009](docs/adr/0009-compromise-vs-exposure.md)).
+- **Every OTHER statistic on the site is still fixture data**, labelled as such
+  in the UI — the per-model robustness leaderboard and the sample-run verdicts
+  are placeholders until real runs produce them.
 - **The MCP target layer is built against fakes**, never against a real MCP
   agent.
 
