@@ -260,9 +260,9 @@ body {
 }
 
 /* =========================================================================
- * Type role classes — the two registers as consumable roles. Screens apply a
- * role (`.reading`, `.instrument`, `.readout`, `.micro-label`) instead of raw
- * sizes, so a scale fix in the tokens above cascades everywhere.
+ * Type role classes — the THREE roles as consumable classes. Screens apply a
+ * role (`.reading*`, `.instrument*` / `.readout` / `.micro-label`, `.display*`)
+ * instead of raw sizes, so a scale fix in the tokens above cascades everywhere.
  * ========================================================================= */
 /* EVERY role declaration lives in `@layer base` — family, size, rhythm AND
  * colour. Under Tailwind v4 the layer order is `theme, base, components,
