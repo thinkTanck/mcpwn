@@ -1,7 +1,8 @@
 import { RunResultSchema, CategorySchema, type Category } from '@/contract';
 import { getDataSource, SAMPLE_RUN_ID, sampleRun } from '@/data/source';
 import { leaderboardFixture } from '@/data/fixtures/leaderboard';
-import { findingsFixture } from '@/data/fixtures/findings';
+import { SAMPLE_VERDICTS, SAMPLE_VERDICT_PROVENANCE } from '@/data/fixtures/sample-verdicts';
+import { generateFixReport } from '@/fix-report';
 import { getAttack } from '@/attacks';
 
 // GUARDRAIL SPY: wrap every attack build result so any read of its `groundTruth`
@@ -68,30 +69,57 @@ describe('DataSource — sample runs served from the real attack builders', () =
     }
   });
 
-  it('every curated verdict anchors stepId to a REAL step of that builder trace (invariant × 7)', () => {
+  it('every recorded verdict anchors stepId to a REAL step of that builder trace (invariant × 7)', () => {
     for (const cat of CATEGORIES) {
       const run = sampleRun(cat);
       expect(run.verdict.compromised).toBe(true);
       expect(run.verdict.stepId).toBeDefined();
       const ids = run.trace.steps.map((s) => s.id);
       expect(ids).toContain(run.verdict.stepId);
-      // the anchored step is an observable offending action (a tool_call)
+      // the anchored step is an observable ACTION the agent took — the rubric
+      // forbids anchoring to the attacker / tool_result / memory_read step the
+      // hostile content arrived through, or to agent_reasoning.
       const step = run.trace.steps.find((s) => s.id === run.verdict.stepId);
-      expect(step?.type).toBe('tool_call');
+      expect(['tool_call', 'memory_write']).toContain(step?.type);
     }
+  });
+
+  it('binds every verdict field from the RECORDING, never from a literal in the assembler', () => {
+    for (const cat of CATEGORIES) {
+      const recorded = SAMPLE_VERDICTS[cat];
+      const { verdict } = sampleRun(cat);
+      expect(verdict.compromised).toBe(recorded.compromised);
+      expect(verdict.score).toBe(recorded.score);
+      expect(verdict.severity).toBe(recorded.severity);
+      expect(verdict.category).toBe(recorded.category);
+      expect(verdict.rationale).toBe(recorded.rationale);
+      expect(verdict.stepId).toBe(recorded.stepId);
+    }
+  });
+
+  it('carries the exact recorded-verdict provenance, and never claims a live capture', () => {
+    expect(SAMPLE_VERDICT_PROVENANCE).toBe(
+      'constructed demonstration · recorded validated-judge verdict · claude-haiku-4-5 · 2026-08-03',
+    );
+    // The traces are BUILT, not captured from a real agent: the label must not
+    // imply otherwise, and must name the frozen judge that produced the verdicts.
+    expect(SAMPLE_VERDICT_PROVENANCE).toMatch(/constructed demonstration/);
+    expect(SAMPLE_VERDICT_PROVENANCE).not.toMatch(/live|captured|real agent|measured/i);
   });
 
   it('GUARDRAIL: assembling samples never reads groundTruth (spy, same as the detector)', async () => {
     gtReads.clear();
     await ds.listRuns();
     await ds.getRun('sample');
+    await ds.getFixReport('sample');
     for (const cat of CATEGORIES) sampleRun(cat);
     expect([...gtReads]).toEqual([]);
   });
 
   it('leakage barrier: no sample fixture leaks a held-out label anywhere in its graph', async () => {
     const runs = await ds.listRuns();
-    for (const fixture of [...runs, leaderboardFixture, findingsFixture]) {
+    const reports = await Promise.all(runs.map((r) => ds.getFixReport(r.runId)));
+    for (const fixture of [...runs, ...reports, leaderboardFixture]) {
       expect(hasKeyDeep(fixture, 'groundTruth')).toBe(false);
     }
     for (const run of runs) {
@@ -121,11 +149,27 @@ describe('DataSource — sample runs served from the real attack builders', () =
     }
   });
 
-  it('getFixReport returns the report for the sample run, null otherwise', async () => {
-    const report = await ds.getFixReport(SAMPLE_RUN_ID);
-    expect(report?.runId).toBe(SAMPLE_RUN_ID);
-    expect(report?.remediation).toHaveLength(5);
+  it('getFixReport is the REAL module-6 generator over the sample run, for every category', async () => {
+    for (const cat of CATEGORIES) {
+      const run = sampleRun(cat);
+      const report = await ds.getFixReport(run.runId);
+      // Identical to calling the generator directly: the screen reads the real
+      // module, not a hand-authored fixture standing in for it.
+      expect(report).toEqual(generateFixReport(run));
+      expect(report?.finding?.stepId).toBe(run.verdict.stepId);
+      expect(run.trace.steps.map((s) => s.id)).toContain(report?.finding?.stepId);
+    }
     expect(await ds.getFixReport('nope')).toBeNull();
+  });
+
+  it('getFixReport resolves the "sample" alias to the canonical sample run', async () => {
+    expect(await ds.getFixReport('sample')).toEqual(generateFixReport(sampleRun('ASI06')));
+  });
+
+  it('getVerdictProvenance labels a sample verdict and returns null for an unknown run', async () => {
+    expect(await ds.getVerdictProvenance(SAMPLE_RUN_ID)).toBe(SAMPLE_VERDICT_PROVENANCE);
+    expect(await ds.getVerdictProvenance('sample')).toBe(SAMPLE_VERDICT_PROVENANCE);
+    expect(await ds.getVerdictProvenance('nope')).toBeNull();
   });
 
   it('getFleetStatus tallies the leaderboard into a provenance-aware tri-state', async () => {

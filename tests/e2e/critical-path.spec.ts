@@ -63,10 +63,14 @@ test('connect -> replay -> fix report -> clipboard', async ({ page }) => {
   await expect(copy).toContainText('COPIED');
 
   const clipboard = await page.evaluate(() => navigator.clipboard.readText());
-  expect(clipboard).toContain('MCPwn fix report');
-  expect(clipboard).toContain(`Title: ${title.trim()}`);
+  // The export is module 6's OWN Markdown since #103 wired the real generator,
+  // not the hand-rolled string this test was first written against. Retargeted
+  // to the real output rather than relaxed: the same five facts are asserted,
+  // and the offending-step line is now stricter (it must carry a step number).
+  expect(clipboard).toMatch(/^# Fix report · ASI\d\d · /m);
+  expect(clipboard).toContain(title.trim());
   // Telemetry an engineer needs in the ticket: which run, which step, the fix.
-  expect(clipboard).toMatch(/^Run: .+$/m);
-  expect(clipboard).toMatch(/^Offending step: .+$/m);
-  expect(clipboard).toContain('Remediation');
+  expect(clipboard).toMatch(/\*\*Run:\*\* /);
+  expect(clipboard).toMatch(/\*\*Offending step:\*\* #\d+ /);
+  expect(clipboard).toContain('## Remediation');
 });

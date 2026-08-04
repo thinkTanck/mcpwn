@@ -2,6 +2,7 @@ import { render, screen, within } from '@testing-library/react';
 import Home from '@/app/(hud)/page';
 import { getDataSource } from '@/data/source';
 import { CORE7 } from '@/components/home/core7';
+import { offendingStepLabel } from '@/lib/hud/trace-view';
 
 /**
  * Home (BRAND register front door). Asserts the landmarks, the pitch + the
@@ -106,8 +107,11 @@ describe('Home — sample binding (never literals)', () => {
     if (!run) throw new Error('sample run missing');
     const total = run.trace.steps.length;
     const idx = run.trace.steps.findIndex((s) => s.id === run.verdict.stepId) + 1;
-    const offending = run.trace.steps[idx - 1];
-    const tool = offending?.type === 'tool_call' ? offending.tool : '';
+    const offending = run.trace.steps[idx - 1]!;
+    // The offending step is whatever the RECORDED verdict anchored: for the ASI06
+    // sample that is a memory_write, not a tool call, so the label comes from the
+    // shared helper rather than assuming a tool name exists.
+    const tool = offendingStepLabel(offending);
 
     const { container } = render(await Home());
 

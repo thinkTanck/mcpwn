@@ -3,6 +3,7 @@ import { SentinelCore } from '@/components/hud';
 import { Core7List } from '@/components/home/Core7List';
 import { SampleTrailer } from '@/components/home/SampleTrailer';
 import { getDataSource } from '@/data/source';
+import { offendingStepLabel } from '@/lib/hud/trace-view';
 import type { RunResult, Step } from '@/contract';
 
 /**
@@ -65,13 +66,12 @@ function stepLabel(step: Step): string {
   }
 }
 
-/** Resolve the compromise step (1-based index + offending tool) from the verdict. */
+/** Resolve the compromise step (1-based index + offending step name) from the verdict. */
 function compromise(run: RunResult): { index: number; tool: string } {
   const steps = run.trace.steps;
   const index = steps.findIndex((s) => s.id === run.verdict.stepId) + 1;
   const step = steps[index - 1];
-  const tool = step && step.type === 'tool_call' ? step.tool : run.verdict.category;
-  return { index, tool };
+  return { index, tool: step ? offendingStepLabel(step) : run.verdict.category };
 }
 
 export default async function Home() {

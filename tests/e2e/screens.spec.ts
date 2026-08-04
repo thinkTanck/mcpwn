@@ -85,7 +85,7 @@ const SCREENS: Screen[] = [
       await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
       // The engineer-facing sections are the point of the screen. Asserted as
       // headings (the document outline), which survive a markup rework.
-      for (const section of ['Offending step', 'Impact', 'Root cause', 'Remediation']) {
+      for (const section of ['Offending step', 'Summary', 'Detector rationale', 'Remediation']) {
         await expect(page.getByRole('heading', { name: section })).toBeVisible();
       }
       await expect(page.getByRole('button', { name: 'Copy report' })).toBeVisible();

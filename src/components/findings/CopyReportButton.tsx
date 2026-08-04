@@ -2,39 +2,15 @@
 
 import { useCallback, useState } from 'react';
 import { Button } from '@/components/hud';
-import type { FixReport } from '@/data/source';
+import { toMarkdown, type FixReport } from '@/fix-report';
 
 /**
- * Serialise a fix report to a plain-text block an engineer can paste into a
- * ticket. Prose stays intact; telemetry (ids, severity, step) is labelled.
+ * Serialise a fix report for a ticket. This is module 6's own `toMarkdown`, so
+ * what an engineer pastes is the report the product generates, not a second
+ * rendering of it maintained beside the first.
  */
 export function formatReport(report: FixReport): string {
-  const lines = [
-    `MCPwn fix report`,
-    `Title: ${report.title}`,
-    `Category: ${report.category}`,
-    `Severity: ${report.severity}`,
-    `Run: ${report.runId}`,
-    `Compromised: ${report.compromised ? 'yes' : 'no'}`,
-    report.compromised ? `Offending step: ${report.stepId}` : null,
-    ``,
-    `Offending step`,
-    report.offendingStep.label,
-    ...report.offendingStep.lines.map(([k, v]) => `  ${k}: ${v}`),
-    ``,
-    `Impact`,
-    report.impact,
-    ``,
-    `Root cause`,
-    report.rootCause,
-    ``,
-    `Remediation`,
-    ...report.remediation.map((step, i) => `${i + 1}. ${step}`),
-    ``,
-    `Detector rationale`,
-    report.rationale,
-  ];
-  return lines.filter((l) => l !== null).join('\n');
+  return toMarkdown(report);
 }
 
 /**
