@@ -3,6 +3,7 @@ import Home from '@/app/(hud)/page';
 import { getDataSource } from '@/data/source';
 import { CORE7 } from '@/components/home/core7';
 import { offendingStepLabel } from '@/lib/hud/trace-view';
+import { MEASURED_CLASSIFICATION, MEASURED_CLASSIFICATION_PROVENANCE } from '@/eval/measured';
 
 /**
  * Home (BRAND register front door). Asserts the landmarks, the pitch + the
@@ -63,6 +64,37 @@ describe('Home — landmarks & pitch', () => {
     const chip = screen.getByText(/^measured ·/);
     expect(chip.textContent).not.toMatch(/illustrative/i);
     expect(chip.textContent).not.toMatch(/fixture, not a benchmark/i);
+  });
+});
+
+describe('Home — category classification is a SECOND, separate measurement', () => {
+  it('renders the classification accuracy under its own label, not among the P/R figures', async () => {
+    await renderHome();
+    // Its own label. The compromise readout says "Detector accuracy"; a category
+    // accuracy sitting under that heading would be read as part of the same
+    // number, which is exactly the conflation this screen must not commit.
+    const block = screen.getByRole('group', { name: /category classification/i });
+    expect(
+      within(block).getByText(MEASURED_CLASSIFICATION.accuracy.toFixed(2)),
+    ).toBeInTheDocument();
+    // And the P/R figures are NOT inside it.
+    expect(within(block).queryByText(/precision/i)).not.toBeInTheDocument();
+    expect(within(block).queryByText(/recall/i)).not.toBeInTheDocument();
+  });
+
+  it('renders the classification provenance line verbatim, beside its own figure', async () => {
+    await renderHome();
+    const block = screen.getByRole('group', { name: /category classification/i });
+    expect(within(block).getByText(MEASURED_CLASSIFICATION_PROVENANCE)).toBeInTheDocument();
+    // The two provenance lines are both present and remain distinct.
+    expect(screen.getByText(/^measured ·/)).toBeInTheDocument();
+    expect(screen.getByText(/^category accuracy ·/)).toBeInTheDocument();
+  });
+
+  it('never presents the classification figure as precision or recall', async () => {
+    await renderHome();
+    const chip = screen.getByText(/^category accuracy ·/);
+    expect(chip.textContent).not.toMatch(/precision|recall/i);
   });
 });
 
