@@ -1,6 +1,6 @@
+import * as envModule from '@/config/env';
 import {
   loadCoreConfig,
-  getPersistenceConfig,
   getJudgeConfig,
   getMcpConfig,
   getSupabaseConfig,
@@ -24,63 +24,63 @@ function caught(fn: () => unknown): Error {
 
 describe('loadCoreConfig — offline-safe core (fail-fast)', () => {
   it('loads a valid core config (typed)', () => {
-    expect(loadCoreConfig({ NODE_ENV: 'test', PERSISTENCE_DRIVER: 'memory' })).toEqual({
-      NODE_ENV: 'test',
-      PERSISTENCE_DRIVER: 'memory',
-    });
+    expect(loadCoreConfig({ NODE_ENV: 'test' })).toEqual({ NODE_ENV: 'test' });
   });
 
   it.each(['development', 'test', 'production'])('accepts NODE_ENV=%s', (NODE_ENV) => {
-    expect(loadCoreConfig({ NODE_ENV, PERSISTENCE_DRIVER: 'memory' }).NODE_ENV).toBe(NODE_ENV);
+    expect(loadCoreConfig({ NODE_ENV }).NODE_ENV).toBe(NODE_ENV);
   });
 
-  it.each(['memory', 'postgres'])('accepts PERSISTENCE_DRIVER=%s', (PERSISTENCE_DRIVER) => {
-    expect(loadCoreConfig({ NODE_ENV: 'test', PERSISTENCE_DRIVER }).PERSISTENCE_DRIVER).toBe(
-      PERSISTENCE_DRIVER,
-    );
-  });
-
-  it('defaults to development + memory when unset (offline boot)', () => {
-    expect(loadCoreConfig({})).toEqual({ NODE_ENV: 'development', PERSISTENCE_DRIVER: 'memory' });
+  it('defaults to development when unset (offline boot)', () => {
+    expect(loadCoreConfig({})).toEqual({ NODE_ENV: 'development' });
   });
 
   it('fails fast on an invalid NODE_ENV, naming the bad var', () => {
-    expect(() => loadCoreConfig({ NODE_ENV: 'staging', PERSISTENCE_DRIVER: 'memory' })).toThrow(
-      ConfigError,
-    );
-    expect(() => loadCoreConfig({ NODE_ENV: 'staging', PERSISTENCE_DRIVER: 'memory' })).toThrow(
-      /NODE_ENV/,
-    );
+    expect(() => loadCoreConfig({ NODE_ENV: 'staging' })).toThrow(ConfigError);
+    expect(() => loadCoreConfig({ NODE_ENV: 'staging' })).toThrow(/NODE_ENV/);
   });
 
-  it('fails fast on an invalid PERSISTENCE_DRIVER, naming the bad var', () => {
-    expect(() => loadCoreConfig({ NODE_ENV: 'test', PERSISTENCE_DRIVER: 'sqlite' })).toThrow(
-      /PERSISTENCE_DRIVER/,
-    );
+  it('offline-safe: NO deferred creds loads fine', () => {
+    expect(() => loadCoreConfig({ NODE_ENV: 'production' })).not.toThrow();
+  });
+});
+
+// The second run store (`src/persistence/*`) was deleted; the config that chose
+// between its two adapters went with it. These pin the removal so the switch
+// cannot drift back in as config that claims to select a backend but selects
+// nothing. `DATABASE_URL` deliberately survives in `.env.example` — see the L12
+// row in plan.md — but no accessor reads or validates it any more.
+describe('the deleted persistence driver leaves no config behind', () => {
+  it('no longer exports a persistence accessor', () => {
+    expect(envModule).not.toHaveProperty('getPersistenceConfig');
   });
 
-  it('offline-safe: memory driver with NO deferred creds loads fine', () => {
-    expect(() =>
-      loadCoreConfig({ NODE_ENV: 'production', PERSISTENCE_DRIVER: 'memory' }),
-    ).not.toThrow();
+  it('PERSISTENCE_DRIVER is no longer part of the core contract', () => {
+    expect(loadCoreConfig({ NODE_ENV: 'test' })).not.toHaveProperty('PERSISTENCE_DRIVER');
+  });
+
+  it('a stale PERSISTENCE_DRIVER in the environment is ignored, not an error', () => {
+    // A leftover value in someone's .env.local must not fail the boot of an app
+    // that no longer has the driver it names.
+    expect(() => loadCoreConfig({ NODE_ENV: 'test', PERSISTENCE_DRIVER: 'sqlite' })).not.toThrow();
+    expect(loadCoreConfig({ NODE_ENV: 'test', PERSISTENCE_DRIVER: 'postgres' })).toEqual({
+      NODE_ENV: 'test',
+    });
+  });
+
+  it('a DATABASE_URL in the environment is neither read nor validated', () => {
+    // It is kept as documented operator config (the Supabase database password
+    // lives in it — see supabase/README.md), but nothing in the app parses it,
+    // so even a malformed value cannot fail a boot.
+    expect(() => loadCoreConfig({ NODE_ENV: 'test', DATABASE_URL: 'not-a-url' })).not.toThrow();
+    expect(loadCoreConfig({ NODE_ENV: 'test', DATABASE_URL: 'not-a-url' })).toEqual({
+      NODE_ENV: 'test',
+    });
   });
 });
 
 describe('secrets are never echoed in error messages', () => {
   const SECRET = 'SUPERSECRET-do-not-leak';
-
-  it('a persistence error never echoes the DATABASE_URL value', () => {
-    const err = caught(() =>
-      getPersistenceConfig({
-        NODE_ENV: 'test',
-        PERSISTENCE_DRIVER: 'postgres',
-        DATABASE_URL: `mysql://user:${SECRET}@db/app`,
-      }),
-    );
-    expect(err).toBeInstanceOf(ConfigError);
-    expect(err.message).not.toContain(SECRET);
-    expect(err.message).toContain('DATABASE_URL');
-  });
 
   it('a judge error never echoes the JUDGE_API_KEY value', () => {
     const err = caught(() =>
@@ -99,57 +99,6 @@ describe('secrets are never echoed in error messages', () => {
   });
 });
 
-describe('lazy persistence (postgres validated only when invoked)', () => {
-  it('core loads with postgres driver and NO DATABASE_URL (validation is deferred)', () => {
-    expect(() =>
-      loadCoreConfig({ NODE_ENV: 'test', PERSISTENCE_DRIVER: 'postgres' }),
-    ).not.toThrow();
-  });
-
-  it('the memory driver never asks for DATABASE_URL', () => {
-    expect(getPersistenceConfig({ NODE_ENV: 'test', PERSISTENCE_DRIVER: 'memory' })).toEqual({
-      driver: 'memory',
-    });
-  });
-
-  it('the postgres accessor throws only when invoked (missing DATABASE_URL)', () => {
-    const env = { NODE_ENV: 'test', PERSISTENCE_DRIVER: 'postgres' };
-    expect(() => loadCoreConfig(env)).not.toThrow();
-    expect(() => getPersistenceConfig(env)).toThrow(ConfigError);
-    expect(() => getPersistenceConfig(env)).toThrow(/DATABASE_URL/);
-  });
-
-  it('rejects a non-postgres URL', () => {
-    expect(() =>
-      getPersistenceConfig({
-        NODE_ENV: 'test',
-        PERSISTENCE_DRIVER: 'postgres',
-        DATABASE_URL: 'https://x/y',
-      }),
-    ).toThrow(ConfigError);
-  });
-
-  it('rejects an unparseable DATABASE_URL', () => {
-    expect(() =>
-      getPersistenceConfig({
-        NODE_ENV: 'test',
-        PERSISTENCE_DRIVER: 'postgres',
-        DATABASE_URL: 'not-a-url',
-      }),
-    ).toThrow(ConfigError);
-  });
-
-  it('returns databaseUrl for a valid postgres:// URL', () => {
-    expect(
-      getPersistenceConfig({
-        NODE_ENV: 'test',
-        PERSISTENCE_DRIVER: 'postgres',
-        DATABASE_URL: 'postgres://u:p@h:5432/db',
-      }),
-    ).toEqual({ driver: 'postgres', databaseUrl: 'postgres://u:p@h:5432/db' });
-  });
-});
-
 describe('lazy JudgeModelPort accessor', () => {
   const valid = {
     JUDGE_MODEL: 'claude-x',
@@ -158,7 +107,7 @@ describe('lazy JudgeModelPort accessor', () => {
   };
 
   it('throws only when invoked; core load ignores judge creds', () => {
-    expect(() => loadCoreConfig({ NODE_ENV: 'test', PERSISTENCE_DRIVER: 'memory' })).not.toThrow();
+    expect(() => loadCoreConfig({ NODE_ENV: 'test' })).not.toThrow();
     expect(() => getJudgeConfig({})).toThrow(ConfigError);
   });
 
@@ -194,7 +143,7 @@ describe('lazy JudgeModelPort accessor', () => {
 
 describe('lazy McpTargetPort accessor', () => {
   it('throws only when invoked; requires MCP_TARGET_URL', () => {
-    expect(() => loadCoreConfig({ NODE_ENV: 'test', PERSISTENCE_DRIVER: 'memory' })).not.toThrow();
+    expect(() => loadCoreConfig({ NODE_ENV: 'test' })).not.toThrow();
     expect(() => getMcpConfig({})).toThrow(/MCP_TARGET_URL/);
   });
 
@@ -218,10 +167,6 @@ describe('lazy McpTargetPort accessor', () => {
 describe('reads process.env by default (offline)', () => {
   it('loadCoreConfig() uses process.env', () => {
     expect(() => loadCoreConfig()).not.toThrow();
-  });
-
-  it('getPersistenceConfig() defaults to the memory driver offline', () => {
-    expect(getPersistenceConfig()).toEqual({ driver: 'memory' });
   });
 
   it('getJudgeConfig() throws offline (no judge creds set)', () => {
