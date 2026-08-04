@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import { StatusChip } from '@/components/hud';
 import { stepMeta, stepPayload } from '@/components/replay/step-meta';
+import { MEASURED_CLASSIFICATION, MEASURED_CLASSIFICATION_PROVENANCE } from '@/eval/measured';
 import type { FixReport } from '@/fix-report';
 import { CopyReportButton } from './CopyReportButton';
 
@@ -119,6 +120,25 @@ export function FindingsReport({
           {/* Remediation — an ordered sequence, so numbering is meaningful */}
           <section aria-label="Remediation" className="mt-7 border-t border-line-em/40 pt-5">
             <SectionHeading tone="cyan">Remediation</SectionHeading>
+
+            {/* THE CATEGORY IS A PREDICTION, AND THIS LIST IS DERIVED FROM IT.
+                The remediation steps are keyed off the category the detector
+                returned, and that category is the judge's own blind read of the
+                trace, never a label (it is never shown `Trace.category`). B3
+                found the cost is real: the ASI10 sample came back classified
+                ASI01, so its report cites ASI01 remediation. An engineer working
+                this list top to bottom deserves the measured figure and the
+                check that goes with it, not a hedge and not silence. */}
+            <div data-testid="classification-caveat" className="mt-3">
+              <p className="reading">
+                The category above is the detector’s own blind classification of the trace, and
+                these steps follow from it. Measured accuracy on our labeled set is{' '}
+                {MEASURED_CLASSIFICATION.accuracy.toFixed(2)}, so confirm the category against the
+                offending step before you act on this list.
+              </p>
+              <p className="instrument mt-2 text-ink-faint">{MEASURED_CLASSIFICATION_PROVENANCE}</p>
+            </div>
+
             <ol aria-label="Remediation" className="mt-3">
               {finding.remediation.steps.map((remedy, i) => (
                 <li

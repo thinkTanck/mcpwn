@@ -3,6 +3,12 @@ import { SentinelCore } from '@/components/hud';
 import { Core7List } from '@/components/home/Core7List';
 import { SampleTrailer } from '@/components/home/SampleTrailer';
 import { getDataSource } from '@/data/source';
+import {
+  MEASURED_CLASSIFICATION,
+  MEASURED_CLASSIFICATION_PROVENANCE,
+  MEASURED_COMPROMISE,
+  MEASURED_COMPROMISE_PROVENANCE,
+} from '@/eval/measured';
 import { offendingStepLabel } from '@/lib/hud/trace-view';
 import type { RunResult, Step } from '@/contract';
 
@@ -11,40 +17,14 @@ import type { RunResult, Step } from '@/contract';
  * + the Core-7 launcher + the sample trailer, composed to fit ONE viewport.
  *
  * Everything about the featured run is BOUND to the real sample `RunResult`
- * (run id, step total, compromise step) — no `RG-0472`/`/13` literals. The
- * precision/recall figures are a leakage-separated FIXTURE, labelled as such,
- * not a claimed product benchmark.
- */
-
-/**
- * MEASURED detector accuracy — leakage-separated, taken verbatim from a real
- * `npm run eval:measure` run and never rounded or adjusted.
+ * (run id, step total, compromise step) — no `RG-0472`/`/13` literals.
  *
- * Precision 0.9565 is 22/23: 22 true positives and one false positive across the
- * whole labeled set. Recall 1.0000 is 22/22 with ZERO false negatives, in every
- * category, on all five passes — the detector did not miss a single real
- * compromise. The only error is an over-flag.
- *
- * The judge that produced this is FROZEN (`docs/adr/0009-compromise-vs-exposure.md`):
- * `claude-haiku-4-5`, temperature 0, and the `SYSTEM_RUBRIC` constant as it
- * stands. The number holds for that configuration and no other, which is why the
- * provenance below names the judge as well as the date.
- *
- * REPLACING THESE: re-run `npm run eval:measure` (five passes, modal verdict per
- * realization) and take the aggregate verbatim. The figures and `METRICS_PROVENANCE`
- * move together or not at all — a measured figure with no provenance is the same
- * untrustworthy claim as an invented one, and `tests/unit/app/home.test.tsx`
- * fails if they are ever separated.
+ * TWO measured figures reach this screen, and they are structurally separated
+ * because they are separate measurements: the compromise precision/recall, and
+ * the category-classification accuracy (a different question over a smaller
+ * denominator). Both live in `@/eval/measured`, each welded to its own
+ * provenance line; neither may be edited here.
  */
-const DETECTOR_METRICS = { precision: 0.9565, recall: 1.0 } as const;
-
-/**
- * How the figures above were obtained. Rendered beside them, never apart from
- * them. Five passes agreed on all 44 realizations, so there is no instability
- * caveat to carry; if a future run disagrees on any, this line has to say so.
- */
-const METRICS_PROVENANCE =
-  'measured · N=44 labeled realizations · 5 passes · 2026-08-03 · judge claude-haiku-4-5';
 
 /** Human-readable one-liner for a trace step (for the trailer end labels). */
 function stepLabel(step: Step): string {
@@ -115,23 +95,53 @@ export default async function Home() {
             {/* Detector accuracy readout. Provenance leads; the numbers render at their FINAL
                 value immediately (SSR + client), NEVER counting up: this claim is the evidence
                 of the core promise, so a transient "0.00 precision" would assert the opposite. */}
-            <div className="border-t border-line pt-3">
+            <div
+              role="group"
+              aria-labelledby="metric-compromise-label"
+              className="border-t border-line pt-3"
+            >
               <div className="mb-2 flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                <span className="micro-label text-nominal">Detector accuracy</span>
-                <span className="instrument-faint">{METRICS_PROVENANCE}</span>
+                <span id="metric-compromise-label" className="micro-label text-nominal">
+                  Detector accuracy
+                </span>
+                <span className="instrument-faint">{MEASURED_COMPROMISE_PROVENANCE}</span>
               </div>
               <div className="flex items-baseline gap-x-6">
                 <span className="whitespace-nowrap">
                   <span className="display-lg font-sans">
-                    {DETECTOR_METRICS.precision.toFixed(2)}
+                    {MEASURED_COMPROMISE.precision.toFixed(2)}
                   </span>
                   <span className="instrument ml-2">precision</span>
                 </span>
                 <span className="whitespace-nowrap">
-                  <span className="display-lg font-sans">{DETECTOR_METRICS.recall.toFixed(2)}</span>
+                  <span className="display-lg font-sans">
+                    {MEASURED_COMPROMISE.recall.toFixed(2)}
+                  </span>
                   <span className="instrument ml-2">recall</span>
                 </span>
               </div>
+            </div>
+
+            {/* A SECOND measurement, deliberately in its own labelled group and at a smaller
+                DISPLAY size. It answers a different question over a different denominator, so
+                it must not sit in the row above as if it were a third view of one number.
+                Subordinate in size because the product's claim is the compromise call; this
+                qualifies which Core-7 code that compromise is filed under. */}
+            <div
+              role="group"
+              aria-labelledby="metric-classification-label"
+              className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-t border-line/60 pt-3"
+            >
+              <span id="metric-classification-label" className="micro-label">
+                Category classification
+              </span>
+              <span className="whitespace-nowrap">
+                <span className="display-md font-sans">
+                  {MEASURED_CLASSIFICATION.accuracy.toFixed(2)}
+                </span>
+                <span className="instrument ml-2">accuracy</span>
+              </span>
+              <span className="instrument-faint">{MEASURED_CLASSIFICATION_PROVENANCE}</span>
             </div>
 
             {/* CTAs */}

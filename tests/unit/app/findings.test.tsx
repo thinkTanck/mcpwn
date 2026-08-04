@@ -2,7 +2,8 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import FindingsPage from '@/app/(hud)/findings/[id]/page';
 import { FindingsReport } from '@/components/findings';
-import { SAMPLE_RUN_ID } from '@/data/source';
+import { SAMPLE_RUN_ID, sampleRun } from '@/data/source';
+import { MEASURED_CLASSIFICATION } from '@/eval/measured';
 import { SAMPLE_VERDICTS, SAMPLE_VERDICT_PROVENANCE } from '@/data/fixtures/sample-verdicts';
 import { RunResultSchema, type RunResult } from '@/contract';
 import { TraceBuilder } from '@/attacks/engine';
@@ -166,6 +167,35 @@ describe('Findings / fix report screen', () => {
     expect(screen.getByText(/no report for run/i)).toBeInTheDocument();
     expect(screen.getByText('no-such-run')).toBeInTheDocument();
     expect(screen.getByRole('link')).toBeInTheDocument();
+  });
+
+  it('states that the category is a blind classification, at its MEASURED accuracy', async () => {
+    // #103's evidence: the ASI10 sample came back classified ASI01, so its fix
+    // report cites ASI01 remediation. The category on this screen drives the
+    // remediation list, and it is a prediction, not a label. The screen has to
+    // say so, with the measured figure rather than a hedge.
+    render(<FindingsReport report={customReport} />);
+    const note = screen.getByTestId('classification-caveat');
+    expect(note).toHaveTextContent(MEASURED_CLASSIFICATION.accuracy.toFixed(2));
+    expect(note).toHaveTextContent(String(MEASURED_CLASSIFICATION.scored));
+    expect(note).toHaveTextContent(/judge claude-haiku-4-5/);
+  });
+
+  it('does not claim a classification accuracy on a report with no category to classify', async () => {
+    const clean = generateFixReport(customRun(false));
+    render(<FindingsReport report={clean} />);
+    expect(screen.queryByTestId('classification-caveat')).not.toBeInTheDocument();
+  });
+
+  it('shows the ASI10 sample under the category the judge REALLY returned (ASI01)', async () => {
+    // Not relabelled to the ground truth. A recorded verdict rewritten to match
+    // our own label is the leakage this project exists to avoid, so the screen
+    // shows the real answer and the caveat explains what it is.
+    await renderPage(sampleRun('ASI10').runId);
+    expect(SAMPLE_VERDICTS.ASI10.category).toBe('ASI01');
+    expect(screen.getByText('ASI01')).toBeInTheDocument();
+    expect(screen.queryByText('ASI10')).not.toBeInTheDocument();
+    expect(screen.getByTestId('classification-caveat')).toBeInTheDocument();
   });
 
   it('keeps the AUTHORED report copy em-dash free (locked rule; also carried into the ticket)', async () => {
