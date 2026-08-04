@@ -260,95 +260,61 @@ body {
 }
 
 /* =========================================================================
- * Type role classes — the two registers as consumable roles. Screens apply a
- * role (`.reading`, `.instrument`, `.readout`, `.micro-label`) instead of raw
- * sizes, so a scale fix in the tokens above cascades everywhere.
+ * Type role classes — the THREE roles as consumable classes. Screens apply a
+ * role (`.reading*`, `.instrument*` / `.readout` / `.micro-label`, `.display*`)
+ * instead of raw sizes, so a scale fix in the tokens above cascades everywhere.
  * ========================================================================= */
-/* Type-role classes carry FAMILY / SIZE / RHYTHM only. Their default COLOUR is
- * declared once in `@layer base` below, NOT here, so a Tailwind `text-*` utility
- * (which lives in `@layer utilities`) out-ranks it by layer order and a tri-state
- * band colour or a nominal accent actually overrides the role default without
- * `!important`. Declaring colour on the unlayered class silently beats EVERY
- * layered utility regardless of specificity under Tailwind v4 cascade layers —
- * the trap that killed `text-nominal` on micro-labels and band colours on DISPLAY. */
-.reading {
-  font-family: var(--reading-font);
-  font-size: var(--reading-body);
-  line-height: var(--reading-line);
-  text-wrap: pretty;
-}
-.reading-lead {
-  font-family: var(--reading-font);
-  font-size: var(--reading-lead);
-  line-height: 1.5;
-  text-wrap: pretty;
-}
-.reading-h1 {
-  font-family: var(--reading-font);
-  font-size: var(--reading-h1);
-  font-weight: 600; /* DESIGN §type: Headline / Reading h1 is 600, not inherited body 400 */
-  line-height: 1.1;
-  letter-spacing: -0.02em;
-  text-wrap: balance;
-}
-.reading-h2 {
-  font-family: var(--reading-font);
-  font-size: var(--reading-h2);
-  font-weight: 600; /* DESIGN §type: Title / Reading h2, h3 are 600 */
-  line-height: 1.2;
-  text-wrap: balance;
-}
-.reading-h3 {
-  font-family: var(--reading-font);
-  font-size: var(--reading-h3);
-  font-weight: 600;
-  line-height: 1.35;
-  text-wrap: balance;
-}
-.instrument {
-  font-family: var(--instrument-font);
-  font-size: var(--instrument-label);
-  line-height: var(--instrument-line);
-  letter-spacing: var(--instrument-tracking);
-}
-.instrument-faint {
-  font-family: var(--instrument-font);
-  font-size: var(--instrument-label);
-  line-height: var(--instrument-line);
-  letter-spacing: var(--instrument-tracking);
-}
-.readout {
-  font-family: var(--instrument-font);
-  font-size: var(--instrument-base);
-  line-height: var(--instrument-line);
-}
-.micro-label {
-  font-family: var(--instrument-font);
-  font-size: var(--instrument-label);
-  line-height: 1.2;
-  letter-spacing: var(--instrument-tracking-label);
-  text-transform: uppercase;
-}
-
-/* DISPLAY role — data values that are the visual focus (mono display scale). */
-/* No font-family here on purpose: the frozen design owns the family (sans hero
- * counters, mono readouts). The role carries the SCALE + weight/rhythm only. */
-.display,
-.display-md,
-.display-lg,
-.display-xl {
-  font-weight: var(--display-weight);
-  line-height: var(--display-line);
-  letter-spacing: var(--display-tracking);
-  font-variant-numeric: tabular-nums;
-}
-
-/* Role default COLOURS — @layer base so `text-*` utilities out-rank them (see the
- * note above the role classes). This is the systemic fix for the whole class of
- * "role colour silently beats the utility" cascade bugs. */
+/* EVERY role declaration lives in `@layer base` — family, size, rhythm AND
+ * colour. Under Tailwind v4 the layer order is `theme, base, components,
+ * utilities`, and an UNLAYERED rule beats every layered one no matter the
+ * specificity. So a role class declared outside a layer silently out-ranks the
+ * utility sitting next to it in the same `className`, and the markup and the
+ * painted pixel disagree with nothing to show for it.
+ *
+ * That was found once, for COLOUR (it killed `text-nominal` on micro-labels and
+ * the tri-state band colours on DISPLAY), and only the colour declarations were
+ * moved. SIZE, FAMILY and RHYTHM were left unlayered, so `text-[15px]`,
+ * `font-mono` and `leading-relaxed` on a role element were INERT in exactly the
+ * same way — every reachable one measured the role default instead. Keeping the
+ * whole role inside the layer is what makes the THREE-ROLE model composable:
+ * the role supplies the default, a utility next to it overrides that default,
+ * and neither needs `!important`. Resolved values (not class strings) are
+ * asserted in tests/unit/app/type-roles.test.ts. */
 @layer base {
   .reading {
+    font-family: var(--reading-font);
+    font-size: var(--reading-body);
+    line-height: var(--reading-line);
+    text-wrap: pretty;
     color: var(--reading-color);
+  }
+  .reading-lead {
+    font-family: var(--reading-font);
+    font-size: var(--reading-lead);
+    line-height: 1.5;
+    text-wrap: pretty;
+  }
+  .reading-h1 {
+    font-family: var(--reading-font);
+    font-size: var(--reading-h1);
+    font-weight: 600; /* DESIGN §type: Headline / Reading h1 is 600, not inherited body 400 */
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+  .reading-h2 {
+    font-family: var(--reading-font);
+    font-size: var(--reading-h2);
+    font-weight: 600; /* DESIGN §type: Title / Reading h2, h3 are 600 */
+    line-height: 1.2;
+    text-wrap: balance;
+  }
+  .reading-h3 {
+    font-family: var(--reading-font);
+    font-size: var(--reading-h3);
+    font-weight: 600;
+    line-height: 1.35;
+    text-wrap: balance;
   }
   .reading-lead,
   .reading-h1,
@@ -356,36 +322,61 @@ body {
   .reading-h3 {
     color: var(--reading-color-hi);
   }
+
   .instrument {
+    font-family: var(--instrument-font);
+    font-size: var(--instrument-label);
+    line-height: var(--instrument-line);
+    letter-spacing: var(--instrument-tracking);
     color: var(--instrument-color);
   }
   .instrument-faint {
+    font-family: var(--instrument-font);
+    font-size: var(--instrument-label);
+    line-height: var(--instrument-line);
+    letter-spacing: var(--instrument-tracking);
     color: var(--instrument-color-faint);
   }
   .readout {
+    font-family: var(--instrument-font);
+    font-size: var(--instrument-base);
+    line-height: var(--instrument-line);
     color: var(--instrument-readout);
   }
   .micro-label {
+    font-family: var(--instrument-font);
+    font-size: var(--instrument-label);
+    line-height: 1.2;
+    letter-spacing: var(--instrument-tracking-label);
+    text-transform: uppercase;
     color: var(--instrument-color-faint);
   }
+
+  /* DISPLAY role — data values that are the visual focus. No font-family here on
+   * purpose: the frozen design owns the family (sans hero counters, mono
+   * readouts). The role carries the SCALE + weight/rhythm/colour only. */
   .display,
   .display-md,
   .display-lg,
   .display-xl {
+    font-weight: var(--display-weight);
+    line-height: var(--display-line);
+    letter-spacing: var(--display-tracking);
+    font-variant-numeric: tabular-nums;
     color: var(--display-color);
   }
-}
-.display {
-  font-size: var(--display-sm);
-}
-.display-md {
-  font-size: var(--display-md);
-}
-.display-lg {
-  font-size: var(--display-lg);
-}
-.display-xl {
-  font-size: var(--display-xl);
+  .display {
+    font-size: var(--display-sm);
+  }
+  .display-md {
+    font-size: var(--display-md);
+  }
+  .display-lg {
+    font-size: var(--display-lg);
+  }
+  .display-xl {
+    font-size: var(--display-xl);
+  }
 }
 
 /* Query container for the content column, so `--reading-h1`'s `cqi` resolves

@@ -69,7 +69,7 @@ function BreachIcon() {
  *  aria-describedby so a screen reader hears the error on the field. */
 function ErrorLine({ id, children }: { id: string; children: React.ReactNode }) {
   return (
-    <p id={id} role="alert" className="reading flex items-start gap-2 text-[15px] text-breach-text">
+    <p id={id} role="alert" className="reading flex items-start gap-2 text-breach-text">
       <span aria-hidden="true" className="mt-0.5 shrink-0">
         <BreachIcon />
       </span>
@@ -324,7 +324,7 @@ export function SignInPanel({
         </form>
 
         {/* Resend is otherwise silent; announce it politely for everyone. */}
-        <p role="status" aria-live="polite" className="reading mt-3 text-[15px] text-nominal">
+        <p role="status" aria-live="polite" className="reading mt-3 text-nominal">
           {notice}
         </p>
 
@@ -342,7 +342,7 @@ export function SignInPanel({
           </Button>
         </div>
 
-        <p className="reading mt-4 text-[15px] text-ink-muted">
+        <p className="reading mt-4 text-ink-muted">
           Did not get the code? Check your spam folder, then resend above.
         </p>
       </div>
@@ -371,7 +371,7 @@ export function SignInPanel({
           <span aria-hidden="true" className="mt-0.5 shrink-0 text-caution">
             <CautionIcon />
           </span>
-          <span className="reading text-[15px] text-ink">
+          <span className="reading text-ink">
             We could not complete that sign-in. Request a new code below.
           </span>
         </div>
@@ -384,7 +384,7 @@ export function SignInPanel({
           <span className="shrink-0 rounded border border-line-em px-1.5 py-0.5 font-mono text-[13px] uppercase tracking-[0.12em] text-nominal">
             Preview
           </span>
-          <span className="reading text-[15px] text-ink-muted">
+          <span className="reading text-ink-muted">
             Sign-in wiring ships with the hosted release; no email is sent yet.
           </span>
         </div>
@@ -487,7 +487,7 @@ export function SignInPanel({
       </div>
 
       {/* The copy promises the sample is open to everyone; give it a door. */}
-      <p className="reading mt-6 text-[15px] text-ink-muted">
+      <p className="reading mt-6 text-ink-muted">
         Just exploring?{' '}
         <Link href="/runs/sample" className="text-nominal hover:underline">
           Watch the sample run
