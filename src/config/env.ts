@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 /**
  * Env-only configuration (12-Factor III), split into an offline-safe CORE that
- * is validated fail-fast at load, and DEFERRED adapter creds (persistence /
+ * is validated fail-fast at load, and DEFERRED adapter creds (Supabase /
  * JudgeModelPort / McpTargetPort) that are validated LAZILY — only when their
  * accessor is invoked (i.e. at adapter construction). The offline app boots with
  * none of the deferred creds set.
@@ -41,22 +41,9 @@ const httpUrl = z.string().refine(
   { message: 'must be an http(s) URL' },
 );
 
-const postgresUrl = z.string().refine(
-  (u) => {
-    try {
-      const { protocol } = new URL(u);
-      return protocol === 'postgres:' || protocol === 'postgresql:';
-    } catch {
-      return false;
-    }
-  },
-  { message: 'must be a postgres:// connection string' },
-);
-
 // ── CORE (offline-safe; validated at load) ──
 export const CoreEnvSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
-  PERSISTENCE_DRIVER: z.enum(['memory', 'postgres']).default('memory'),
 });
 export type CoreConfig = z.infer<typeof CoreEnvSchema>;
 
@@ -106,22 +93,20 @@ export function getSiteOrigin(env: Env = process.env): string {
   return result.data;
 }
 
-// ── LAZY: persistence (Neon Postgres behind the repository port) ──
-const PostgresEnvSchema = z
-  .object({ DATABASE_URL: postgresUrl })
-  .transform((v) => ({ driver: 'postgres' as const, databaseUrl: v.DATABASE_URL }));
-
-export type PersistenceConfig = { driver: 'memory' } | z.infer<typeof PostgresEnvSchema>;
-
-/** Resolve persistence config. The memory driver never asks for DATABASE_URL;
- *  the postgres driver validates it here (only when this accessor is invoked). */
-export function getPersistenceConfig(env: Env = process.env): PersistenceConfig {
-  const { PERSISTENCE_DRIVER } = loadCoreConfig(env);
-  if (PERSISTENCE_DRIVER === 'memory') return { driver: 'memory' };
-  const result = PostgresEnvSchema.safeParse(env);
-  if (!result.success) throw toConfigError(result.error, 'Invalid persistence configuration');
-  return result.data;
-}
+// ── NOTE: there is no persistence driver here, on purpose ──
+//
+// A `PERSISTENCE_DRIVER` enum and a lazily-validated `DATABASE_URL` accessor used
+// to sit at this point in the file, selecting between the two adapters of a
+// second run store (`src/persistence/*`). That store was superseded and deleted;
+// the only run store is `RunRepository` (`src/data/run-repository.ts`), which
+// reaches Supabase Postgres through the Supabase JS client and never opens a
+// connection string. The switch was therefore config that named a choice the app
+// could no longer make, so it went with the module it configured.
+//
+// `DATABASE_URL` itself is still listed in `.env.example` as operator config —
+// it holds the database password the `supabase link` prompt asks for (see
+// `supabase/README.md`) — but nothing in the application reads or validates it,
+// and the `.env.example` entry says so.
 
 // ── LAZY: Supabase Auth (gates live runs; OFFLINE-SAFE) ──
 //
