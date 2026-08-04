@@ -229,8 +229,19 @@ describe('DTCG token layer (globals.css)', () => {
     expect(must(vars.get('--instrument-font'), 'instrument font')).toContain('mono');
   });
 
-  it('READING body is the 18px editorial target; h1 scales with the CONTAINER (cqi), never vw', () => {
-    expect(vars.get('--reading-body')).toBe('18px');
+  it('READING body is the design 17px; h1 scales with the CONTAINER (cqi), never vw', () => {
+    // THE PRINCIPLE (CLAUDE.md / ADR-0004): the design is the default reference
+    // and a token role DESCRIBES it, it does not silently redesign it. DESIGN.md
+    // §type sets body 17px / lead 18px and the CLAUDE.md READING scale reads
+    // "17 body / 18 lead"; the token had drifted to an 18px "editorial target",
+    // which is the role overruling the reference — the same failure mode as the
+    // 65–75ch measure cap and DISPLAY-pinned-to-mono. 16px stays the AA floor,
+    // asserted separately above; it is not the design's value.
+    expect(vars.get('--reading-body')).toBe('17px');
+    // Body and lead are distinct steps in the design, not one size twice: at 18/18
+    // the lead paragraph had no size contrast with the prose under it at all.
+    const pxOf = (name: string) => parseFloat(must(vars.get(name), name));
+    expect(pxOf('--reading-lead')).toBeGreaterThan(pxOf('--reading-body'));
     const h1 = must(vars.get('--reading-h1'), '--reading-h1 defined');
     expect(h1, `${h1} must use a container unit (cqi/cqw), not the viewport`).toMatch(/cq[iwbh]/);
     expect(h1, `${h1} must not use vw — the deck-collapse overflow bug`).not.toMatch(/vw/);
@@ -271,10 +282,27 @@ describe('DTCG token layer (globals.css)', () => {
     expect(must(vars.get('--reading-font'), 'reading')).toContain('sans');
     expect(must(vars.get('--instrument-font'), 'instrument')).toContain('mono');
     const px = (name: string) => parseFloat(must(vars.get(name), name));
+
+    // The INSTRUMENT ceiling is DERIVED from the instrument size tokens, not
+    // named — CLAUDE.md's hard rule is that `--display-sm` and `--reading-body`
+    // both sit above it, and pinning one token as "the ceiling" would let a new
+    // (or enlarged) instrument size climb past the smallest prose without a
+    // single assertion moving. Taking the max keeps the rule true by
+    // construction as the scale changes.
+    const instrumentSizes = [...vars.entries()]
+      .filter(([name, value]) => /^--instrument-(label|base)$/.test(name) && /px$/.test(value))
+      .map(([, value]) => parseFloat(value));
+    expect(instrumentSizes.length, 'INSTRUMENT size tokens found').toBeGreaterThanOrEqual(2);
+    const instrumentCeiling = Math.max(...instrumentSizes);
+
     // DISPLAY starts above the INSTRUMENT ceiling, so a focal value can never be
     // mistaken for a label, and prose never reaches down into either.
-    expect(px('--display-sm')).toBeGreaterThan(px('--instrument-base'));
-    expect(px('--reading-body')).toBeGreaterThan(px('--instrument-base'));
+    expect(px('--display-sm'), 'DISPLAY floor above the INSTRUMENT ceiling').toBeGreaterThan(
+      instrumentCeiling,
+    );
+    expect(px('--reading-body'), 'READING body above the INSTRUMENT ceiling').toBeGreaterThan(
+      instrumentCeiling,
+    );
   });
 
   it('READING pins no measure cap — the frozen design owns layout width', () => {

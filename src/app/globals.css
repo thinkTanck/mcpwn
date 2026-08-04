@@ -169,8 +169,13 @@
   --reading-line: 1.6;
   --reading-color: var(--text); /* ink-300 · 8.7:1 base */
   --reading-color-hi: var(--text-hi); /* ink-100 · 13.7:1 base */
-  --reading-body: 18px; /* editorial target (16px is the AA floor, not the goal) */
-  --reading-lead: 18px; /* lead paragraph / subhead */
+  /* 17px is the DESIGN's body size (DESIGN.md §type body; the CLAUDE.md READING
+   * scale reads "17 body / 18 lead"). 16px remains the AA prose floor, asserted
+   * separately — a floor, never the target, and not what sets this value. The
+   * token had drifted to an 18px "editorial target", which is the role
+   * redesigning the reference instead of describing it (ADR-0004). */
+  --reading-body: 17px;
+  --reading-lead: 18px; /* lead paragraph / subhead — one step above body */
   --reading-h3: 20px;
   --reading-h2: 28px;
   /* Container-based (cqi), NOT vw: the text column resizes as the command deck
