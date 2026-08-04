@@ -63,7 +63,14 @@ export default async function SignIn({
         </span>
       </Link>
 
-      <div className="relative w-full max-w-[380px]">
+      {/* The panel column is its OWN query container, so `--reading-h1`'s `5cqi`
+          resolves against the 380px column the headline actually sits in. The
+          page <main> is a full-bleed centring frame, so a container established
+          only there made `cqi` behave as `vw` — the exact substitution CLAUDE.md
+          bans — and rendered a 44px headline in a 380px panel where the design
+          reference sets 34px. Scoped here, the token settles on its 32px floor
+          and holds at every viewport, which is what a fixed-width panel wants. */}
+      <div className="type-flow relative w-full max-w-[380px]">
         <SignInPanel
           authEnabled={isAuthEnabled()}
           githubEnabled={isGithubOAuthEnabled()}

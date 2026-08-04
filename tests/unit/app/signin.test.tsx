@@ -66,6 +66,23 @@ describe('Sign-in screen', () => {
     await waitFor(() => expect(screen.getByLabelText(/email/i)).toHaveFocus());
   });
 
+  it('sizes the headline against the panel column, not the full-bleed main', async () => {
+    // `--reading-h1` is clamp(32px, 5cqi, 44px), and `cqi` resolves against the
+    // NEAREST query container. Sign-in's <main> is a full-bleed centring frame,
+    // so a container established there makes 5cqi behave as 5vw — the exact
+    // failure CLAUDE.md's "cqi, never vw" rule exists to prevent, and the reason
+    // a 380px panel was rendering a 44px headline the frozen design sets at 34px.
+    // The container has to be the column the heading actually lives in.
+    await renderPage();
+    const h1 = screen.getByRole('heading', { level: 1, name: /continue to mcpwn/i });
+    const container = h1.closest('.type-flow');
+    expect(container, 'the headline has a query container').not.toBeNull();
+    expect(container?.tagName, 'the container is the panel column, not <main>').not.toBe('MAIN');
+    expect(container?.className, 'the container is the width-capped panel column').toContain(
+      'max-w-[380px]',
+    );
+  });
+
   it('explains a failed sign-in (?error=auth) instead of a blank form', async () => {
     render(await SignIn({ searchParams: Promise.resolve({ error: 'auth' }) }));
     expect(screen.getByRole('alert')).toHaveTextContent(/could not complete that sign-in/i);

@@ -93,6 +93,36 @@ describe('generateFixReport — compromised run', () => {
   });
 });
 
+describe('generateFixReport — the offending step as evidence', () => {
+  it('carries the OBSERVABLE offending step itself, at its 1-based position', () => {
+    const run = makeRun(true);
+    const f = generateFixReport(run).finding!;
+    const index = run.trace.steps.findIndex((s) => s.id === f.stepId);
+    expect(f.stepIndex).toBe(index + 1);
+    expect(f.step).toEqual(run.trace.steps[index]);
+    // Quoted from the trace, so the report shows what the agent actually did.
+    expect(f.step.type).toBe('tool_call');
+  });
+
+  it('never invents step evidence: the quoted step is identical to the trace step', () => {
+    for (const category of CORE_7) {
+      const run = makeRun(true, category);
+      const f = generateFixReport(run).finding!;
+      expect(run.trace.steps).toContainEqual(f.step);
+    }
+  });
+});
+
+describe('remediation — an ordered sequence of steps', () => {
+  it.each(CORE_7)('%s remediation is a non-empty ordered list', (category) => {
+    const r = generateFixReport(makeRun(true, category)).finding!.remediation;
+    expect(r.steps.length).toBeGreaterThan(0);
+    for (const step of r.steps) expect(step.length).toBeGreaterThan(10);
+    // `guidance` stays the prose form of the same steps: one source of truth.
+    expect(r.guidance).toBe(r.steps.join(' '));
+  });
+});
+
 describe('generateFixReport — not-compromised run', () => {
   it('produces a clean "no findings" report', () => {
     const report = generateFixReport(makeRun(false));

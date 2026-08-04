@@ -1,23 +1,26 @@
 import { getAttack } from '@/attacks';
-import { CategorySchema, type Category, type RunResult, type Step, type Verdict } from '@/contract';
+import { CategorySchema, VerdictSchema, type Category, type RunResult } from '@/contract';
+import { generateFixReport, type FixReport } from '@/fix-report';
 import { bandFor } from '@/lib/hud/bands';
 import { leaderboardFixture } from './fixtures/leaderboard';
-import { findingsFixture } from './fixtures/findings';
-import { SAMPLE_VERDICTS, type OffendingAnchor } from './fixtures/sample-verdicts';
+import { SAMPLE_VERDICTS, SAMPLE_VERDICT_PROVENANCE } from './fixtures/sample-verdicts';
 
 /**
  * DataSource port — the boundary the screens read through. The in-memory adapter
- * serves curated fixtures now; an HTTP adapter can implement the same interface
+ * serves the sample library now; an HTTP adapter can implement the same interface
  * later. Screens/components depend on this interface, never on the fixtures
  * directly. Everything returned is OBSERVABLE (no `groundTruth`).
  *
  * SAMPLE RUNS come from the REAL attack builders (module 2): the trace served for
  * each category IS `attacks.build(category, 'malicious').trace` — a single source
- * of truth with the attacks we build and measure. The paired verdict is a
- * curated, provenance-labelled PLACEHOLDER (see `sample-verdicts.ts`), never
- * derived from the held-out `GroundTruth` (that is what keeps the leakage barrier
- * real, not cosmetic). Phase 8 records actual validated-judge verdicts to replace
- * the placeholders.
+ * of truth with the attacks we build and measure. The paired verdict is RECORDED
+ * from the frozen validated judge (see `sample-verdicts.ts`), never derived from
+ * the held-out `GroundTruth` — the judge that produced it is blind to the label,
+ * which is what keeps the leakage barrier real rather than cosmetic.
+ *
+ * FIX REPORTS come from the REAL module-6 generator (`@/fix-report`) over those
+ * runs, so `/findings` renders the artifact the product actually produces instead
+ * of a hand-authored stand-in for it.
  */
 
 export type LeaderboardCell = { model: string; category: string; robustness: number };
@@ -29,19 +32,15 @@ export type Leaderboard = {
   source: 'fixture';
 };
 
-export type FixReport = {
-  runId: string;
-  category: string;
-  severity: string;
-  compromised: boolean;
-  stepId: string;
-  title: string;
-  offendingStep: { label: string; lines: [string, string][] };
-  impact: string;
-  rootCause: string;
-  remediation: string[];
-  rationale: string;
-};
+/**
+ * The fix report is module 6's type, re-exported so screens keep importing it
+ * from the port they read through. There was a SECOND, UI-shaped `FixReport`
+ * declared here that the findings screen rendered from a fixture, while the real
+ * generator shipped dark behind it — two types with one name, and only one of
+ * them was ever exercised by the product. One canonical type now: this is an
+ * alias, not a parallel definition.
+ */
+export type { FixReport } from '@/fix-report';
 
 /**
  * Fleet health for the command-deck FLEET STATUS — each run's verdict tallied
@@ -63,44 +62,44 @@ export interface DataSource {
   listRuns(): Promise<RunResult[]>;
   getLeaderboard(): Promise<Leaderboard>;
   getFixReport(id: string): Promise<FixReport | null>;
+  /**
+   * Where this run's verdict came from, or `null` if the adapter cannot say. A
+   * verdict and its provenance travel together or not at all, so a screen can
+   * state plainly that a demonstration is a demonstration.
+   */
+  getVerdictProvenance(id: string): Promise<string | null>;
   getFleetStatus(): Promise<FleetStatus>;
 }
 
 /**
- * Resolve the offending step id from the OBSERVABLE trace via the curator's
- * anchor (tool + occurrence). This reads only `trace.steps`, never
- * `groundTruth` — so a sample verdict can never copy the held-out label. Throws
- * if the anchor does not resolve, so a mis-curated sample fails loudly instead of
- * shipping a phantom step id.
- */
-function anchorStepId(steps: readonly Step[], anchor: OffendingAnchor): string {
-  const matches = steps.filter((s) => s.type === 'tool_call' && s.tool === anchor.tool);
-  const step = anchor.occurrence === 'first' ? matches[0] : matches[matches.length - 1];
-  if (!step) {
-    throw new Error(
-      `sample verdict anchor "${anchor.tool}" (${anchor.occurrence}) not found in the trace`,
-    );
-  }
-  return step.id;
-}
-
-/**
  * Assemble the SAMPLE `RunResult` for a category: the REAL builder-constructed
- * malicious trace + a curated verdict. The held-out `groundTruth` returned by
- * `build()` is deliberately dropped here (leakage barrier).
+ * malicious trace + the RECORDED validated-judge verdict. The held-out
+ * `groundTruth` returned by `build()` is deliberately dropped here, and the
+ * recorded `stepId` is the judge's own answer over the observable trace, so no
+ * part of this assembly can copy a label.
+ *
+ * The verdict is schema-validated on the way through and the anchored step must
+ * exist in the trace, so a recording that no longer matches its builder (a step
+ * renumbered, a scenario rewritten) fails LOUDLY here instead of shipping a
+ * phantom step id to the replay.
  */
 export function sampleRun(category: Category): RunResult {
   const { trace } = getAttack(category).build('malicious');
-  const curated = SAMPLE_VERDICTS[category];
-  const verdict: Verdict = {
+  const recorded = SAMPLE_VERDICTS[category];
+  const verdict = VerdictSchema.parse({
     runId: trace.runId,
-    compromised: true,
-    score: curated.score,
-    severity: curated.severity,
-    category,
-    rationale: curated.rationale,
-    stepId: anchorStepId(trace.steps, curated.anchor),
-  };
+    compromised: recorded.compromised,
+    score: recorded.score,
+    severity: recorded.severity,
+    category: recorded.category,
+    rationale: recorded.rationale,
+    ...(recorded.stepId !== undefined ? { stepId: recorded.stepId } : {}),
+  });
+  if (verdict.stepId !== undefined && !trace.steps.some((s) => s.id === verdict.stepId)) {
+    throw new Error(
+      `recorded sample verdict for ${category} anchors step "${verdict.stepId}", which is not in the trace`,
+    );
+  }
   return { runId: trace.runId, target: trace.target, model: trace.model, category, trace, verdict };
 }
 
@@ -128,7 +127,16 @@ class InMemoryDataSource implements DataSource {
   }
   getFixReport(id: string): Promise<FixReport | null> {
     const wanted = resolveId(id);
-    return Promise.resolve(findingsFixture.runId === wanted ? findingsFixture : null);
+    const run = sampleRuns().find((r) => r.runId === wanted);
+    // The REAL module-6 generator, over the run the replay screen shows. Every
+    // Core-7 sample now has a fix report, not just the hero one.
+    return Promise.resolve(run ? generateFixReport(run) : null);
+  }
+
+  getVerdictProvenance(id: string): Promise<string | null> {
+    const wanted = resolveId(id);
+    const known = sampleRuns().some((r) => r.runId === wanted);
+    return Promise.resolve(known ? SAMPLE_VERDICT_PROVENANCE : null);
   }
 
   async getFleetStatus(): Promise<FleetStatus> {

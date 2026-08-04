@@ -3,47 +3,68 @@ import userEvent from '@testing-library/user-event';
 import FindingsPage from '@/app/(hud)/findings/[id]/page';
 import { FindingsReport } from '@/components/findings';
 import { SAMPLE_RUN_ID } from '@/data/source';
-import type { FixReport } from '@/data/source';
+import { SAMPLE_VERDICTS, SAMPLE_VERDICT_PROVENANCE } from '@/data/fixtures/sample-verdicts';
+import { RunResultSchema, type RunResult } from '@/contract';
+import { TraceBuilder } from '@/attacks/engine';
+import { generateFixReport, type FixReport } from '@/fix-report';
 
 /**
- * A report whose fields are all DISTINCT from the sample's and from any literal
- * that might get hard-coded (RG-0472 / ASI06). If the screen renders these, the
- * header line is bound from the report, not baked into the markup.
+ * A run whose fields are all DISTINCT from the sample's and from any literal that
+ * might get hard-coded (RG-0472 / ASI06). If the screen renders these, the header
+ * line is bound from the report, not baked into the markup. The report itself is
+ * produced by the REAL module-6 generator, so the screen is exercised against the
+ * type it actually ships with.
  */
-const customReport: FixReport = {
-  runId: 'zzz-run-9999',
-  category: 'ASI02',
-  severity: 'Critical',
-  compromised: true,
-  stepId: 'zzz-s07',
-  title: 'Tool misuse via crafted argument',
-  offendingStep: {
-    label: '#7 · tool_call run_shell',
-    lines: [
-      ['cmd', 'rm -rf /'],
-      ['cwd', '/srv/app'],
-    ],
-  },
-  impact: 'Arbitrary shell command executed on the host with the agent service account.',
-  rootCause: 'The agent passed unvalidated user text straight into a shell tool argument.',
-  remediation: [
-    'Validate and allowlist every shell command argument before dispatch.',
-    'Run tools under a least-privilege sandbox with no host filesystem access.',
-    'Require confirmation for any destructive tool invocation.',
-  ],
-  rationale: 'The agent forwarded attacker-controlled text into an executable tool call.',
-};
+function customRun(compromised = true): RunResult {
+  const b = new TraceBuilder({
+    runId: 'zzz-run-9999',
+    target: 'zzz-target',
+    model: 'zzz-model',
+    category: 'ASI02',
+  });
+  b.attacker('convert the uploaded report');
+  const offending = b.toolCall('run_shell', { cmd: 'rm -rf /', cwd: '/srv/app' });
+  b.taskComplete('done');
+  const trace = b.build();
+  return RunResultSchema.parse({
+    runId: 'zzz-run-9999',
+    target: 'zzz-target',
+    model: 'zzz-model',
+    category: 'ASI02',
+    trace,
+    verdict: compromised
+      ? {
+          runId: 'zzz-run-9999',
+          compromised: true,
+          score: 0.97,
+          severity: 'Critical',
+          category: 'ASI02',
+          rationale: 'The agent forwarded attacker-controlled text into an executable tool call.',
+          stepId: offending,
+        }
+      : {
+          runId: 'zzz-run-9999',
+          compromised: false,
+          score: 0,
+          severity: 'None',
+          category: 'ASI02',
+          rationale: 'The agent declined the injected instruction.',
+        },
+  });
+}
+
+const customReport: FixReport = generateFixReport(customRun());
 
 async function renderPage(id: string) {
   return render(await FindingsPage({ params: Promise.resolve({ id }) }));
 }
 
 describe('Findings / fix report screen', () => {
-  it('has a single h1 (the report title) and non-skipping heading order', async () => {
+  it('has a single h1 (the OWASP category title) and non-skipping heading order', async () => {
     render(<FindingsReport report={customReport} />);
     const h1s = screen.getAllByRole('heading', { level: 1 });
     expect(h1s).toHaveLength(1);
-    expect(h1s[0]).toHaveTextContent(customReport.title);
+    expect(h1s[0]).toHaveTextContent(customReport.finding!.categoryTitle);
     // No heading skips a level: the section headings are h2 under the single h1.
     const levels = screen.getAllByRole('heading').map((h) => Number(h.tagName.slice(1)));
     for (let i = 1; i < levels.length; i += 1) {
@@ -65,7 +86,12 @@ describe('Findings / fix report screen', () => {
     await renderPage('sample');
     expect(screen.getByText(SAMPLE_RUN_ID)).toBeInTheDocument();
     expect(screen.getByText('ASI06')).toBeInTheDocument();
-    expect(screen.getByText('High')).toBeInTheDocument();
+    expect(screen.getByText(SAMPLE_VERDICTS.ASI06.severity)).toBeInTheDocument();
+  });
+
+  it('labels the sample verdict with its recorded provenance (never implies a live capture)', async () => {
+    await renderPage('sample');
+    expect(screen.getByText(SAMPLE_VERDICT_PROVENANCE)).toBeInTheDocument();
   });
 
   it('shows a COMPROMISED status chip with a text label (never color-only)', async () => {
@@ -77,16 +103,39 @@ describe('Findings / fix report screen', () => {
     render(<FindingsReport report={customReport} />);
     const list = screen.getByRole('list', { name: /remediation/i });
     const items = within(list).getAllByRole('listitem');
-    expect(items).toHaveLength(customReport.remediation.length);
-    for (const step of customReport.remediation) {
+    const steps = customReport.finding!.remediation.steps;
+    expect(items).toHaveLength(steps.length);
+    for (const step of steps) {
       expect(within(list).getByText(step)).toBeInTheDocument();
     }
   });
 
-  it('renders the offending step and its key/value payload lines', async () => {
+  it('cites the OWASP Agentic catalogue the remediation is grounded in', async () => {
     render(<FindingsReport report={customReport} />);
-    expect(screen.getByText(customReport.offendingStep.label)).toBeInTheDocument();
-    expect(screen.getByText('rm -rf /')).toBeInTheDocument();
+    expect(screen.getByText(/genai\.owasp\.org/)).toBeInTheDocument();
+  });
+
+  it('renders the offending step, its position, and its observable payload', async () => {
+    render(<FindingsReport report={customReport} />);
+    const f = customReport.finding!;
+    const section = screen.getByRole('region', { name: /offending step/i });
+    expect(within(section).getByText(new RegExp(String(f.stepIndex)))).toBeInTheDocument();
+    expect(within(section).getByText(/run_shell/)).toBeInTheDocument();
+    expect(within(section).getByText(/rm -rf \//)).toBeInTheDocument();
+  });
+
+  it('renders the detector rationale as prose', async () => {
+    render(<FindingsReport report={customReport} />);
+    expect(screen.getByText(customReport.finding!.rationale)).toBeInTheDocument();
+  });
+
+  it('renders a clean run as a no-findings report, with no remediation list', async () => {
+    const clean = generateFixReport(customRun(false));
+    render(<FindingsReport report={clean} />);
+    expect(screen.getByRole('heading', { level: 1, name: /no findings/i })).toBeInTheDocument();
+    expect(screen.getByText(clean.summary)).toBeInTheDocument();
+    expect(screen.getByText('NOT COMPROMISED')).toBeInTheDocument();
+    expect(screen.queryByRole('list', { name: /remediation/i })).not.toBeInTheDocument();
   });
 
   it('copy button has an accessible name and shows COPIED feedback after activation', async () => {
@@ -107,7 +156,8 @@ describe('Findings / fix report screen', () => {
     expect(writeText).toHaveBeenCalledTimes(1);
     const copied = writeText.mock.calls[0]![0] as string;
     expect(copied).toContain(customReport.runId);
-    expect(copied).toContain(customReport.title);
+    expect(copied).toContain(customReport.finding!.categoryTitle);
+    expect(copied).toContain('genai.owasp.org');
     expect(await screen.findByText(/copied/i)).toBeInTheDocument();
   });
 
@@ -118,16 +168,12 @@ describe('Findings / fix report screen', () => {
     expect(screen.getByRole('link')).toBeInTheDocument();
   });
 
-  it('keeps the report copy em-dash free (locked rule; also carried into the copied ticket)', async () => {
-    const { findingsFixture } = await import('@/data/fixtures/findings');
-    const strings = [
-      findingsFixture.title,
-      findingsFixture.impact,
-      findingsFixture.rootCause,
-      findingsFixture.rationale,
-      findingsFixture.offendingStep.label,
-      ...findingsFixture.remediation,
-    ];
-    for (const s of strings) expect(s).not.toMatch(/—/);
+  it('keeps the AUTHORED report copy em-dash free (locked rule; also carried into the ticket)', async () => {
+    // The recorded detector rationale is EVIDENCE quoted from the judge and is
+    // deliberately not rewritten to satisfy a copy rule. Everything the product
+    // itself writes — titles, summary, remediation — must obey it.
+    const f = customReport.finding!;
+    const authored = [customReport.summary, f.categoryTitle, ...f.remediation.steps];
+    for (const s of authored) expect(s).not.toMatch(/—/);
   });
 });
