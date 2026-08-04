@@ -32,7 +32,11 @@ export default async function AccountPage() {
           <h1 id="account-heading" className="reading-h1 mt-3">
             Your runs.
           </h1>
-          <p className="reading mt-3 font-mono text-[14px] text-ink-muted">{user.email}</p>
+          {/* The signed-in address is a machine value, not a sentence: INSTRUMENT
+              (mono readout), never READING. It was written as one — `font-mono
+              text-[14px]` — but wore `reading`, and while the role classes were
+              unlayered both utilities lost, so it painted 18px sans. */}
+          <p className="readout mt-3 text-ink-muted">{user.email}</p>
         </div>
         <form action={signOut}>
           <button

@@ -140,7 +140,9 @@ export function ConnectScreen({ signedIn = false }: { signedIn?: boolean }) {
   return (
     <div className="type-flow mx-auto max-w-[1440px] px-6 py-10">
       {/* Header */}
-      <p className="micro-label !text-nominal mb-2.5 tracking-[0.18em]">CONNECT / RUN</p>
+      {/* No `!important` needed: the role default colour is layered, so the
+          utility next to it wins on layer order alone. */}
+      <p className="micro-label mb-2.5 tracking-[0.18em] text-nominal">CONNECT / RUN</p>
       <h1 className="reading-h2 mb-2.5">Set up a red-team run.</h1>
       <p className="reading-lead mb-7">
         Play a no-key sample now. Live red-teaming, where you point your own MCP agent at an
@@ -206,7 +208,7 @@ export function ConnectScreen({ signedIn = false }: { signedIn?: boolean }) {
                     Live red-teaming is coming soon. You will point your own MCP agent at an
                     endpoint we host, and we will record what it does.
                   </p>
-                  <p className="reading text-[15px] text-ink-muted">
+                  <p className="reading text-ink-muted">
                     We will never ask for your agent{"'"}s key. There is nothing to paste here yet.
                   </p>
                 </div>
