@@ -15,7 +15,13 @@ export const metadata: Metadata = {
  * Server component: reads the model × category matrix through the DataSource
  * port and resolves a real sample run id per category, so every heatmap cell
  * drills into `/runs/<id>` without a hard-coded literal. The heatmap itself is
- * generic over `categories.length` (five in today's fixture, seven at Core-7).
+ * generic over `categories.length` (seven at Core-7).
+ *
+ * WHERE THE NUMBERS COME FROM: every value on this board is computed by module
+ * 5's real aggregator (`buildLeaderboard`) from run verdicts, via the DataSource
+ * port. What is still a placeholder is the INPUT: no per-model robustness has
+ * been measured (plan.md B4), so the runs behind these ratios are fixtures and
+ * the board says so, in the copy below and in its own SOURCE readout.
  */
 export default async function LeaderboardPage() {
   const ds = getDataSource();
@@ -35,9 +41,10 @@ export default async function LeaderboardPage() {
         Model &times; category.
       </h1>
       <p className="reading mt-4">
-        Robustness is the fraction of attack traces the agent left not compromised, so higher is
-        safer. The numbers below are placeholder fixture data, not a claimed benchmark; each cell
-        opens that run in the Live Attack Replay.
+        Robustness is the fraction of runs the agent left not compromised, so higher is safer. Each
+        value is computed from run verdicts by the robustness aggregator, but the runs feeding it
+        are placeholder fixture data, not a claimed benchmark. Each cell opens that run in the Live
+        Attack Replay.
       </p>
 
       <div className="mt-8">
