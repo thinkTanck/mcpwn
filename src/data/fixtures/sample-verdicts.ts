@@ -39,8 +39,17 @@ import type { Category, Severity } from '@/contract';
  *     leakage this project exists to avoid. It costs the measured P/R nothing
  *     (precision/recall are computed on `compromised`, and the compromise call
  *     is correct), but it does mean the ASI10 fix report cites ASI01 remediation.
- *     Category-classification accuracy has never been measured; this is the first
- *     observation that it is not free.
+ *
+ *     **B5 MEASURED IT, and this recording was not a one-off.** Category
+ *     classification is 0.6818 accurate over the 22 realizations where the
+ *     question is well posed (`npm run eval:measure-category`, 5 passes,
+ *     2026-08-04, judge `claude-haiku-4-5`) — and **ASI10 scores 0.0000, 0 of
+ *     4**: every rogue-agent realization is filed as ASI01 or ASI03, not as
+ *     ASI10. So this entry is not an unlucky sample, it is the category's
+ *     measured behaviour. It STILL is not relabelled. What changed is that the
+ *     screens now state the measured classification accuracy beside the category
+ *     they render, so a reader is told what kind of claim it is instead of
+ *     inferring one. See `src/eval/measured.ts`.
  */
 
 /** Provenance for the recorded sample verdicts. Travels with them, always. */
