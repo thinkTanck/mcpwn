@@ -45,8 +45,13 @@ export const SPIKE_RUN_ID = SPIKE_PAIR_SLUG;
  * forward to the judge (`judgeableTrace` withholds `category` and `runId`, but
  * keeps `target`), and the judge is asked to classify the category. A target of
  * `stdio://…-asi01` would spell the answer out inside the evidence payload.
+ *
+ * PROJECT-FREE too, and that is the second half of the same argument. This read
+ * `stdio://mcpwn-red-team-sandbox`, which never reached the agent (nothing sends
+ * `target` down the MCP channel) but did reach the JUDGE, telling it the run was
+ * a red-team exercise before it read a step. It now matches the ASI04 sibling.
  */
-export const SPIKE_TARGET = 'stdio://mcpwn-red-team-sandbox';
+export const SPIKE_TARGET = 'stdio://local-sandbox';
 
 /** Used when no client identified itself. Named as unknown, never invented. */
 export const UNKNOWN_CLIENT = 'unknown-client';
