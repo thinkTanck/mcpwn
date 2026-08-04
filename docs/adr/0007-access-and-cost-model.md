@@ -103,6 +103,27 @@ runs**, because the app would not honour it. `SignInPanel` currently says "a
 small free-run cap", which is vague but not false, and should stay vague until
 the enforcement matches.
 
+### Update — the reconciliation landed as logic, not yet as enforcement
+
+`checkLiveRunAllowance()` (`src/runs/allowance.ts`) is the caller
+`countRunsSince` never had. It does all three reconciliations above: it counts
+from **account creation** (an absent or unparseable instant falls back to the
+epoch, which can only over-count), it reads a single lifetime value
+`LIVE_RUN_ALLOWANCE` (env-only, **default 3**, `0` turns free live runs off), and
+the windowed `LIVE_RUN_CAP` / `LIVE_RUN_WINDOW_HOURS` pair is gone.
+`describeLiveRunAllowance()` is the one place that number becomes words, so the
+copy and the enforcement cannot drift. Over-cap returns a decision carrying a
+typed `LiveRunAllowanceError` (`ALLOWANCE_EXHAUSTED`) whose message is already
+printable, rather than throwing.
+
+**It has no production caller.** The live-run entry point it guards does not
+exist yet — under [ADR-0006](0006-mcpwn-is-the-mcp-server.md) a live run means an
+agent connecting to an MCP server we host, and that server is unbuilt. The
+integration point is documented at the top of the module. **So the paragraph
+above still binds: no UI copy may state a free-run count**, because nothing is
+gated yet. Once the entry point calls this, copy may state the number only by
+deriving it from `describeLiveRunAllowance()`.
+
 ## Consequences
 
 **Positive**
