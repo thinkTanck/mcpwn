@@ -50,11 +50,21 @@ jobs:
       - name: E2E + accessibility
         run: npm run test:e2e
 
-      - name: Lighthouse CI (CWV budgets)
-        run: npx lhci autorun
-
       - name: Dependency audit
         run: npm run audit
+
+      # The CWV gate runs in its own fan-out below. It measures THIS build, not a
+      # rebuild of the same commit, so the numbers belong to the artifact that
+      # passed the tests above. `.next/cache` is build scratch and is excluded.
+      - name: Upload the built app for the CWV gate
+        uses: actions/upload-artifact@v7
+        with:
+          name: next-build
+          path: |
+            .next
+            !.next/cache
+          retention-days: 1
+          include-hidden-files: true
 
       - name: Upload Playwright report
         if: always()
@@ -64,10 +74,165 @@ jobs:
           path: playwright-report/
           if-no-files-found: ignore
 
+  # ── CORE WEB VITALS, ONE JOB PER SCREEN ──
+  #
+  # The gate used to collect Home and nothing else, so every screen built after
+  # it shipped with hand-taken numbers and no CI measurement (recorded as the
+  # known gap in ADR-0008). It now collects every public route.
+  #
+  # THE FAN-OUT IS THE ONLY THING THAT WAS BOUNDED, AND NOTHING WAS SAMPLED
+  # AWAY. Seven screens at the five runs ADR-0008 requires is 35 real throttled
+  # Lighthouse runs, about 25 minutes end to end in one step. Splitting by screen
+  # keeps all 35 runs and all seven medians while wall-clock stays at the cost of
+  # a single screen. Each leg reports its own numbers, so a red gate names the
+  # screen in the job title.
+  lighthouse:
+    name: CWV · ${{ matrix.screen }}
+    runs-on: ubuntu-latest
+    needs: build-test
+    strategy:
+      # One screen missing budget must not cancel the other six: the point of
+      # this job is the full table of measured numbers.
+      fail-fast: false
+      matrix:
+        include:
+          - screen: home
+            url: http://localhost:3000/
+          - screen: sign-in
+            url: http://localhost:3000/sign-in
+          - screen: connect
+            url: http://localhost:3000/connect
+          - screen: replay
+            url: http://localhost:3000/runs/sample
+          - screen: findings
+            url: http://localhost:3000/findings/sample
+          - screen: leaderboard
+            url: http://localhost:3000/leaderboard
+          - screen: threats
+            url: http://localhost:3000/threats
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download the built app
+        uses: actions/download-artifact@v7
+        with:
+          name: next-build
+          path: .next
+
+      # ADR-0002 chose measured over simulated, which means a real Chrome. The
+      # runner image ships one; naming it explicitly means a missing Chrome fails
+      # here with a clear message instead of somewhere inside chrome-launcher.
+      - name: Use the runner's real Chrome
+        run: |
+          google-chrome --version
+          echo "CHROME_PATH=$(command -v google-chrome)" >> "$GITHUB_ENV"
+
+      - name: Lighthouse CI (CWV budgets)
+        run: npx lhci autorun --collect.url='${{ matrix.url }}'
+
+      # Always, including on a red gate: a screen that misses budget is exactly
+      # the screen whose real numbers need to be readable.
+      - name: Report the measured medians
+        if: always()
+        run: node .github/scripts/summarize-lighthouse.mjs '${{ matrix.screen }}'
+
+  # ── THE SIGNED-IN SCREENS, AXE-SCANNED ──
+  #
+  # `/account` and the signed-in `/connect` console had no scan at all, because
+  # reaching them needs a session. This job creates one the only way that proves
+  # anything: a disposable Supabase stack on the runner, and the REAL sign-in
+  # form driven end to end against it. No production code knows this job exists —
+  # there is no test bypass, no injected cookie, and no relaxed guard, so there
+  # is nothing here that could ship. See `tests/e2e/support/session.ts`.
+  authed-axe:
+    name: Authenticated axe scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      # Excluded: the services this scan never touches. That is the CI-time bound
+      # on this job, and it removes no coverage — the stack still runs Postgres
+      # with our migrations, GoTrue, PostgREST and the mail catcher, which is
+      # every piece the sign-in path and the owner-scoped run read go through.
+      - name: Start a disposable local Supabase
+        run: supabase start -x studio,imgproxy,storage-api,edge-runtime,logflare,vector,realtime
+
+      # The local stack's keys are the Supabase CLI's PUBLISHED local defaults,
+      # not credentials: the stack is created on this runner and dies with it, and
+      # nothing it holds exists anywhere else. They are still never echoed — the
+      # values go from the CLI straight into the job environment.
+      - name: Read the local stack into the job environment
+        run: |
+          supabase status -o env > "$RUNNER_TEMP/supabase.env"
+          set -a
+          . "$RUNNER_TEMP/supabase.env"
+          set +a
+          MAIL_URL="${MAILPIT_URL:-${INBUCKET_URL:-}}"
+          if [ -z "$API_URL" ] || [ -z "$ANON_KEY" ] || [ -z "$SERVICE_ROLE_KEY" ] || [ -z "$MAIL_URL" ]; then
+            echo "The local Supabase stack did not report the URLs and keys this scan needs." >&2
+            echo "Reported keys: $(cut -d= -f1 "$RUNNER_TEMP/supabase.env" | tr '\n' ' ')" >&2
+            exit 1
+          fi
+          {
+            echo "NEXT_PUBLIC_SUPABASE_URL=$API_URL"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
+            echo "E2E_AUTH_MAIL_URL=$MAIL_URL"
+          } >> "$GITHUB_ENV"
+
+      # A separate build from the one the CWV gate measures, and necessarily so:
+      # `NEXT_PUBLIC_*` values are inlined at build time, so an app built without
+      # them treats auth as inert and the sign-in form never sends anything.
+      - name: Build with auth configured
+        run: npm run build
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      # E2E_REQUIRE_AUTH turns "no stack" from a skip into a failure, so this job
+      # cannot report success having scanned nothing.
+      - name: Scan the signed-in screens
+        run: npx playwright test tests/e2e/authenticated.spec.ts
+        env:
+          E2E_REQUIRE_AUTH: '1'
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report-authed
+          path: playwright-report/
+          if-no-files-found: ignore
+
   ci-gate:
     name: CI Gate
     runs-on: ubuntu-latest
-    needs: build-test
+    needs: [build-test, lighthouse, authed-axe]
     steps:
       - name: All gates passed
         run: echo "All gates passed."
