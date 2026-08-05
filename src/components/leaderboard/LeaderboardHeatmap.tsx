@@ -1,20 +1,39 @@
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { bandFor, bandToken, type Band } from '@/lib/hud/bands';
-import type { Leaderboard } from '@/data/source';
+import type { Leaderboard, LeaderboardCell } from '@/data/source';
 import { BandShape } from './BandShape';
 import { CountUp } from './CountUp';
+import { InertMark } from './InertMark';
 
 /**
  * ROBUSTNESS LEADERBOARD heatmap (register: PRODUCT). A model × category matrix
  * plus an OVERALL column; the robustness value is the HERO of every cell.
  *
  * GENERIC over `leaderboard.categories.length` — it renders N category columns
- * from the data (the repo fixture is 5 today; the Core-7 makes it 7). Tri-state
- * by threshold with THREE channels so a cell never reads by colour alone:
- * (1) a shape code (○ △ ◇), (2) the band label named in the cell's accessible
- * text, (3) the tinted value, plus the reserved breach glow on the single weakest
- * cell (the screen's focal point). Each cell drills into its run's Replay.
+ * from the data (the Core-7 makes it 7). Tri-state by threshold with THREE
+ * channels so a cell never reads by colour alone: (1) a shape code (○ △ ◇),
+ * (2) the band label named in the cell's accessible text, (3) the tinted value,
+ * plus the reserved breach glow on the single weakest cell.
+ *
+ * THREE CELL STATES, and telling them apart is the point of this component:
+ *
+ *   MEASURED — real persisted runs. Carries its run count (`n=K`) under the
+ *              value, because a measured ratio without its sample size is half
+ *              a claim.
+ *   FIXTURE  — placeholder runs that demonstrate the aggregation. Says so in
+ *              every cell's accessible name, shows NO run count (there is no
+ *              evidence to size), and the whole board wears a FIXTURE readout.
+ *   NO DATA  — no runs behind this pair. Rendered in the neutral
+ *              `--status-inert` token with the words "No data", NEVER as 0.00
+ *              and never in breach red: a category nobody has run is not a
+ *              category the model failed (ADR-0003).
+ *
+ * DRILL-IN IS OPTIONAL, and its absence is deliberate rather than unfinished. A
+ * cell links to a replay only when the caller can name a run the replay can
+ * actually serve. A measured cell has no such route yet, and pointing it at the
+ * sample run for its category would open a constructed demonstration under the
+ * label of somebody's real measurement.
  *
  * 2-D data can't reflow to a stacked list, so on narrow viewports it becomes a
  * horizontal-scroll heatmap with a sticky model column + a visible swipe cue
@@ -33,53 +52,71 @@ const TONE: Record<Band, { value: string; tint: string }> = {
 
 const fmt = (n: number) => n.toFixed(2);
 
-function CellShapeAndValue({ robustness }: { robustness: number }) {
-  const band = bandFor(robustness);
+/** A cell that has runs behind it, so it has a number and a provenance. */
+type ScoredCell = Extract<LeaderboardCell, { robustness: number }>;
+
+const isScored = (c: LeaderboardCell): c is ScoredCell => c.robustness !== null;
+
+function CellShapeAndValue({ cell }: { cell: ScoredCell }) {
+  const band = bandFor(cell.robustness);
   const tone = TONE[band];
   return (
     <span className="flex flex-col items-center gap-1.5">
-      <span className={cn('display-md font-mono', tone.value)}>{fmt(robustness)}</span>
+      <span className={cn('display-md font-mono', tone.value)}>{fmt(cell.robustness)}</span>
       <BandShape band={band} className={tone.value} />
+      {/* A measured ratio carries its sample size; a fixture has no evidence to
+          size and deliberately shows none. That difference is visible in every
+          cell, not only in the board's readout. */}
+      {cell.state === 'measured' ? (
+        <span aria-hidden="true" className="instrument-faint">
+          n={cell.runs}
+        </span>
+      ) : null}
     </span>
   );
 }
 
 export function LeaderboardHeatmap({
   leaderboard,
-  runIdByCategory,
-  fallbackRunId,
+  drillIn,
 }: {
   leaderboard: Leaderboard;
-  /** category id → a sample run id from the DataSource (never a hard-coded literal). */
-  runIdByCategory: Record<string, string>;
-  /** DataSource sample run id used when a category has no mapped run. */
-  fallbackRunId: string;
+  /**
+   * Replay drill-in, when the caller has runs the replay can serve.
+   * `runIdByCategory` comes from the DataSource, never a hard-coded literal.
+   */
+  drillIn?: { runIdByCategory: Record<string, string>; fallbackRunId: string };
 }) {
   const { categories, rows, source } = leaderboard;
-  const runHref = (category: string) => `/runs/${runIdByCategory[category] ?? fallbackRunId}`;
+  const measured = source === 'measured';
+  const runHref = (category: string) =>
+    drillIn ? `/runs/${drillIn.runIdByCategory[category] ?? drillIn.fallbackRunId}` : null;
 
-  // The design names "the worst cell" as this screen's single focal point. Find it
-  // so it can be named, linked, and lit with the reserved breach glow.
-  const weakest = rows
-    .flatMap((row) => row.cells)
-    .reduce((min, c) => (c.robustness < min.robustness ? c : min));
-  const weakestBand = bandFor(weakest.robustness);
-  const weakestFull =
-    categories.find((cat) => cat.id === weakest.category)?.full ?? weakest.category;
+  const provenanceWord = measured ? 'measured' : 'fixture';
+  // Suffix carried in every scored cell's accessible name, so provenance is not
+  // something a screen-reader user has to go and find in a chip elsewhere.
+  const cellProvenance = measured ? '' : ', fixture data';
 
-  return (
-    <figure className="m-0">
-      {/* Focal anchor — the single weakest cell, named + linked to its run, wearing
-          the breach glow the HUD reserves. Turns "find the weakest fast" into one
-          obvious target instead of a scan across equal-weight breach cells. */}
-      <Link
-        href={runHref(weakest.category)}
-        aria-label={`Weakest: ${weakest.model} ${weakest.category} ${weakestFull}, robustness ${fmt(
-          weakest.robustness,
-        )}, ${bandToken(weakestBand).label}. Open run in Live Attack Replay.`}
-        className="mb-4 inline-flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-md border border-breach/40 bg-breach/5 px-3.5 py-2.5 shadow-glow-breach transition-colors hover:border-breach/60"
-      >
-        <span className="micro-label text-breach-text">Weakest</span>
+  // The design names "the worst cell" as this screen's single focal point. Find
+  // it among the cells that HAVE data: a blank cell is not a weak one.
+  const scored = rows.flatMap((row) => row.cells).filter(isScored);
+  const weakest = scored.reduce<ScoredCell | null>(
+    (min, c) => (min === null || c.robustness < min.robustness ? c : min),
+    null,
+  );
+  const weakestBand = weakest ? bandFor(weakest.robustness) : null;
+  const weakestFull = weakest
+    ? (categories.find((cat) => cat.id === weakest.category)?.full ?? weakest.category)
+    : '';
+  const weakestHref = weakest ? runHref(weakest.category) : null;
+
+  const weakestLabel = measured ? 'Weakest' : 'Weakest fixture cell';
+  const weakestBody =
+    weakest && weakestBand ? (
+      <>
+        <span className={cn('micro-label', measured ? 'text-breach-text' : '')}>
+          {weakestLabel}
+        </span>
         <span className={cn('display-md font-mono', TONE[weakestBand].value)}>
           {fmt(weakest.robustness)}
         </span>
@@ -88,7 +125,52 @@ export function LeaderboardHeatmap({
         <span className="font-mono text-[13px] text-ink-muted">
           {weakest.category} · {weakestFull}
         </span>
-      </Link>
+      </>
+    ) : null;
+
+  // The breach glow is a signal about a real run, so a fixture board does not
+  // get to wear it. The callout still exists there (the design's focal move),
+  // it just stops looking like a finding.
+  const weakestFrame = measured
+    ? 'border-breach/40 bg-breach/5 shadow-glow-breach'
+    : 'border-line bg-solid';
+  const weakestAria =
+    weakest && weakestBand
+      ? `${weakestLabel}: ${weakest.model} ${weakest.category} ${weakestFull}, robustness ${fmt(
+          weakest.robustness,
+        )}, ${bandToken(weakestBand).label}${cellProvenance}.`
+      : '';
+
+  return (
+    <figure className="m-0">
+      {weakestBody ? (
+        weakestHref ? (
+          <Link
+            href={weakestHref}
+            aria-label={`${weakestAria} Open run in Live Attack Replay.`}
+            className={cn(
+              'mb-4 inline-flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-md border px-3.5 py-2.5 transition-colors hover:border-line-em',
+              weakestFrame,
+            )}
+          >
+            {weakestBody}
+          </Link>
+        ) : (
+          <p
+            className={cn(
+              'mb-4 inline-flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-md border px-3.5 py-2.5',
+              weakestFrame,
+            )}
+          >
+            {/* One sentence for assistive tech, the HUD readout for everyone
+                else, so the same fact is not announced twice. */}
+            <span className="sr-only">{weakestAria}</span>
+            <span aria-hidden="true" className="contents">
+              {weakestBody}
+            </span>
+          </p>
+        )
+      ) : null}
 
       {/* Legend + provenance — INSTRUMENT telemetry (mono, terse). */}
       <figcaption className="mb-3 flex flex-wrap items-center gap-x-5 gap-y-2">
@@ -113,23 +195,44 @@ export function LeaderboardHeatmap({
           <span aria-hidden="true">&lt;.50</span>
           <span className="sr-only">breach, less than .50</span>
         </span>
+        <span
+          className="flex items-center gap-2 font-mono text-[13px] tracking-[0.04em]"
+          style={{ color: 'var(--status-inert)' }}
+        >
+          <InertMark />
+          No data
+          <span className="sr-only">no runs, not measured</span>
+        </span>
         {/* A visible, touch/keyboard-reachable path to the category names (the column
             codes' full names + explanations live on the coverage board). */}
+        {/* 24px minimum target: a 13px line box is 20px tall, which fails WCAG
+            2.2 AA 2.5.8, and the inline-text exception does not cover a link
+            sitting alone in a legend row. */}
         <Link
           href="/threats"
-          className="font-mono text-[13px] tracking-[0.04em] text-nominal hover:underline"
+          className="inline-flex min-h-6 items-center font-mono text-[13px] tracking-[0.04em] text-nominal hover:underline"
         >
           Category names → Threats
         </Link>
-        <span className="ml-auto inline-flex items-center gap-2 rounded-full border border-line bg-solid px-2.5 py-1 font-mono text-[13px] uppercase tracking-[0.12em] text-ink-faint">
-          <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-ink-faint" />
-          SOURCE · {source}
+        <span
+          className="ml-auto inline-flex items-center gap-2 rounded-full border px-2.5 py-1 font-mono text-[13px] uppercase tracking-[0.12em]"
+          style={
+            measured
+              ? undefined
+              : { color: 'var(--status-inert)', borderColor: 'var(--status-inert)' }
+          }
+        >
+          <span
+            aria-hidden="true"
+            className={cn('h-1.5 w-1.5 rounded-full', measured && 'bg-nominal')}
+            style={measured ? undefined : { backgroundColor: 'var(--status-inert)' }}
+          />
+          SOURCE · {provenanceWord}
         </span>
       </figcaption>
 
       {/* Swipe / scroll affordance — a terse INSTRUMENT cue (micro-label, not a
-          sentence) that the board scrolls and the model column is pinned; most
-          relevant at ~390, honest everywhere. */}
+          sentence) that the board scrolls and the model column is pinned. */}
       <p className="micro-label mb-2.5 flex items-center gap-2">
         <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
           <path
@@ -144,19 +247,22 @@ export function LeaderboardHeatmap({
         Swipe · {categories.length} categories · model column stays pinned
       </p>
 
-      {/* Focusable, labelled 2-D scroll region. No right-edge fade — it obscured
-          the OVERALL column when the table fits; the swipe cue above signals scroll. */}
+      {/* Focusable, labelled 2-D scroll region. */}
       <div className="relative">
         <div
           role="region"
-          aria-label="Model by category robustness heatmap"
+          aria-label={`${measured ? 'Measured' : 'Fixture'} model by category robustness heatmap`}
           tabIndex={0}
           className="overflow-x-auto border-y border-line focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus-ring)]"
         >
           <table className="w-full border-collapse text-left">
             <caption className="sr-only">
-              Robustness per model and OWASP Agentic category. Fixture data, not a claimed
-              benchmark. Each value cell links to that run in Live Attack Replay.
+              Robustness per model and OWASP Agentic category: the share of that model&apos;s runs
+              in the category that ended not compromised, so higher is safer.{' '}
+              {measured
+                ? 'Measured from persisted runs; each cell also states how many runs it counted.'
+                : 'Fixture data, not a claimed benchmark. Each value cell links to that run in Live Attack Replay.'}{' '}
+              A pair with no runs reads No data, never zero.
             </caption>
             <thead>
               <tr className="bg-[color:var(--navy-900)]">
@@ -211,28 +317,71 @@ export function LeaderboardHeatmap({
                       </span>
                     </th>
                     {row.cells.map((c) => {
+                      if (!isScored(c)) {
+                        return (
+                          <td
+                            key={c.category}
+                            data-cell-state="none"
+                            className="border-b border-l border-line p-0"
+                          >
+                            <span
+                              className="flex min-h-[52px] flex-col items-center justify-center gap-1.5 px-2 py-3"
+                              style={{ color: 'var(--status-inert)' }}
+                            >
+                              <InertMark />
+                              <span className="font-mono text-[13px] uppercase tracking-[0.1em]">
+                                No data
+                              </span>
+                            </span>
+                          </td>
+                        );
+                      }
                       const band = bandFor(c.robustness);
                       const label = bandToken(band).label;
                       const category = categories.find((cat) => cat.id === c.category);
                       const full = category ? category.full : c.category;
                       const isWorst = c === weakest;
+                      const href = runHref(c.category);
+                      const name = `${row.model} · ${c.category} ${full}: robustness ${fmt(
+                        c.robustness,
+                      )}, ${label}${
+                        c.state === 'measured' ? `, measured over ${c.runs} runs` : cellProvenance
+                      }${isWorst ? ', the weakest cell' : ''}.`;
+                      const inner = <CellShapeAndValue cell={c} />;
                       return (
                         <td
                           key={c.category}
+                          data-cell-state={c.state}
                           className={cn('border-b border-l border-line p-0', TONE[band].tint)}
                         >
-                          <Link
-                            href={runHref(c.category)}
-                            aria-label={`${row.model} · ${c.category} ${full}: robustness ${fmt(
-                              c.robustness,
-                            )}, ${label}${isWorst ? ', the weakest cell' : ''}. Open run in Live Attack Replay.`}
-                            className={cn(
-                              'flex min-h-[52px] items-center justify-center px-2 py-3 transition-[filter] duration-150 hover:brightness-125 focus-visible:brightness-125',
-                              isWorst && 'ring-2 ring-inset ring-breach/70 shadow-glow-breach',
-                            )}
-                          >
-                            <CellShapeAndValue robustness={c.robustness} />
-                          </Link>
+                          {href ? (
+                            <Link
+                              href={href}
+                              aria-label={`${name} Open run in Live Attack Replay.`}
+                              className={cn(
+                                'flex min-h-[52px] items-center justify-center px-2 py-3 transition-[filter] duration-150 hover:brightness-125 focus-visible:brightness-125',
+                                isWorst &&
+                                  measured &&
+                                  'ring-2 ring-inset ring-breach/70 shadow-glow-breach',
+                              )}
+                            >
+                              {inner}
+                            </Link>
+                          ) : (
+                            <span
+                              className={cn(
+                                'flex min-h-[52px] items-center justify-center px-2 py-3',
+                                isWorst &&
+                                  measured &&
+                                  'ring-2 ring-inset ring-breach/70 shadow-glow-breach',
+                              )}
+                            >
+                              <span className="sr-only">{name}</span>
+                              <span aria-hidden="true" className="contents">
+                                {inner}
+                              </span>
+                            </span>
+                          )}
                         </td>
                       );
                     })}
@@ -250,7 +399,7 @@ export function LeaderboardHeatmap({
         </div>
       </div>
 
-      <p className="micro-label mt-3.5">Cell → its run in Live Attack Replay</p>
+      {drillIn ? <p className="micro-label mt-3.5">Cell → its run in Live Attack Replay</p> : null}
     </figure>
   );
 }

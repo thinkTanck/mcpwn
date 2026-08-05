@@ -1,16 +1,30 @@
 import { render, screen, within } from '@testing-library/react';
 import { LeaderboardHeatmap } from '@/components/leaderboard';
-import type { Leaderboard, LeaderboardCell } from '@/data/source';
+import type { BoardProvenance, Leaderboard, LeaderboardCell } from '@/data/source';
 
 /**
- * The heatmap must be GENERIC over `categories.length`. Wave C ships the Core-7,
- * so this mock supplies SEVEN categories (the fixture in the repo currently has
- * five; the integrator expands it). Proving 7 columns here proves N columns.
+ * The heatmap must be GENERIC over `categories.length` (the Core-7 makes it 7)
+ * and it must never let one cell state pass for another. Three states, and the
+ * tests below hold each one to a visible, non-colour channel:
+ *
+ *   MEASURED - the value plus its run count.
+ *   FIXTURE  - the value, no run count, "fixture data" in the accessible name.
+ *   NO DATA  - the words "No data", never a 0.00 and never breach red.
  */
-const cell = (model: string, category: string, robustness: number): LeaderboardCell => ({
+const cell = (
+  model: string,
+  category: string,
+  robustness: number,
+  state: BoardProvenance = 'fixture',
+  runs = 25,
+): LeaderboardCell => ({ model, category, state, robustness, runs });
+
+const noData = (model: string, category: string): LeaderboardCell => ({
   model,
   category,
-  robustness,
+  state: 'none',
+  robustness: null,
+  runs: 0,
 });
 
 const CATS = [
@@ -25,11 +39,14 @@ const CATS = [
 
 const sevenColMock: Leaderboard = {
   source: 'fixture',
+  runs: 350,
   categories: CATS,
   rows: [
     {
       model: 'M1',
       overall: 0.62,
+      runs: 175,
+      state: 'fixture',
       cells: [
         cell('M1', 'ASI01', 0.91), // nominal
         cell('M1', 'ASI02', 0.78), // caution
@@ -43,6 +60,8 @@ const sevenColMock: Leaderboard = {
     {
       model: 'M2',
       overall: 0.71,
+      runs: 175,
+      state: 'fixture',
       cells: [
         cell('M2', 'ASI01', 0.88),
         cell('M2', 'ASI02', 0.6),
@@ -51,6 +70,25 @@ const sevenColMock: Leaderboard = {
         cell('M2', 'ASI05', 0.9),
         cell('M2', 'ASI06', 0.51),
         cell('M2', 'ASI10', 0.81),
+      ],
+    },
+  ],
+};
+
+/** A measured board with one covered category and six untouched ones. */
+const measuredMock: Leaderboard = {
+  source: 'measured',
+  runs: 4,
+  categories: CATS,
+  rows: [
+    {
+      model: 'agent-under-test',
+      overall: 0.25,
+      runs: 4,
+      state: 'measured',
+      cells: [
+        cell('agent-under-test', 'ASI01', 0.25, 'measured', 4),
+        ...CATS.slice(1).map((c) => noData('agent-under-test', c.id)),
       ],
     },
   ],
@@ -70,8 +108,7 @@ function renderHeatmap() {
   return render(
     <LeaderboardHeatmap
       leaderboard={sevenColMock}
-      runIdByCategory={runIds}
-      fallbackRunId="sample-run"
+      drillIn={{ runIdByCategory: runIds, fallbackRunId: 'sample-run' }}
     />,
   );
 }
@@ -97,7 +134,11 @@ describe('LeaderboardHeatmap', () => {
 
   it('surfaces the single weakest cell as a focal callout that links to its run', () => {
     renderHeatmap();
-    expect(screen.getByRole('link', { name: /Weakest:.*Open run/i })).toBeInTheDocument();
+    // Anchored at the start: a cell link also mentions "the weakest cell", and
+    // the callout is the one whose whole name begins with the label.
+    expect(
+      screen.getByRole('link', { name: /^Weakest fixture cell:.*Open run/i }),
+    ).toBeInTheDocument();
   });
 
   it('makes each cell the value-as-hero and names its band in text (never color-only)', () => {
@@ -123,8 +164,7 @@ describe('LeaderboardHeatmap', () => {
     render(
       <LeaderboardHeatmap
         leaderboard={sevenColMock}
-        runIdByCategory={{}}
-        fallbackRunId="sample-run"
+        drillIn={{ runIdByCategory: {}, fallbackRunId: 'sample-run' }}
       />,
     );
     expect(screen.getByRole('link', { name: /M1.*ASI01/ })).toHaveAttribute(
@@ -147,12 +187,22 @@ describe('LeaderboardHeatmap', () => {
     expect(container.querySelector('th[data-sticky="model"]')).toBeInTheDocument();
   });
 
-  it('labels the data provenance honestly as a fixture (not a claimed benchmark)', () => {
+  it('labels a fixture board as a fixture, in the readout AND in every cell', () => {
     renderHeatmap();
-    // the provenance chip names the source as a fixture, and the caption states
-    // plainly that it is not a claimed benchmark
     expect(screen.getByText(/source\s*·\s*fixture/i)).toBeInTheDocument();
     expect(screen.getByText(/not a claimed benchmark/i)).toBeInTheDocument();
+    // Every scored cell repeats it, so provenance travels with the value rather
+    // than sitting in a chip a screen-reader user has to go and find.
+    const region = screen.getByRole('region', { name: /heatmap/i });
+    for (const link of within(region).getAllByRole('link')) {
+      expect(link).toHaveAccessibleName(/fixture data/i);
+    }
+  });
+
+  it('never dresses a fixture cell as a measured one: no run count, no breach glow', () => {
+    const { container } = renderHeatmap();
+    expect(screen.queryByText(/^n=/)).not.toBeInTheDocument();
+    expect(container.querySelector('.shadow-glow-breach')).toBeNull();
   });
 
   it('provides a keyboard-operable, labelled scroll region with a swipe affordance', () => {
@@ -161,5 +211,38 @@ describe('LeaderboardHeatmap', () => {
     expect(region).toHaveAttribute('tabindex', '0');
     // visible affordance cueing the horizontal scroll / pinned model column
     expect(screen.getByText(/model column stays pinned/i)).toBeInTheDocument();
+  });
+
+  describe('a MEASURED board', () => {
+    it('says measured, states each run count, and links no run it cannot serve', () => {
+      const { container } = render(<LeaderboardHeatmap leaderboard={measuredMock} />);
+      expect(screen.getByText(/source\s*·\s*measured/i)).toBeInTheDocument();
+      expect(screen.getByText('n=4')).toBeInTheDocument();
+      const region = screen.getByRole('region', { name: /measured .*heatmap/i });
+      expect(within(region).queryAllByRole('link')).toHaveLength(0);
+      // The scored cell still names its value, band and sample size in text.
+      expect(
+        within(region).getByText(/agent-under-test.*ASI01.*0\.25.*BREACH.*measured over 4 runs/),
+      ).toBeInTheDocument();
+      expect(container.querySelector('[data-cell-state="measured"]')).toBeInTheDocument();
+    });
+
+    it('renders an uncovered pair as NO DATA, never as 0.00 and never in breach red', () => {
+      const { container } = render(<LeaderboardHeatmap leaderboard={measuredMock} />);
+      const blanks = container.querySelectorAll('[data-cell-state="none"]');
+      expect(blanks).toHaveLength(CATS.length - 1);
+      // Six blank cells + the legend entry, all reading the same words.
+      expect(screen.getAllByText(/no data/i).length).toBeGreaterThanOrEqual(CATS.length - 1);
+      // No blank has been formatted into a score.
+      expect(screen.queryByText('0.00')).not.toBeInTheDocument();
+      for (const blank of blanks) {
+        expect(blank.className).not.toMatch(/breach/);
+      }
+    });
+
+    it('keeps the reserved breach glow for a measured weakest cell', () => {
+      const { container } = render(<LeaderboardHeatmap leaderboard={measuredMock} />);
+      expect(container.querySelector('.shadow-glow-breach')).not.toBeNull();
+    });
   });
 });

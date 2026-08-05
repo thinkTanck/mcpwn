@@ -145,8 +145,10 @@ describe('DataSource — sample runs served from the real attack builders', () =
     expect(lb.rows).toHaveLength(3);
     for (const row of lb.rows) {
       expect(row.cells).toHaveLength(7);
-      const mean = row.cells.reduce((a, c) => a + c.robustness, 0) / row.cells.length;
+      const mean = row.cells.reduce((a, c) => a + (c.robustness ?? 0), 0) / row.cells.length;
       expect(row.overall).toBeCloseTo(mean, 5);
+      // Every fixture cell is scored, so the `?? 0` above never fires.
+      expect(row.cells.every((c) => c.robustness !== null)).toBe(true);
     }
   });
 

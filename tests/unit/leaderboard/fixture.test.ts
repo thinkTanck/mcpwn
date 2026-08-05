@@ -1,13 +1,17 @@
 import { RunResultSchema, type Category } from '@/contract';
 import { bandFor } from '@/lib/hud/bands';
 import { buildLeaderboard } from '@/leaderboard';
+import { CORE7_AXIS, CORE7_TITLES } from '@/leaderboard/axis';
 import { toLeaderboardView } from '@/leaderboard/view';
 import {
   LEADERBOARD_FIXTURE_CAMPAIGN,
-  LEADERBOARD_FIXTURE_TITLES,
   leaderboardFixture,
   leaderboardFixtureRuns,
 } from '@/data/fixtures/leaderboard';
+
+/** Every fixture cell has runs behind it, so every one of them is scored. */
+const fixtureCells = () =>
+  leaderboardFixture.rows.flatMap((r) => r.cells).map((c) => ({ ...c, robustness: c.robustness! }));
 
 /**
  * The leaderboard the screen renders is DERIVED: fixture run verdicts go into
@@ -57,10 +61,18 @@ describe('leaderboard fixture — real aggregation over placeholder runs', () =>
   it('is the aggregator output, not a table typed alongside it', () => {
     expect(leaderboardFixture).toEqual(
       toLeaderboardView(buildLeaderboard(leaderboardFixtureRuns()), {
-        titles: LEADERBOARD_FIXTURE_TITLES,
+        titles: CORE7_TITLES,
+        categories: CORE7_AXIS,
         source: 'fixture',
       }),
     );
+  });
+
+  it('stamps EVERY cell as a fixture, so no single cell can travel as a result', () => {
+    for (const row of leaderboardFixture.rows) {
+      expect(row.state).toBe('fixture');
+      for (const cell of row.cells) expect(cell.state).toBe('fixture');
+    }
   });
 
   it('labels its provenance as a fixture and covers the full Core-7 matrix', () => {
@@ -80,16 +92,14 @@ describe('leaderboard fixture — real aggregation over placeholder runs', () =>
   });
 
   it('keeps a single weakest cell so the screen has one unambiguous focal point', () => {
-    const cells = leaderboardFixture.rows.flatMap((r) => r.cells);
+    const cells = fixtureCells();
     const min = Math.min(...cells.map((c) => c.robustness));
     expect(cells.filter((c) => c.robustness === min)).toHaveLength(1);
     expect(bandFor(min)).toBe('breach');
   });
 
   it('exercises all three bands so the tri-state legend is not decorative', () => {
-    const bands = new Set(
-      leaderboardFixture.rows.flatMap((r) => r.cells).map((c) => bandFor(c.robustness)),
-    );
+    const bands = new Set(fixtureCells().map((c) => bandFor(c.robustness)));
     expect([...bands].sort()).toEqual(['breach', 'caution', 'nominal']);
   });
 

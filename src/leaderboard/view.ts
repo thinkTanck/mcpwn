@@ -1,6 +1,6 @@
 /**
  * PRESENTER — module 5's robustness aggregate rendered as the leaderboard
- * screen's view model.
+ * screen's view model, and the home of that view model's types.
  *
  * The aggregator (`buildLeaderboard`) is keyed by model and category and omits
  * cells it has no runs for; the screen is a positional table that needs one
@@ -8,56 +8,132 @@
  * the only place those two shapes meet, so the aggregator stays pure and the
  * screen stays dumb.
  *
- * TWO RULES it exists to enforce:
+ * THREE RULES it exists to enforce:
+ *
  *  1. Every displayed value is COMPUTED here from the aggregate, never typed
  *     alongside it.
  *  2. A missing cell is NOT a zero. Zero robustness means "compromised in every
  *     run", which is a claim absent data cannot support, so a hole in the matrix
- *     throws and names itself instead of rendering a slander.
- *
- * The view type is imported from the DataSource port (`@/data/source`), which is
- * where the screens' contract lives. It is a TYPE-only import, so nothing in the
- * data layer is pulled into this module at runtime.
+ *     becomes an explicit NO DATA cell (`state: 'none'`, `robustness: null`).
+ *     The union below makes that a type-level guarantee: there is no shape in
+ *     which a no-data cell carries a number.
+ *  3. Every cell and row is STAMPED with where its number came from. The screen
+ *     renders measured cells and fixture cells side by side over time, and a
+ *     renderer that had to guess would eventually guess wrong. Provenance is
+ *     stated by the caller, never inferred from the data, because whether a run
+ *     was real is knowledge the caller has and this function does not.
  */
 import type { Category } from '@/contract';
-import type { Leaderboard as LeaderboardView, LeaderboardRow } from '@/data/source';
 import type { Leaderboard as RobustnessBoard } from './index';
 
 /** Display title per category code. A code with no title renders as the code. */
 export type CategoryTitles = Readonly<Partial<Record<Category, string>>>;
 
+/**
+ * Where a board's numbers came from.
+ *
+ * `measured` — real persisted runs of a real model, judged by the locked judge.
+ * `fixture`  — placeholder runs that demonstrate the aggregation and the colour
+ *              language. Never a result, and labelled as such everywhere it is
+ *              rendered.
+ */
+export type BoardProvenance = 'measured' | 'fixture';
+
+/** Provenance as a CELL can carry it, including the third state: no runs at all. */
+export type CellState = BoardProvenance | 'none';
+
+/**
+ * One rendered cell. A cell either has runs behind it (and then a number and a
+ * provenance) or it has none (and then `null`, which no renderer can format as
+ * `0.00` by accident).
+ */
+export type LeaderboardCell =
+  | {
+      model: string;
+      category: string;
+      state: BoardProvenance;
+      robustness: number;
+      runs: number;
+    }
+  | {
+      model: string;
+      category: string;
+      state: 'none';
+      robustness: null;
+      runs: 0;
+    };
+
+export type LeaderboardRow = {
+  model: string;
+  cells: LeaderboardCell[];
+  /** Run-weighted across every run of this model, from the aggregator's own total. */
+  overall: number;
+  runs: number;
+  state: BoardProvenance;
+};
+
+export type Leaderboard = {
+  categories: { id: string; full: string }[];
+  rows: LeaderboardRow[];
+  source: BoardProvenance;
+  /** Total runs behind the whole board. Zero on an empty measured board. */
+  runs: number;
+};
+
 export interface LeaderboardViewOptions {
   titles: CategoryTitles;
+  /**
+   * The category axis to render, in column order. Stated by the caller so an
+   * empty or partial board still shows what has NOT been measured.
+   */
+  categories: readonly Category[];
   /**
    * Provenance, stated by the CALLER. The presenter never assumes it: whether a
    * board came from placeholder runs or measured ones is knowledge the caller
    * has and this function does not.
    */
-  source: LeaderboardView['source'];
+  source: BoardProvenance;
 }
 
 export function toLeaderboardView(
   board: RobustnessBoard,
   options: LeaderboardViewOptions,
-): LeaderboardView {
-  const categories = board.categories.map((id) => ({ id, full: options.titles[id] ?? id }));
+): Leaderboard {
+  const axis = options.categories;
+
+  // A category the aggregate counted but the axis does not render would stay
+  // inside OVERALL with no cell accounting for it, so the board would not add
+  // up. That is a wiring mistake, not a data condition: fail loudly.
+  for (const category of board.categories) {
+    if (!axis.includes(category)) {
+      throw new Error(
+        `leaderboard aggregate holds runs for ${category}, which the requested axis does not render`,
+      );
+    }
+  }
+
+  const categories = axis.map((id) => ({ id: id as string, full: options.titles[id] ?? id }));
 
   // Built from byModel ENTRIES so the model key and its total travel together
   // (no re-lookup, no dead undefined branch) and the aggregator's sorted order
   // is preserved.
   const rows: LeaderboardRow[] = Object.entries(board.byModel).map(([model, total]) => ({
     model,
-    cells: board.categories.map((category) => {
+    cells: axis.map((category): LeaderboardCell => {
       const cell = board.cells[model]?.[category];
-      if (!cell) {
-        throw new Error(
-          `leaderboard has no runs for ${model} in ${category}: a missing cell is not a zero`,
-        );
-      }
-      return { model, category, robustness: cell.robustness };
+      if (!cell) return { model, category, state: 'none', robustness: null, runs: 0 };
+      return {
+        model,
+        category,
+        state: options.source,
+        robustness: cell.robustness,
+        runs: cell.runs,
+      };
     }),
     overall: total.robustness,
+    runs: total.runs,
+    state: options.source,
   }));
 
-  return { categories, rows, source: options.source };
+  return { categories, rows, source: options.source, runs: board.overall.runs };
 }

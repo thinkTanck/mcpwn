@@ -1,46 +1,35 @@
 import type { Category, RunResult, Step, Verdict } from '@/contract';
 import { buildLeaderboard } from '@/leaderboard';
-import { toLeaderboardView, type CategoryTitles } from '@/leaderboard/view';
-import type { Leaderboard } from '../source';
+import { CORE7_AXIS, CORE7_TITLES } from '@/leaderboard/axis';
+import { toLeaderboardView, type Leaderboard } from '@/leaderboard/view';
 
 /**
  * Per-model x per-category robustness (the fraction of runs the model left NOT
  * compromised), for the `/leaderboard` screen.
  *
- * PROVENANCE — this is a FIXTURE and says so (`source: 'fixture'` is rendered on
- * the board). No per-model robustness has been measured: that is plan.md item
- * B4, and it needs both recorded validated-judge verdicts and more than one
- * target model. "Model A/B/C" are placeholders, not products, and the run
- * counts below describe a campaign that was never run.
+ * PROVENANCE — this is a FIXTURE and says so, at three levels the screen keeps
+ * visible: the board's own SOURCE readout, the section it is framed in, and
+ * every single cell (`state: 'fixture'`). No per-model robustness has been
+ * measured: that is plan.md item B4, and it needs real live runs against more
+ * than one target model. "Model A/B/C" are placeholders, not products, and the
+ * run counts below describe a campaign that was never executed.
+ *
+ * IT IS NOT THE SCREEN'S ANSWER TO "how robust is my model". The screen's
+ * measured board is, and it is empty until real runs exist. This board is kept
+ * only to demonstrate the aggregation and the tri-state colour language end to
+ * end, and it is rendered subordinate to the measured one for exactly that
+ * reason.
  *
  * WHAT IS REAL is the aggregation. The declared campaign is expanded into
  * contract-valid `RunResult`s and pushed through module 5's `buildLeaderboard`,
- * so every ratio the screen displays is computed from run verdicts by the same
- * code a measured campaign would use. Nothing here is a pre-baked ratio, and
- * the run counts are deliberately NOT surfaced in the UI, because a sample size
- * is a claim about evidence and this input has none to make.
+ * so every ratio it displays is computed from run verdicts by the same code a
+ * measured campaign would use. Nothing here is a pre-baked ratio, and the run
+ * counts are deliberately NOT surfaced in the UI, because a sample size is a
+ * claim about evidence and this input has none to make. A measured cell DOES
+ * surface its run count, which is one more way the two never look alike.
  */
 
-/** Category codes in Core-7 order, with the titles the columns display. */
-export const LEADERBOARD_FIXTURE_TITLES: CategoryTitles = {
-  ASI01: 'Agent Goal Hijack',
-  ASI02: 'Tool Misuse and Exploitation',
-  ASI03: 'Identity and Privilege Abuse',
-  ASI04: 'Agentic Supply Chain Vulnerabilities',
-  ASI05: 'Unexpected Code Execution (RCE)',
-  ASI06: 'Memory & Context Poisoning',
-  ASI10: 'Rogue Agents',
-};
-
-const CATEGORY_ORDER: readonly Category[] = [
-  'ASI01',
-  'ASI02',
-  'ASI03',
-  'ASI04',
-  'ASI05',
-  'ASI06',
-  'ASI10',
-];
+const CATEGORY_ORDER: readonly Category[] = CORE7_AXIS;
 
 /** One declared cell of the placeholder campaign: how many runs, how many resisted. */
 export interface LeaderboardFixtureCell {
@@ -158,10 +147,10 @@ export function leaderboardFixtureRuns(): RunResult[] {
 }
 
 /**
- * The board the screen renders: real module 5 aggregation over placeholder runs,
- * labelled `fixture` end to end.
+ * The demonstration board: real module 5 aggregation over placeholder runs,
+ * labelled `fixture` end to end (board, section and every cell).
  */
 export const leaderboardFixture: Leaderboard = toLeaderboardView(
   buildLeaderboard(leaderboardFixtureRuns()),
-  { titles: LEADERBOARD_FIXTURE_TITLES, source: 'fixture' },
+  { titles: CORE7_TITLES, categories: CORE7_AXIS, source: 'fixture' },
 );
