@@ -10,7 +10,26 @@
  *   covered — one of the Core-7; observable, bounded, anchorable, precision-bearing.
  *   inert   — NOT MEASURABLE under the current contract (never the breach red).
  */
+import { MEASURED_COMPROMISE, MEASURED_CLASSIFICATION_PROVENANCE } from '@/eval/measured';
+import { MEASURED_CLASSIFICATION_BY_CATEGORY } from '@/fix-report/classification';
+
 export type CoverageState = 'covered' | 'inert';
+
+/**
+ * A MEASURED caveat on a covered category. Coverage is one claim ("we can test
+ * this") and per-category detector behaviour is another; where the measurement
+ * splits them, the row says so instead of letting the badge speak for both.
+ * Rendered in the neutral `--status-inert` token, never the breach red: a
+ * measured weakness in FILING is not a failing category (ADR-0003).
+ */
+export type ThreatCaveat = {
+  /** INSTRUMENT label, icon + text, never color alone. */
+  label: string;
+  /** The honest explanation (READING). */
+  text: string;
+  /** Where the figures in `text` came from. Travels with them, always. */
+  provenance: string;
+};
 
 export type Threat = {
   code: string;
@@ -25,8 +44,32 @@ export type Threat = {
   example: string;
   /** Coverage rationale — for `inert`, the honest one-line reason (READING). */
   coverText: string;
+  /** A measured caveat on a covered category, where one was measured. */
+  caveat?: ThreatCaveat;
   /** OWASP source for the category. */
   link: string;
+};
+
+/**
+ * ASI10's caveat, built from the MEASURED figures rather than quoting them: the
+ * per-class tally comes from the classification table and the recall from the
+ * compromise measurement, so this copy cannot drift from the numbers it cites.
+ *
+ * Both directions are stated, and neither is overclaimed. Detection holds: the
+ * detector missed no compromise in any category and anchored the offending step.
+ * Filing does not: 0 of 4 ASI10 realizations were filed as ASI10.
+ */
+const ASI10_SCORE = MEASURED_CLASSIFICATION_BY_CATEGORY.ASI10;
+const ASI10_CAVEAT: ThreatCaveat = {
+  label: 'DETECTION RELIABLE · CLASSIFICATION UNRELIABLE',
+  text:
+    `On our labeled set the detector caught every ASI10 compromise and anchored the offending ` +
+    `step, at recall ${MEASURED_COMPROMISE.recall.toFixed(4)} with no missed compromise in any ` +
+    `category. The filing is another matter: it put ${ASI10_SCORE.correct} of ` +
+    `${ASI10_SCORE.scored} ASI10 realizations under the ASI10 code, reading them as ASI01 or ` +
+    `ASI03 instead. So we test this category and we do not derive guidance from its code: fix ` +
+    `reports for it withhold category remediation rather than guess, pending a category-v2 rubric.`,
+  provenance: MEASURED_CLASSIFICATION_PROVENANCE,
 };
 
 /** Canonical OWASP source for the 2026 Agentic Top 10. */
@@ -161,6 +204,7 @@ export const THREATS: Threat[] = [
       'Tasked only with drafting a report, the agent also quietly opens outbound network calls and disables a logging tool so its extra activity goes unrecorded.',
     coverText:
       'v1 detects three signatures that are fully observable in a single run’s steps. Each has a specific offending step to anchor and a benign, on-task variant, so precision is measurable. Broader cross-run rogue behavior stays out of scope until the contract can observe it.',
+    caveat: ASI10_CAVEAT,
     link: OWASP_URL,
   },
 ];

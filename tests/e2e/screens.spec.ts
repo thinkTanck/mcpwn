@@ -92,6 +92,24 @@ const SCREENS: Screen[] = [
     },
   },
   {
+    // The ASI10 sample, whose class classified 0 of 4. The withheld state is a
+    // real shipped state of this screen, so it is rendered and scanned like any
+    // other; the id is the kind-free sample run id.
+    name: 'Findings / fix report (classification unreliable)',
+    path: '/findings/asi10-goal-drift',
+    shell: true,
+    content: async (page) => {
+      await expect(page.getByRole('article', { name: 'Fix report' })).toBeVisible();
+      // What IS reliable still renders: the compromise and its anchored step.
+      await expect(page.getByText('COMPROMISED').first()).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Offending step' })).toBeVisible();
+      // What is not is withheld, in words, with no remediation list to work.
+      await expect(page.getByText('CLASSIFICATION UNRELIABLE')).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Remediation withheld' })).toBeVisible();
+      await expect(page.getByRole('list', { name: 'Remediation' })).toHaveCount(0);
+    },
+  },
+  {
     name: 'Robustness Leaderboard',
     path: '/leaderboard',
     shell: true,

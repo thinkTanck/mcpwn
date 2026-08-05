@@ -11,6 +11,15 @@
  * `GroundTruth` (a live run has none — leakage separation).
  */
 import type { Category, RunResult, Severity, Step } from '@/contract';
+import { MEASURED_COMPROMISE } from '@/eval/measured';
+import { classificationReliability, type ClassScore } from './classification';
+
+export {
+  MEASURED_CLASSIFICATION_BY_CATEGORY,
+  classificationReliability,
+  type ClassScore,
+  type ClassificationReliability,
+} from './classification';
 
 /** Typed error for an inconsistent RunResult (offending step missing). */
 export class FixReportError extends Error {
@@ -99,6 +108,34 @@ export interface Remediation {
   reference: string;
 }
 
+/**
+ * What this report is entitled to claim about its own category, and why.
+ *
+ * The category is a PREDICTION: the judge's blind read of the trace, never a
+ * label. Everything derived from it inherits that uncertainty, so the figure
+ * travels with the finding instead of being left for a reader to guess at.
+ */
+export interface Classification {
+  /** The Core-7 scenario this run STAGED (the environment our endpoint served). */
+  staged: Category;
+  /** Its pinned OWASP title (ADR-0003). */
+  stagedTitle: string;
+  /** MEASURED aggregate category accuracy and its denominator (imported). */
+  accuracy: number;
+  scored: number;
+  /** How that figure was obtained. Rendered beside it, never apart from it. */
+  provenance: string;
+  /** The staged class's own measured tally: correct of scored. */
+  classScore: ClassScore;
+  /**
+   * false when the staged class classified at ZERO. Category-derived guidance is
+   * withheld rather than guessed, and `remediation` is null.
+   */
+  reliable: boolean;
+  /** Plain note stating what is withheld and why. Present iff `!reliable`. */
+  note: string | null;
+}
+
 /** An engineer-ready finding for one compromised run. */
 export interface Finding {
   category: Category;
@@ -117,7 +154,14 @@ export interface Finding {
    */
   step: Step;
   rationale: string;
-  remediation: Remediation;
+  /**
+   * Category-derived remediation, or NULL when the staged class's classification
+   * measured zero. Null is the honest answer there: the alternative is printing
+   * a neighbouring category's actions for an engineer to work top to bottom.
+   */
+  remediation: Remediation | null;
+  /** What may be claimed about the category this finding was filed under. */
+  classification: Classification;
 }
 
 /** The fix report: a finding (compromised) or a clean "no findings" report. */
@@ -128,6 +172,39 @@ export interface FixReport {
   compromised: boolean;
   finding: Finding | null;
   summary: string;
+}
+
+/**
+ * What this run's category may be claimed to mean, indexed by the class the run
+ * STAGED (which is what the measurement is indexed by). The authored note is
+ * built from the measured tally rather than quoting a numeral, so it can never
+ * drift from the figure it cites.
+ */
+function classificationFor(staged: Category): Classification {
+  const r = classificationReliability(staged);
+  const stagedTitle = CATEGORY_TITLE[staged];
+  const note = r.reliable
+    ? null
+    : [
+        `Category classification is unreliable for ${staged} ${stagedTitle}.`,
+        `On our labeled set the detector filed ${r.classScore.correct} of ${r.classScore.scored}`,
+        `${staged} realizations under that code, reading them as neighbouring categories instead.`,
+        'Remediation is derived from the category, so it is withheld here rather than guessed.',
+        'What was measured still holds: this compromise is confirmed, the detector missed no',
+        `compromise in any category (recall ${MEASURED_COMPROMISE.recall.toFixed(4)}), and the`,
+        'offending step below is its own anchor.',
+        'Category specific guidance for this class is pending a category-v2 rubric.',
+      ].join(' ');
+  return {
+    staged,
+    stagedTitle,
+    accuracy: r.accuracy,
+    scored: r.scored,
+    provenance: r.provenance,
+    classScore: r.classScore,
+    reliable: r.reliable,
+    note,
+  };
 }
 
 function remediationFor(category: Category): Remediation {
@@ -172,6 +249,11 @@ export function generateFixReport(run: RunResult): FixReport {
     );
   }
 
+  // The category is checked against the MEASUREMENT before anything is derived
+  // from it. A class measured at zero gets no remediation, because remediation
+  // keyed to a code that has never been right is guidance in name only.
+  const classification = classificationFor(run.category);
+
   const finding: Finding = {
     category: verdict.category,
     categoryTitle: CATEGORY_TITLE[verdict.category],
@@ -180,17 +262,17 @@ export function generateFixReport(run: RunResult): FixReport {
     stepIndex: stepIndex + 1,
     step: trace.steps[stepIndex]!,
     rationale: verdict.rationale,
-    remediation: remediationFor(verdict.category),
+    remediation: classification.reliable ? remediationFor(verdict.category) : null,
+    classification,
   };
 
-  return {
-    runId,
-    target,
-    model,
-    compromised: true,
-    finding,
-    summary: `Compromised: ${verdict.category} (${finding.categoryTitle}), severity ${verdict.severity}. Offending step: ${stepId}.`,
-  };
+  // The summary leads with whatever is actually reliable. For a class that
+  // classified at zero that is the compromise and its anchor, never the code.
+  const summary = classification.reliable
+    ? `Compromised: ${verdict.category} (${finding.categoryTitle}), severity ${verdict.severity}. Offending step: ${stepId}.`
+    : `Compromised: confirmed, severity ${verdict.severity}. Offending step: ${stepId}. Category classification is unreliable for ${classification.staged}, so category remediation is withheld.`;
+
+  return { runId, target, model, compromised: true, finding, summary };
 }
 
 /** Render a `FixReport` as engineer-ready Markdown. */
@@ -209,22 +291,38 @@ export function toMarkdown(report: FixReport): string {
   }
 
   const f = report.finding;
+  const c = f.classification;
+
+  // The ticket says the same thing the screen does. A caveat that survives only
+  // on screen is not a caveat: the exported artifact is what gets pasted into an
+  // issue and worked from.
+  const remediationSection = f.remediation
+    ? [
+        '## Remediation',
+        '',
+        ...f.remediation.steps.map((step, i) => `${i + 1}. ${step}`),
+        '',
+        `_Category:_ ${f.remediation.category} · ${f.remediation.categoryTitle}. _Reference:_ ${f.remediation.reference}`,
+      ]
+    : ['## Remediation withheld', '', c.note ?? '', '', `_Measured:_ ${c.provenance}`];
+
   return [
-    `# Fix report · ${f.category} · ${f.categoryTitle}`,
+    c.reliable
+      ? `# Fix report · ${f.category} · ${f.categoryTitle}`
+      : `# Fix report · compromise confirmed · category unresolved`,
     '',
     `**Run:** \`${report.runId}\` · **Target:** ${report.target} · **Model:** ${report.model}`,
     `**Severity:** ${f.severity} · **Compromised:** yes`,
     `**Offending step:** #${f.stepIndex} \`${f.stepId}\` (${f.step.type})`,
+    c.reliable
+      ? `**Category:** ${f.category} · ${f.categoryTitle}`
+      : `**Category returned by the detector:** ${f.category} · ${f.categoryTitle} (classification unreliable for this class)`,
     '',
     '## Detector rationale',
     '',
     f.rationale,
     '',
-    '## Remediation',
-    '',
-    ...f.remediation.steps.map((step, i) => `${i + 1}. ${step}`),
-    '',
-    `_Category:_ ${f.remediation.category} · ${f.remediation.categoryTitle}. _Reference:_ ${f.remediation.reference}`,
+    ...remediationSection,
     '',
   ].join('\n');
 }
