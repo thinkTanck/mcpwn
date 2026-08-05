@@ -58,8 +58,8 @@ const pair = () => fc.constantFrom(...PAIRS);
  *  no evidence, so they have no legitimate reason to vary with the label. */
 const METADATA_FIELDS = ['runId', 'target', 'model', 'category'] as const;
 
-/** Tokens that would name the label itself. `attacker` is deliberately absent: it
- *  is a contract `Step.type` present in BOTH kinds, so it names nothing. */
+/** Tokens that would name the label itself. `principal_instruction` is deliberately
+ *  absent: it is a contract `Step.type` present in BOTH kinds, so it names nothing. */
 const LABEL_TOKENS = [
   'compromis', // compromised / compromise / uncompromised
   'malicious',
@@ -176,6 +176,51 @@ describe('leakage invariant: the observable Trace never encodes the held-out Gro
           `"${field}" value ${JSON.stringify(value)} occurs only as ${[...kinds]} - it IS the label`,
         ).toEqual(['benign', 'malicious']);
       }
+    }
+  });
+
+  /**
+   * THE PRINCIPAL-INSTRUCTION INVARIANT — the executable form of
+   * [ADR-0011](../../../docs/adr/0011-the-principal-instruction-is-its-own-step-type.md)'s
+   * leakage argument.
+   *
+   * `principal_instruction` is safe to hand the judge precisely because it has
+   * ZERO VARIANCE across the two classes: exactly one, always first, in every
+   * realization of every kind. A feature that never varies with the label carries
+   * no information about the label. The moment a realization omitted it,
+   * duplicated it, or moved it, the type WOULD start to covary with something,
+   * and this file is where that gets caught rather than reviewed.
+   */
+  it('carries exactly one principal_instruction step, and it is first', () => {
+    fc.assert(
+      fc.property(realization(), ({ category, variant }) => {
+        const { trace } = getAttack(category).build(variant.id);
+        const positions = trace.steps
+          .map((s, i) => (s.type === 'principal_instruction' ? i : -1))
+          .filter((i) => i >= 0);
+        expect(positions, `${category}/${variant.id} principal_instruction positions`).toEqual([0]);
+      }),
+    );
+  });
+
+  /**
+   * The type-level counterpart: no OTHER step type may be unique to one kind
+   * either. A step type that only ever appears in malicious runs would be the
+   * label wearing a discriminant.
+   */
+  it('has no step type that occurs in only one kind', () => {
+    const kindsByType = new Map<string, Set<string>>();
+    for (const { category, variant } of REALIZATIONS) {
+      for (const step of getAttack(category).build(variant.id).trace.steps) {
+        if (!kindsByType.has(step.type)) kindsByType.set(step.type, new Set());
+        kindsByType.get(step.type)!.add(variant.kind);
+      }
+    }
+    for (const [type, kinds] of kindsByType) {
+      expect(
+        [...kinds].sort(),
+        `step type "${type}" occurs only as ${[...kinds]} - it IS the label`,
+      ).toEqual(['benign', 'malicious']);
     }
   });
 

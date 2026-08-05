@@ -77,8 +77,9 @@ describe('DataSource — sample runs served from the real attack builders', () =
       const ids = run.trace.steps.map((s) => s.id);
       expect(ids).toContain(run.verdict.stepId);
       // the anchored step is an observable ACTION the agent took — the rubric
-      // forbids anchoring to the attacker / tool_result / memory_read step the
-      // hostile content arrived through, or to agent_reasoning.
+      // forbids anchoring to the ingestion step the hostile content arrived
+      // through (tool_result / memory_read), to the principal_instruction turn,
+      // or to agent_reasoning.
       const step = run.trace.steps.find((s) => s.id === run.verdict.stepId);
       expect(['tool_call', 'memory_write']).toContain(step?.type);
     }
@@ -99,7 +100,7 @@ describe('DataSource — sample runs served from the real attack builders', () =
 
   it('carries the exact recorded-verdict provenance, and never claims a live capture', () => {
     expect(SAMPLE_VERDICT_PROVENANCE).toBe(
-      'constructed demonstration · recorded validated-judge verdict · claude-haiku-4-5 · 2026-08-03',
+      'constructed demonstration · recorded validated-judge verdict · claude-haiku-4-5 · 2026-08-05',
     );
     // The traces are BUILT, not captured from a real agent: the label must not
     // imply otherwise, and must name the frozen judge that produced the verdicts.

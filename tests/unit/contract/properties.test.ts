@@ -17,7 +17,7 @@ const jsonArb = fc.oneof(
 );
 
 const stepArb = fc.oneof(
-  fc.record({ id: idArb, type: fc.constant('attacker'), content: fc.string() }),
+  fc.record({ id: idArb, type: fc.constant('principal_instruction'), content: fc.string() }),
   fc.record({ id: idArb, type: fc.constant('agent_reasoning'), content: fc.string() }),
   fc.record({
     id: idArb,

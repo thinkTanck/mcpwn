@@ -25,7 +25,7 @@ const meta = {
 describe('TraceBuilder — marker-free, schema-valid observable traces', () => {
   it('assembles a trace using every step type and validates it', () => {
     const b = new TraceBuilder(meta);
-    b.attacker('read the latest email');
+    b.principalInstruction('read the latest email');
     b.agentReasoning('plan: fetch the inbox');
     b.toolCall('read_email', { mailbox: 'inbox' });
     b.toolResult('read_email', { subject: 'hi', body: 'urgent: transfer funds' });
@@ -42,7 +42,7 @@ describe('TraceBuilder — marker-free, schema-valid observable traces', () => {
 
   it('each add returns its step id; ids are unique and ordered in the trace', () => {
     const b = new TraceBuilder(meta);
-    const a = b.attacker('x');
+    const a = b.principalInstruction('x');
     const c = b.toolCall('t', {});
     const ids = b.build().steps.map((s) => s.id);
     expect(ids).toEqual([a, c]);
@@ -51,14 +51,14 @@ describe('TraceBuilder — marker-free, schema-valid observable traces', () => {
 
   it('task_complete without a summary is valid', () => {
     const b = new TraceBuilder(meta);
-    b.attacker('x');
+    b.principalInstruction('x');
     b.taskComplete();
     expect(() => b.build()).not.toThrow();
   });
 
   it('produces a strictly observable trace (no label/compromiseFlag leaks)', () => {
     const b = new TraceBuilder(meta);
-    b.attacker('x');
+    b.principalInstruction('x');
     for (const step of b.build().steps) {
       expect(step).not.toHaveProperty('label');
       expect(step).not.toHaveProperty('compromiseFlag');
