@@ -26,13 +26,23 @@ files via the Supabase CLI — never hand-edited in the dashboard.
 
 ```bash
 npm run db:link      # once
-npm run db:push      # applies 0001_runs.sql (+ any later migrations)
+npm run db:push      # applies 0001_runs.sql, 0002_run_tokens.sql (+ any later ones)
 ```
 
-`0001_runs.sql` is idempotent (uses `if not exists` / `drop policy if exists`), so
-it is safe whether it was first applied by hand in the SQL Editor or by
-`db push` — the CLI records applied versions in `supabase_migrations.schema_migrations`
-and skips ones already run.
+| Migration             | What it adds                                                                                                                                                              |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `0001_runs.sql`       | `public.runs` — a user's finished live runs, owner-scoped by RLS.                                                                                                         |
+| `0002_run_tokens.sql` | `public.run_tokens` — the per-run, per-account connection credential (ADR-0006). Stores a SHA-256 digest, never a token. RLS on with **zero policies**: server-side only. |
+
+Both are idempotent (they use `if not exists` / `drop policy if exists`), so they
+are safe whether first applied by hand in the SQL Editor or by `db push` — the CLI
+records applied versions in `supabase_migrations.schema_migrations` and skips ones
+already run.
+
+`0002_run_tokens.sql` has **no application caller yet**: it is the store
+`src/runs/run-token.ts` lands on, and the MCP server that will issue and verify
+against it is unbuilt (plan.md B2). Applying it early is harmless (an empty,
+closed table); leaving it unapplied until the server lands is equally fine.
 
 ## Conventions
 
