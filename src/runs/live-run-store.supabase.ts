@@ -32,17 +32,28 @@
  * work already done. The TTL is drained by
  * {@link SupabaseLiveRunSessionStore.sweepExpired}, whose only job is to bound
  * the table, and deleting a run cascades its event rows with it.
+ *
+ * ── STALE RUNS ARE FOUND BY THE INDEXED PAIR, AND BOUNDED ──
+ *
+ * {@link SupabaseLiveRunSessionStore.findStale} filters on `finished_at is null`
+ * and `expires_at <= now`, orders oldest first and takes a bounded page. Both
+ * predicates are needed: `expires_at` alone would return runs somebody already
+ * finished, and `finished_at` alone would return runs their owner is still
+ * inside the window for. It projects three columns and never the steps — those
+ * are read per run, only for the ones that turn out to be worth judging.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import type { TargetStepEvent } from '@/harness';
 import {
+  DEFAULT_STALE_RUN_LIMIT,
   LiveRunSessionRecordSchema,
   LiveRunStepEventSchema,
   type AppendLiveRunEvents,
   type LiveRunSessionRecord,
   type LiveRunSessionStore,
   type NewLiveRunSession,
+  type StaleLiveRun,
 } from '@/runs/live-run-store';
 
 const RUNS = 'live_runs';
@@ -65,6 +76,13 @@ const RunRowSchema = z.object({
 });
 
 const EventRowSchema = z.object({ idx: z.number().int().min(0), event: LiveRunStepEventSchema });
+
+/** The narrow projection the stale-run query reads. Still external input. */
+const StaleRowSchema = z.object({
+  run_id: z.string().min(1),
+  user_id: z.string().min(1),
+  expires_at: z.string().min(1),
+});
 
 export class SupabaseLiveRunSessionStore implements LiveRunSessionStore {
   constructor(private readonly client: SupabaseClient) {}
@@ -136,6 +154,24 @@ export class SupabaseLiveRunSessionStore implements LiveRunSessionStore {
       .select('run_id');
     if (error) throw new Error(`live run finish failed: ${error.message}`);
     return (data ?? []).length === 1;
+  }
+
+  async findStale(now: Date, limit = DEFAULT_STALE_RUN_LIMIT): Promise<readonly StaleLiveRun[]> {
+    // Open (`finished_at is null`) AND past the whole window. The two predicates
+    // together are what "nobody closed this" means; either one alone would sweep
+    // up a run somebody is still allowed to finish.
+    const { data, error } = await this.client
+      .from(RUNS)
+      .select('run_id, user_id, expires_at')
+      .is('finished_at', null)
+      .lte('expires_at', now.toISOString())
+      .order('expires_at', { ascending: true })
+      .limit(limit);
+    if (error) throw new Error(`live run stale lookup failed: ${error.message}`);
+    return (data ?? []).map((row) => {
+      const parsed = StaleRowSchema.parse(row);
+      return { runId: parsed.run_id, userId: parsed.user_id, expiresAt: parsed.expires_at };
+    });
   }
 
   async sweepExpired(now: Date): Promise<number> {

@@ -133,6 +133,40 @@ describe('SupabaseLiveRunSessionStore', () => {
     expect(db.rows('live_run_events').every((r) => r.run_id === 'run-2')).toBe(true);
   });
 
+  it('finds the open runs whose window has passed, and only those', async () => {
+    const db = new FakeDatabase();
+    const store = new SupabaseLiveRunSessionStore(db.client());
+    // Past its window, still open: the run a scheduled job has to finish.
+    await store.create(newSession());
+    // Past its window, already claimed by whoever finished it.
+    await store.create(newSession({ runId: 'run-2' }));
+    await store.finish('run-2', new Date('2026-08-06T12:00:00.000Z'));
+    // Still inside its own window: its owner may yet come back and finish it.
+    await store.create(newSession({ runId: 'run-3', expiresAt: '2026-09-01T00:00:00.000Z' }));
+
+    const stale = await store.findStale(new Date('2026-08-07T00:00:00.000Z'));
+
+    expect(stale).toEqual([{ runId: 'run-1', userId: 'user-1', expiresAt: EXPIRY }]);
+  });
+
+  it('bounds one answer, so a backlog is drained over passes rather than in one', async () => {
+    const db = new FakeDatabase();
+    const store = new SupabaseLiveRunSessionStore(db.client());
+    await store.create(newSession());
+    await store.create(newSession({ runId: 'run-2' }));
+
+    expect(await store.findStale(new Date('2026-08-07T00:00:00.000Z'), 1)).toHaveLength(1);
+  });
+
+  it('surfaces a stale-run lookup failure rather than reporting nothing to do', async () => {
+    const db = new FakeDatabase();
+    db.failWith = 'permission denied';
+
+    await expect(
+      new SupabaseLiveRunSessionStore(db.client()).findStale(new Date()),
+    ).rejects.toThrow(/permission denied/);
+  });
+
   it('refuses a stored row that is not a session record, instead of trusting it', async () => {
     const db = new FakeDatabase();
     await new SupabaseLiveRunSessionStore(db.client()).create(newSession());

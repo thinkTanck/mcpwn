@@ -46,6 +46,18 @@
  * `judgeableTrace()` allow-list (no `category`, no `runId`). This module adds
  * nothing to that payload.
  *
+ * ── TWO WAYS A RUN ENDS, AND ONE CLAIM BETWEEN THEM ──
+ *
+ * `finish()` is the ordinary end: gate, judge, persist, report. `abandon()` is
+ * the end for a run that recorded nothing worth judging — it claims the run and
+ * revokes the token and stops there, spending nothing and storing nothing. Both
+ * go through the SAME claim against the registry, so a user finishing a run and
+ * a scheduled pass closing it compete once and only one of them acts. The
+ * scheduled pass itself lives in `./reaper.ts`
+ * ([ADR-0012](../../docs/adr/0012-abandoned-runs-are-completed-not-discarded.md));
+ * it decides which of the two to call and calls THIS module rather than a copy of
+ * it, so a background run cannot end up on a different set of gates.
+ *
  * ── THE CLEAN PATH IS A FIRST-CLASS OUTCOME ──
  *
  * An agent that reads the poisoned content and refuses to act on it is the
@@ -235,6 +247,13 @@ export interface LiveRunTicket {
   readonly promptName: string;
 }
 
+/** What closing a run without judging it produced. There is no verdict here. */
+export interface AbandonedLiveRun {
+  readonly runId: string;
+  /** How much the agent had recorded when the run was closed. */
+  readonly steps: number;
+}
+
 /** What a finished run produced. Identical in shape on both outcomes. */
 export interface LiveRunOutcome {
   readonly stored: StoredRun;
@@ -284,6 +303,11 @@ export interface LiveRunHost {
   getTrace(input: { runId: string; userId: string }): Promise<LiveRunDecision<Trace>>;
   /** Revoke, gate, judge, persist and report. */
   finish(input: { runId: string; userId: string }): Promise<LiveRunDecision<LiveRunOutcome>>;
+  /**
+   * Close a run WITHOUT judging it: claim it once, revoke its token, store
+   * nothing. For a run that recorded nothing worth asking the judge about.
+   */
+  abandon(input: { runId: string; userId: string }): Promise<LiveRunDecision<AbandonedLiveRun>>;
 }
 
 /**
@@ -621,6 +645,28 @@ export function createLiveRunHost(deps: LiveRunHostDeps): LiveRunHost {
       const session = await ownedSession(runId, userId);
       if (session === undefined) return fail('RUN_NOT_FOUND', 'That run was not found.');
       return { ok: true, value: await session.server.buildTrace() };
+    },
+
+    async abandon({ runId, userId }) {
+      const session = await ownedSession(runId, userId);
+      if (session === undefined) return fail('RUN_NOT_FOUND', 'That run was not found.');
+
+      const at = now();
+      // The SAME claim `finish()` makes, so closing and finishing compete for one
+      // run through one mechanism. Whichever gets there first is the only one that
+      // acts, and the loser is told the run is already over.
+      if (!(await registry.finish(runId, at))) {
+        return fail('RUN_ALREADY_FINISHED', 'That run has already finished.');
+      }
+      await deps.tokens.endRun(runId, at);
+
+      // NO GATE here, deliberately. Both preflight calls exist to stop something
+      // being SPENT, and this path issues nothing and asks the judge nothing. A
+      // gate that could refuse would only ever leave a live credential on a public
+      // endpoint, which is the opposite of what this call is for.
+      const steps = session.server.observedEvents.length;
+      logger?.info('live run abandoned', { runId, userId, steps });
+      return { ok: true, value: { runId, steps } };
     },
 
     async finish({ runId, userId }) {
