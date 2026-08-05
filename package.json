@@ -24,7 +24,8 @@
     "db:diff": "supabase db diff",
     "prepare": "husky",
     "eval:measure": "tsx scripts/eval-measure.ts",
-    "eval:measure-category": "tsx scripts/eval-measure-category.ts"
+    "eval:measure-category": "tsx scripts/eval-measure-category.ts",
+    "serve:mcp": "tsx scripts/server/serve.ts"
   },
   "dependencies": {
     "@base-ui-components/react": "1.0.0-rc.0",

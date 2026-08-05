@@ -1,0 +1,183 @@
+import {
+  createStreamableHttpHandler,
+  SESSION_HEADER,
+  type StreamableHttpHandler,
+} from '@/harness/server/http';
+import { HostedMcpServer } from '@/harness/server/server';
+
+const ENDPOINT = 'http://127.0.0.1/mcp';
+
+function handler(): StreamableHttpHandler {
+  return createStreamableHttpHandler(
+    () => new HostedMcpServer({ category: 'ASI01', kind: 'malicious' }),
+  );
+}
+
+interface PostOpts {
+  sessionId?: string;
+  accept?: string;
+  contentType?: string;
+  body?: string;
+}
+
+function post(h: StreamableHttpHandler, payload: unknown, opts: PostOpts = {}): Promise<Response> {
+  const headers = new Headers({
+    'content-type': opts.contentType ?? 'application/json',
+    accept: opts.accept ?? 'application/json, text/event-stream',
+  });
+  if (opts.sessionId !== undefined) headers.set(SESSION_HEADER, opts.sessionId);
+  return h.handle(
+    new Request(ENDPOINT, {
+      method: 'POST',
+      headers,
+      body: opts.body ?? JSON.stringify(payload),
+    }),
+  );
+}
+
+const initialize = {
+  jsonrpc: '2.0',
+  id: 1,
+  method: 'initialize',
+  params: { protocolVersion: '2025-06-18', clientInfo: { name: 'agent', version: '1.0' } },
+};
+
+async function openSession(h: StreamableHttpHandler): Promise<string> {
+  const res = await post(h, initialize);
+  return res.headers.get(SESSION_HEADER)!;
+}
+
+describe('server/http Streamable HTTP: session lifecycle', () => {
+  it('initialize mints a session id in the Mcp-Session-Id header and returns a JSON result', async () => {
+    const h = handler();
+    const res = await post(h, initialize);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toContain('application/json');
+    const id = res.headers.get(SESSION_HEADER);
+    expect(id).toBeTruthy();
+    expect(h.sessionIds()).toContain(id);
+    const body = await res.json();
+    expect(body.result.protocolVersion).toBe('2025-06-18');
+  });
+
+  it('routes a later request to the session established by initialize', async () => {
+    const h = handler();
+    const id = await openSession(h);
+    const res = await post(h, { jsonrpc: '2.0', id: 2, method: 'tools/list' }, { sessionId: id });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(Array.isArray(body.result.tools)).toBe(true);
+  });
+
+  it('records the agent tools/call into the session trace', async () => {
+    const h = handler();
+    const id = await openSession(h);
+    await post(
+      h,
+      {
+        jsonrpc: '2.0',
+        id: 3,
+        method: 'tools/call',
+        params: { name: 'read_email', arguments: {} },
+      },
+      { sessionId: id },
+    );
+    const trace = await h.getSession(id)!.buildTrace();
+    expect(trace.steps.some((s) => s.type === 'tool_call')).toBe(true);
+  });
+
+  it('acknowledges a notification with 202 and no body', async () => {
+    const h = handler();
+    const id = await openSession(h);
+    const res = await post(
+      h,
+      { jsonrpc: '2.0', method: 'notifications/initialized' },
+      { sessionId: id },
+    );
+    expect(res.status).toBe(202);
+    expect(await res.text()).toBe('');
+  });
+});
+
+describe('server/http: session guards', () => {
+  it('rejects a non-initialize request with no session id (400)', async () => {
+    const res = await post(handler(), { jsonrpc: '2.0', id: 2, method: 'tools/list' });
+    expect(res.status).toBe(400);
+    expect((await res.json()).error.message).toMatch(/session/i);
+  });
+
+  it('rejects an unknown session id (404)', async () => {
+    const res = await post(
+      handler(),
+      { jsonrpc: '2.0', id: 2, method: 'tools/list' },
+      { sessionId: 'nope' },
+    );
+    expect(res.status).toBe(404);
+  });
+});
+
+describe('server/http: content negotiation', () => {
+  it('rejects a non-JSON content type with 415', async () => {
+    const res = await post(handler(), initialize, { contentType: 'text/plain' });
+    expect(res.status).toBe(415);
+  });
+
+  it('rejects an Accept that allows neither JSON nor SSE with 406', async () => {
+    const res = await post(handler(), initialize, { accept: 'text/html' });
+    expect(res.status).toBe(406);
+  });
+
+  it('returns a single SSE frame when the client accepts only text/event-stream', async () => {
+    const res = await post(handler(), initialize, { accept: 'text/event-stream' });
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toContain('text/event-stream');
+    const text = await res.text();
+    expect(text).toMatch(/^event: message\ndata: /);
+    expect(text).toContain('"protocolVersion"');
+  });
+
+  it('rejects a malformed JSON body with a JSON-RPC parse error (400)', async () => {
+    const res = await post(handler(), null, { body: '{ not json' });
+    expect(res.status).toBe(400);
+    expect((await res.json()).error.code).toBe(-32700);
+  });
+});
+
+describe('server/http: GET and DELETE', () => {
+  it('answers GET with 405 (no server-initiated stream)', async () => {
+    const res = await handler().handle(new Request(ENDPOINT, { method: 'GET' }));
+    expect(res.status).toBe(405);
+    expect(res.headers.get('allow')).toContain('POST');
+  });
+
+  it('answers an unsupported method with 405', async () => {
+    const res = await handler().handle(new Request(ENDPOINT, { method: 'PUT' }));
+    expect(res.status).toBe(405);
+  });
+
+  it('DELETE ends a live session (204) and 404s an unknown one', async () => {
+    const h = handler();
+    const id = await openSession(h);
+    const ok = await h.handle(
+      new Request(ENDPOINT, { method: 'DELETE', headers: { [SESSION_HEADER]: id } }),
+    );
+    expect(ok.status).toBe(204);
+    expect(h.getSession(id)).toBeUndefined();
+    const gone = await h.handle(
+      new Request(ENDPOINT, { method: 'DELETE', headers: { [SESSION_HEADER]: id } }),
+    );
+    expect(gone.status).toBe(404);
+  });
+
+  it('DELETE with no session id is a 400', async () => {
+    const res = await handler().handle(new Request(ENDPOINT, { method: 'DELETE' }));
+    expect(res.status).toBe(400);
+  });
+
+  it('endSession reports whether the session existed', async () => {
+    const h = handler();
+    const id = await openSession(h);
+    expect(h.endSession(id)).toBe(true);
+    expect(h.endSession(id)).toBe(false);
+  });
+});
