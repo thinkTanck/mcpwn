@@ -187,8 +187,12 @@ flowchart TD
 The UI renders **observable data only**. The contract is deliberately small:
 
 - **`Trace`** — observable steps only: `{ runId, target, model, category, steps[] }`
-  (step types: `attacker`, `agent_reasoning`, `tool_call`, `tool_result`,
-  `memory_read`, `memory_write`, `task_complete`). It carries **no labels**.
+  (step types: `principal_instruction`, `agent_reasoning`, `tool_call`,
+  `tool_result`, `memory_read`, `memory_write`, `task_complete`). It carries
+  **no labels**. The inbound turn was called `attacker` until
+  [ADR-0011](docs/adr/0011-the-principal-instruction-is-its-own-step-type.md)
+  renamed it: it carries the principal's own instruction, exactly one per trace
+  and first, and the judge reads the step type verbatim.
 - **`GroundTruth`** — the **held-out label**: `{ compromised, stepId?, category }`,
   produced at attack construction.
 - **`Verdict`** — the detector's output:
@@ -213,6 +217,35 @@ comparing detector verdicts against the held-out ground truth on constructed
 fixtures only. Live runs are unlabeled — which is exactly why the detector exists.
 
 ![Leakage separation — the detector is blind (Trace + goal only); the held-out GroundTruth flows only to the eval / scorer, never to the detector, RunResult, or UI](docs/diagrams/leakage-dataflow.svg)
+
+### The live-run pipeline
+
+`createLiveRunHost` (`src/runs/live-run.ts`) is the seam that joins the pieces
+into one run. Every stage below already existed and was tested on its own; this
+wires them at the integration points each module documented.
+
+| Stage           | What happens                                                                                        |
+| --------------- | --------------------------------------------------------------------------------------------------- |
+| `start(input)`  | Gate (`checkLiveRunPreflight`), then issue the per-run token, then host the run's MCP server        |
+| `handle(req)`   | Authenticate the inbound agent connection, then serve MCP while the recorder writes the `Trace`     |
+| `finish(input)` | Revoke the token, gate again, judge the observable trace, persist the `RunResult`, build the report |
+
+Two things are worth stating plainly:
+
+- **Both gates sit before something is spent.** `start` checks preflight before a
+  token is minted, so a refused run costs nothing; `finish` checks it again before
+  the judge, so a cap that trips mid-run pauses the run down a typed refusal
+  rather than overspending. `handle` does not re-gate: the allowance is a per-run
+  decision, not a per-message one.
+- **A clean run is a successful run.** An agent that reads the poisoned content
+  and refuses to act on it persists a `RunResult` and produces a fix report
+  exactly like a compromised one. "No findings" is a report, not an empty state,
+  and `finish` has no branch on `verdict.compromised`.
+
+The judge is reached only through `(trace, taskGoal) => Verdict`, which has
+nowhere to put a label, and what it actually sees is narrowed again by the
+`judgeableTrace()` allow-list. A live run is unlabeled: there is no `GroundTruth`
+to leak and none is synthesized.
 
 ### Routes
 

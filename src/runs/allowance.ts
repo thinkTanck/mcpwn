@@ -20,30 +20,20 @@
  * unconfigured judge: a bounded, expected state the app states plainly, rather
  * than an exception surfacing as a 500 on a public route.
  *
- * ── INTEGRATION POINT (deliberately not wired yet) ──
+ * ── INTEGRATION POINT ──
  *
- * This module is TESTED PURE LOGIC with no production caller, because there is
- * nothing honest to attach it to yet: under
- * [ADR-0006](../../docs/adr/0006-mcpwn-is-the-mcp-server.md) a live run means the
- * user's agent connecting to an MCP server WE host, and that server does not
- * exist (plan.md B2, gated on the hypothesis spike). Fabricating a live pipeline
- * to have somewhere to put a gate would make the gate a fiction too.
+ * This is no longer called by nothing. `checkLiveRunPreflight()`
+ * (`./preflight.ts`) composes it with the global spend cap (`./spend-cap.ts`) and
+ * is the ONE entry point a live run passes: config, then this gate, then the
+ * cap, all before the judge is resolved or the agent is invited to connect. Call
+ * preflight rather than this directly — two gates a caller has to remember to
+ * call in the right order is a gate that eventually gets called in the wrong one.
  *
- * When the live-run entry point lands (the `/connect` server action that issues a
- * per-run endpoint and token), it calls this BEFORE it spends anything:
+ * Preflight itself is still ahead of the live-run entry point it guards (the
+ * `/connect` server action that issues a per-run endpoint and token, and the
+ * hosted MCP server behind it), which is being built separately. That is stated
+ * rather than papered over: a gate whose caller is imagined is not enforced.
  *
- *   const user = await requireUser('/connect');            // already exists
- *   const repository = await getRunRepository();           // already exists
- *   const decision = await checkLiveRunAllowance({
- *     repository,
- *     userId: user.id,
- *     accountCreatedAt: user.created_at,
- *   });
- *   if (!decision.allowed) return { ok: false, reason: decision.error.code,
- *                                   message: decision.error.message };
- *
- * The order matters: the allowance is checked after authentication and before the
- * judge is resolved or a run is persisted, so a refused run costs nothing.
  * Auth and RLS are untouched — the count is read through the caller's own
  * RLS-scoped repository, so an account can only ever count its own runs.
  */

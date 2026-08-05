@@ -298,6 +298,78 @@ export function getLiveRunAllowance(env: Env = process.env): number {
   return result.data;
 }
 
+// ── Global model-spend cap — the operator's budget backstop (ADR-0007) ──
+//
+// The allowance above and this cap are NOT the same control, and neither one
+// replaces the other. The allowance distributes the resource: it bounds what any
+// single account can draw, so one enthusiast cannot close the tool for everyone.
+// This bounds the BILL: it bounds what EVERY account together can draw in a
+// billing period, which the allowance says nothing about, because a public tool
+// gains accounts faster than any per-account number can bound the total.
+//
+// WHAT IT COUNTS: billable live runs started, globally, across all accounts.
+// Not dollars, and the difference is deliberate. Nothing in this app can read
+// what Anthropic has actually billed; a dollar figure would have to be
+// reconstructed from a hand-typed price constant, which is exactly the invented
+// number this project refuses to ship. A run is the unit we can genuinely count,
+// and under the LOCKED judge (one pinned model, one temperature, one rubric, one
+// judge call per run) a run's judge cost is bounded and near-constant, so a run
+// count is a faithful PROXY for spend and it is honest about being one.
+//
+// OVER WHAT WINDOW: the current UTC calendar month. The liability this protects
+// is a monthly invoice, so the budget refills when the bill does. A lifetime
+// global cap would permanently close a public tool the first time it was
+// popular; a rolling window would be off-phase with the invoice it exists to
+// bound, so the same number would mean something different every month.
+//
+// The window is fixed in code rather than configurable, on purpose: a second
+// knob would let an operator dial in a rolling window and quietly reintroduce
+// the rate-vs-total confusion ADR-0007 settled for the allowance.
+
+/**
+ * The range a cap may take. `0` is a legitimate setting — the operator's "live
+ * runs are off" switch, symmetric with the allowance. The upper bound exists
+ * only to catch a fat-fingered paste.
+ */
+export const LIVE_RUN_SPEND_CAP_BOUNDS = { min: 0, max: 100_000 } as const;
+
+const LiveRunSpendCapSchema = z
+  .string()
+  .trim()
+  .regex(/^\d+$/)
+  .transform(Number)
+  .pipe(z.number().int().min(LIVE_RUN_SPEND_CAP_BOUNDS.min).max(LIVE_RUN_SPEND_CAP_BOUNDS.max));
+
+/**
+ * A TUNABLE DEFAULT, not a promise. ADR-0007 puts operator judge cost at a few
+ * cents per run, so 500 runs a month is a liability in the low tens of dollars:
+ * enough headroom that ordinary evaluation traffic never meets the backstop, low
+ * enough that a runaway month is capped at an amount an operator can absorb.
+ * Move it as observed cost changes.
+ */
+const DEFAULT_LIVE_RUN_SPEND_CAP = 500;
+
+/**
+ * How many billable live runs may start across ALL accounts in one UTC calendar
+ * month. Env-only (`LIVE_RUN_SPEND_CAP`), so the operator can follow observed
+ * judge cost without a deploy. Throws a typed `ConfigError` on a non-integer or
+ * out-of-range value: a spend control that silently falls back to a number
+ * nobody chose is not a spend control.
+ */
+export function getLiveRunSpendCap(env: Env = process.env): number {
+  const raw = env.LIVE_RUN_SPEND_CAP;
+  if (raw === undefined) return DEFAULT_LIVE_RUN_SPEND_CAP;
+  const result = LiveRunSpendCapSchema.safeParse(raw);
+  if (!result.success) {
+    // Value-free, like every other config error in this module.
+    throw new ConfigError(
+      `Invalid LIVE_RUN_SPEND_CAP: expected an integer ` +
+        `${LIVE_RUN_SPEND_CAP_BOUNDS.min}-${LIVE_RUN_SPEND_CAP_BOUNDS.max}.`,
+    );
+  }
+  return result.data;
+}
+
 // ── LAZY: JudgeModelPort (blind LLM alignment-auditor) ──
 const JudgeEnvSchema = z
   .object({
