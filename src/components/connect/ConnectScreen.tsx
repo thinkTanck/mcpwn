@@ -1,101 +1,86 @@
 'use client';
 
-import { useId, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { CORE7 } from './categories';
+import { LiveRunConsole } from './LiveRunConsole';
+import type { ConnectLiveRunPort } from './live-run-port';
 import type { Category } from '@/contract';
 
 /**
- * Connect / Run Setup — the targeting console (register: PRODUCT, the instrument
- * surface). Two modes share one console: SAMPLE playback (no key), and LIVE,
- * which under [ADR-0006](docs/adr/0006-mcpwn-is-the-mcp-server.md) means the
- * user points THEIR agent at an MCP endpoint WE host. The detector is fixed and
- * BLIND · LOCKED in both, never user-swappable, and live runs are gated behind
- * sign-in.
+ * CONNECT / RUN SETUP — the targeting console (register: PRODUCT).
  *
- * LIVE IS INTERIM-DISABLED. It shows a notice, not a form. See the live branch
- * in section 02 for why, and
- * [the Connect design](docs/superpowers/specs/2026-07-31-connect-inverted-design.md)
- * for the reshape that replaces it once the hypothesis spike reports.
+ * ── THE INVERSION THIS SCREEN EXISTS TO EXPRESS ──
  *
- * Type roles (globals.css): every sentence a human reads is a READING role
- * (sans, ≥16px); every readout / label / chip is an INSTRUMENT role (mono,
- * 12–13px). Prose never renders in an instrument role.
+ * The retired console asked for the user's agent endpoint and API key so that we
+ * could call their agent. [ADR-0006](docs/adr/0006-mcpwn-is-the-mcp-server.md)
+ * reversed that: MCPwn IS the MCP server, and the user's agent connects to US.
+ * So the screen no longer TAKES a target, it ISSUES one — a per-run endpoint and
+ * a per-run token — and then waits on the real connection.
+ *
+ * The clearest signal of the inversion is what is missing: there is no field on
+ * this screen at all. Nothing to type, nothing to paste, no credential of the
+ * user's for us to promise to look after.
+ *
+ * ── ONE CATEGORY PER RUN ──
+ *
+ * The old console offered a seven-box checklist, which made sense when a run was
+ * a batch of calls we made. It does not now: a run is ONE hosted endpoint serving
+ * ONE attack `Environment`, because the environment IS the attack. So the
+ * checklist is a radio group, and the same choice drives both modes — in sample
+ * it picks which recorded run plays, in live it picks which surface we serve.
+ *
+ * ── TYPE ROLES ──
+ *
+ * Every sentence is a READING role (sans). Labels, chips and machine values are
+ * INSTRUMENT (mono, 12-13px). The one DISPLAY value on the screen is the recorded
+ * step count in the live console, which is evidence and is therefore printed as
+ * read, never animated.
  */
 
 type Mode = 'sample' | 'live';
 
-const DEMO_MODELS = [
-  { id: 'claude-sonnet', note: 'curated run' },
-  { id: 'gpt-4.1', note: 'curated run' },
-  { id: 'llama-3.1-70b', note: 'curated run' },
-] as const;
+/** Which recorded run each category plays. Resolved on the server; see the route. */
+export type SampleRunIds = Partial<Record<Category, string>>;
 
-/** Big sans step ordinal + mono section label — the numbered console sections. */
-function StepHeader({ n, label }: { n: string; label: string }) {
+/** The sample the screens ship with, when no per-category id was resolved. */
+const CANONICAL_SAMPLE = 'sample';
+
+/** The recorded run the sample library leads with (ADR-0003's hero demonstration). */
+const DEFAULT_CATEGORY: Category = 'ASI06';
+
+const MODES: [Mode, string][] = [
+  ['sample', 'SAMPLE · no sign-in'],
+  ['live', 'LIVE · your agent connects to us'],
+];
+
+/**
+ * A section heading. The ordinal is OPTIONAL and that is the point.
+ *
+ * Numbered section markers are a known scaffolding tell, and they earn their
+ * place only when the sections really are an ordered sequence. Setting a run up
+ * IS one: pick how you are running, pick what you are running against, then get
+ * your run. The DETECTOR band carries no number because it is not a step — it is
+ * a fact stated at the point it matters, and numbering it would have told the
+ * reader there was a fourth thing to do.
+ */
+function SectionHead({ n, label, id }: { n?: string; label: string; id: string }) {
   return (
-    <div className="mb-4 flex items-baseline gap-3.5">
-      <span className="font-sans text-[20px] font-semibold tracking-tight text-ink-hi">{n}</span>
+    <h2 id={id} className="mb-4 flex items-baseline gap-3.5">
+      {n && (
+        <span className="font-sans text-[20px] font-semibold tracking-tight text-ink-hi">{n}</span>
+      )}
       <span className="micro-label">{label}</span>
-    </div>
+    </h2>
   );
 }
 
-/** A bordered console section separated by a hairline top rule. */
-function Section({ children }: { children: ReactNode }) {
-  return <div className="border-t border-line py-5 pb-6">{children}</div>;
-}
-
-/** Labelled INSTRUMENT input: mono readout value, label associated by id. */
-function Field({
-  label,
-  optional,
-  type = 'text',
-  placeholder,
-  value,
-  onChange,
-  describedBy,
-  helper,
-  autoComplete,
-  inputMode,
-}: {
-  label: string;
-  optional?: boolean;
-  type?: string;
-  placeholder?: string;
-  value: string;
-  onChange: (v: string) => void;
-  describedBy?: string;
-  helper?: ReactNode;
-  autoComplete?: string;
-  inputMode?: 'text' | 'numeric' | 'url';
-}) {
-  const id = useId();
-  const helperId = describedBy ?? (helper ? `${id}-help` : undefined);
+function Section({ children, labelledBy }: { children: ReactNode; labelledBy: string }) {
   return (
-    <div>
-      <label htmlFor={id} className="micro-label mb-2 block">
-        {label}
-        {optional && <span className="ml-1.5 text-ink-faint"> · optional</span>}
-      </label>
-      <input
-        id={id}
-        type={type}
-        value={value}
-        placeholder={placeholder}
-        aria-describedby={helperId}
-        autoComplete={autoComplete}
-        inputMode={inputMode}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-md border border-line bg-base px-3 py-2.5 font-mono text-[14px] text-readout placeholder:text-ink-faint focus-visible:border-nominal"
-      />
-      {helper && (
-        <div id={helperId} className="mt-2 flex items-center gap-2 font-sans text-[15px] text-ink">
-          {helper}
-        </div>
-      )}
-    </div>
+    <section aria-labelledby={labelledBy} className="border-t border-line py-5 pb-6">
+      {children}
+    </section>
   );
 }
 
@@ -115,51 +100,45 @@ const LockIcon = () => (
   </svg>
 );
 
-export function ConnectScreen({ signedIn = false }: { signedIn?: boolean }) {
+export function ConnectScreen({
+  signedIn = false,
+  sampleRunIds,
+  sampleProvenance,
+  livePort,
+}: {
+  signedIn?: boolean;
+  /** Category to recorded-run id. Absent entries fall back to the canonical sample. */
+  sampleRunIds?: SampleRunIds;
+  /** What the sample IS, in the sample library's own words. */
+  sampleProvenance?: string;
+  /**
+   * The live-run port. Injected so the screen is coded against the port and not
+   * against a server module; see `./live-run-port.ts`. Absent means this build
+   * has no live-run action bound, and the console says exactly that.
+   */
+  livePort?: ConnectLiveRunPort;
+}) {
   const [mode, setMode] = useState<Mode>('sample');
-  const [demoModel, setDemoModel] = useState<string>(DEMO_MODELS[0].id);
-  // No endpoint / apiKey / modelId state: the live form that held them is gone
-  // until the Connect reshape (ADR-0006). Keeping the state around would leave a
-  // credential-shaped slot in the component waiting to be refilled.
-  const [runs, setRuns] = useState('5');
-  const [seed, setSeed] = useState('1337');
-  const [selected, setSelected] = useState<Set<Category>>(() => new Set(CORE7.map((c) => c.id)));
+  const [category, setCategory] = useState<Category>(DEFAULT_CATEGORY);
 
   const live = mode === 'live';
-  const showGate = live && !signedIn;
-  const selectedCount = selected.size;
-
-  const toggleCategory = (id: Category) =>
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+  const sampleHref = `/runs/${sampleRunIds?.[category] ?? CANONICAL_SAMPLE}`;
 
   return (
     <div className="type-flow mx-auto max-w-[1440px] px-6 py-10">
-      {/* Header */}
-      {/* No `!important` needed: the role default colour is layered, so the
-          utility next to it wins on layer order alone. */}
       <p className="micro-label mb-2.5 tracking-[0.18em] text-nominal">CONNECT / RUN</p>
       <h1 className="reading-h2 mb-2.5">Set up a red-team run.</h1>
-      <p className="reading-lead mb-7">
-        Play a no-key sample now. Live red-teaming, where you point your own MCP agent at an
-        endpoint we host, is coming soon. Either way the same fixed, blind detector judges every
-        trace.
+      <p className="reading-lead mb-7 max-w-[68ch]">
+        Watch a recorded sample, or run live: you point your own MCP agent at an endpoint we host,
+        and we record every tool call it chooses to make. The same fixed, blind detector judges
+        either trace.
       </p>
 
       {/* 01 · Mode */}
-      <Section>
-        <StepHeader n="01" label="MODE" />
-        <div className="flex max-w-[460px] flex-wrap gap-2.5" role="group" aria-label="Run mode">
-          {(
-            [
-              ['sample', 'SAMPLE · no key'],
-              ['live', 'LIVE · bring your agent'],
-            ] as [Mode, string][]
-          ).map(([m, label]) => {
+      <Section labelledBy="connect-mode-head">
+        <SectionHead id="connect-mode-head" n="01" label="MODE" />
+        <div className="flex max-w-[560px] flex-wrap gap-2.5" role="group" aria-label="Run mode">
+          {MODES.map(([m, label]) => {
             const active = mode === m;
             return (
               <button
@@ -179,151 +158,37 @@ export function ConnectScreen({ signedIn = false }: { signedIn?: boolean }) {
             );
           })}
         </div>
-        {/* Surface the live gate at the point of choice, before any secret is typed. */}
-        {showGate && (
-          <p className="reading mt-2.5 text-ink-muted">
-            Live runs require sign-in. Sample playback stays open with no key.
-          </p>
-        )}
+        <p className="reading mt-3 text-ink-muted">
+          Sample playback needs no sign-in and no key. A live run hosts an endpoint for your account
+          and asks the judge a question, so it is gated.
+        </p>
       </Section>
 
-      {/* 02 · Agent & detector */}
-      <Section>
-        <StepHeader n="02" label="AGENT & DETECTOR" />
-        <div className="grid gap-6 md:grid-cols-2">
-          {/* Left: agent (sample picker, or the interim live notice) */}
-          <div>
-            {live ? (
-              <>
-                <p className="micro-label mb-3">YOUR MCP AGENT</p>
-                {/* INTERIM. This panel used to collect an agent endpoint and an
-                    API key, under "Used server-side only, never stored" — a claim
-                    about a credential ADR-0006 decided we will never take, since
-                    the agent connects to US. Asking for a secret we have no use
-                    for is worse than an unbuilt feature, so the form is gone
-                    until the Connect reshape lands (it waits on the hypothesis
-                    spike). Deliberately a notice, not a redesign. */}
-                <div className="flex flex-col gap-3 rounded-lg border border-line bg-nominal/5 px-5 py-4">
-                  <p className="reading text-ink">
-                    Live red-teaming is coming soon. You will point your own MCP agent at an
-                    endpoint we host, and we will record what it does.
-                  </p>
-                  <p className="reading text-ink-muted">
-                    We will never ask for your agent{"'"}s key. There is nothing to paste here yet.
-                  </p>
-                </div>
-              </>
-            ) : (
-              <>
-                <p className="micro-label mb-3">DEMO AGENT</p>
-                <div className="flex flex-col gap-2.5" role="radiogroup" aria-label="Demo agent">
-                  {DEMO_MODELS.map((m) => {
-                    const active = demoModel === m.id;
-                    return (
-                      <button
-                        key={m.id}
-                        type="button"
-                        role="radio"
-                        aria-checked={active}
-                        onClick={() => setDemoModel(m.id)}
-                        className={cn(
-                          'flex min-h-11 items-center gap-2.5 rounded-md border px-3 py-2.5 text-left transition-colors',
-                          active
-                            ? 'border-line-em bg-nominal/5'
-                            : 'border-line hover:border-line-em',
-                        )}
-                      >
-                        <span
-                          aria-hidden="true"
-                          className={cn(
-                            'h-2 w-2 rounded-full',
-                            active ? 'bg-nominal shadow-glow-nominal' : 'bg-ink-faint',
-                          )}
-                        />
-                        <span className="font-mono text-[14px] text-ink-hi">{m.id}</span>
-                        <span className="ml-auto font-mono text-[13px] text-ink-muted">
-                          {m.note}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* Right: locked detector + run params */}
-          <div>
-            <p className="micro-label mb-3">DETECTOR</p>
-            <div className="flex items-center gap-2.5 rounded-md border border-line-em bg-nominal/5 px-3.5 py-3">
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 16 16"
-                aria-hidden="true"
-                className="shrink-0 text-nominal"
-              >
-                <circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" strokeWidth="1.3" />
-                <circle cx="8" cy="8" r="2" fill="currentColor" />
-              </svg>
-              <span className="font-mono text-[13px] tracking-[0.08em] text-nominal">BLIND</span>
-              <span className="ml-auto inline-flex items-center gap-1.5 font-mono text-[13px] tracking-[0.06em] text-ink-faint">
-                <LockIcon />
-                LOCKED
-              </span>
-            </div>
-            <p className="reading mt-2">
-              Fixed, validated judge; never user-swappable. The measured accuracy only holds for
-              this exact config.
-            </p>
-            {/* RUNS/SEED parameterise a LIVE run; a curated sample is a fixed playback,
-                so they only render in live mode (they would be inert in sample). */}
-            {live && (
-              <div className="mt-4 flex gap-3.5">
-                <div className="flex-1">
-                  <Field
-                    label="RUNS / CATEGORY"
-                    inputMode="numeric"
-                    value={runs}
-                    onChange={setRuns}
-                  />
-                </div>
-                <div className="flex-1">
-                  <Field label="SEED" inputMode="numeric" value={seed} onChange={setSeed} />
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </Section>
-
-      {/* 03 · Categories */}
-      <Section>
-        <div className="mb-4 flex flex-wrap items-baseline justify-between gap-3">
-          <div className="flex items-baseline gap-3.5">
-            <span className="font-sans text-[20px] font-semibold tracking-tight text-ink-hi">
-              03
-            </span>
-            <span className="micro-label">ATTACK CATEGORIES · OWASP AGENTIC TOP-10</span>
-          </div>
-          <span className="instrument" aria-live="polite">
-            {selectedCount} selected
-          </span>
-        </div>
+      {/* 02 · Category */}
+      <Section labelledBy="connect-category-head">
+        <SectionHead
+          id="connect-category-head"
+          n="02"
+          label="ATTACK CATEGORY · OWASP AGENTIC TOP-10"
+        />
+        <p className="reading mb-4 max-w-[68ch]">
+          One run serves one attack surface, because the surface is the attack. Pick the one you
+          want to test.
+        </p>
         <div
           className="grid gap-2.5 md:grid-cols-2"
-          role="group"
-          aria-label="Attack categories (OWASP Agentic Top 10)"
+          role="radiogroup"
+          aria-label="Attack category (OWASP Agentic Top 10)"
         >
           {CORE7.map((c) => {
-            const checked = selected.has(c.id);
+            const checked = category === c.id;
             return (
               <button
                 key={c.id}
                 type="button"
-                role="checkbox"
+                role="radio"
                 aria-checked={checked}
-                onClick={() => toggleCategory(c.id)}
+                onClick={() => setCategory(c.id)}
                 className={cn(
                   'flex min-h-11 items-center gap-3 rounded-md border px-3 py-2.5 text-left transition-colors',
                   checked ? 'border-line-em bg-nominal/5' : 'border-line hover:border-line-em',
@@ -332,22 +197,11 @@ export function ConnectScreen({ signedIn = false }: { signedIn?: boolean }) {
                 <span
                   aria-hidden="true"
                   className={cn(
-                    'inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border',
-                    checked
-                      ? 'border-nominal bg-nominal/20 text-nominal'
-                      : 'border-line text-transparent',
+                    'inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border',
+                    checked ? 'border-nominal text-nominal' : 'border-line text-transparent',
                   )}
                 >
-                  <svg width="10" height="10" viewBox="0 0 12 12" aria-hidden="true">
-                    <path
-                      d="M2.5 6.5L5 9l4.5-5"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.6"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
+                  <span className="h-2 w-2 rounded-full bg-current" />
                 </span>
                 <span className="shrink-0 font-mono text-[13px] text-ink-hi">{c.id}</span>
                 <span className="font-sans text-[15px] text-ink">{c.title}</span>
@@ -357,85 +211,70 @@ export function ConnectScreen({ signedIn = false }: { signedIn?: boolean }) {
         </div>
       </Section>
 
-      {/* 04 · Launch */}
-      <div className="border-t border-line pt-5">
-        <StepHeader n="04" label="LAUNCH" />
-        {showGate && (
-          <div className="mb-4 flex flex-wrap items-center gap-4 rounded-lg border border-caution/40 bg-caution/5 px-5 py-4">
+      {/* Detector — a stated fact, never a control, and never a numbered step */}
+      <Section labelledBy="connect-detector-head">
+        <SectionHead id="connect-detector-head" label="DETECTOR" />
+        <div className="grid gap-5 md:grid-cols-2">
+          <div className="flex items-center gap-2.5 rounded-md border border-line-em bg-nominal/5 px-3.5 py-3">
             <svg
-              width="16"
-              height="16"
+              width="14"
+              height="14"
               viewBox="0 0 16 16"
               aria-hidden="true"
-              className="shrink-0 text-caution"
+              className="shrink-0 text-nominal"
             >
-              <rect
-                x="3"
-                y="7"
-                width="10"
-                height="7"
-                rx="1.5"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.3"
-              />
-              <path
-                d="M5 7V4.8a3 3 0 0 1 6 0V7"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.3"
-              />
+              <circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" strokeWidth="1.3" />
+              <circle cx="8" cy="8" r="2" fill="currentColor" />
             </svg>
-            <div className="min-w-[200px] flex-1">
-              <p className="font-mono text-[13px] tracking-[0.06em] text-caution">
-                SIGN IN TO RUN LIVE
-              </p>
-              <p className="reading mt-1">
-                Live runs against your own agent require an account. Sample playback stays open with
-                no key.
-              </p>
+            <span className="font-mono text-[13px] tracking-[0.08em] text-nominal">BLIND</span>
+            <span className="ml-auto inline-flex items-center gap-1.5 font-mono text-[13px] tracking-[0.06em] text-ink-faint">
+              <LockIcon />
+              LOCKED
+            </span>
+          </div>
+          <p className="reading">
+            One fixed, validated judge, never user-swappable. There is no picker here because the
+            measured accuracy only holds for this exact configuration, and it reads the trace
+            without ever seeing which attack we staged.
+          </p>
+        </div>
+      </Section>
+
+      {/* 03 · The run itself */}
+      <section aria-labelledby="connect-run-head" className="border-t border-line pt-5">
+        <SectionHead
+          id="connect-run-head"
+          n="03"
+          label={live ? 'YOUR RUN ENDPOINT' : 'RECORDED PLAYBACK'}
+        />
+        {live ? (
+          <LiveRunConsole
+            {...(livePort ? { port: livePort } : {})}
+            category={category}
+            signedIn={signedIn}
+          />
+        ) : (
+          <div className="flex flex-col gap-4">
+            <p className="reading max-w-[68ch]">
+              The sample is a constructed run judged by the real frozen detector. It shows what a
+              finding looks like; it is not a capture of a live agent, and it never claims to be.
+            </p>
+            {sampleProvenance && <p className="instrument-faint">{sampleProvenance}</p>}
+            <div className="flex flex-wrap items-center gap-4">
+              <Link
+                href={sampleHref}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-nominal bg-nominal/10 px-5 py-3 font-mono text-[14px] leading-6 tracking-[0.08em] text-readout shadow-glow-nominal transition-colors hover:bg-nominal/20"
+              >
+                <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+                  <polygon points="2,1 11,6 2,11" fill="currentColor" />
+                </svg>
+                PLAY SAMPLE RUN
+              </Link>
+              <span className="instrument">streams into Live Attack Replay</span>
             </div>
-            <Link
-              href="/sign-in"
-              className="shrink-0 rounded-md border border-line-em bg-nominal/5 px-5 py-2.5 font-mono text-[13px] tracking-[0.08em] text-nominal transition-colors hover:bg-nominal/10 hover:shadow-glow-nominal"
-            >
-              SIGN IN →
-            </Link>
           </div>
         )}
-        <div className="flex flex-wrap items-center gap-4">
-          {live ? (
-            /* No LAUNCH control while live is interim-disabled. A disabled button
-               invites a click and implies the feature is one condition away; a
-               link to the thing that does work is more honest and more useful. */
-            <Link
-              href="/runs/sample"
-              className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-md border border-line-em bg-transparent px-5 py-3 font-mono text-[14px] tracking-[0.08em] text-ink transition-colors hover:border-nominal hover:text-readout"
-            >
-              <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
-                <polygon points="2,1 11,6 2,11" fill="currentColor" />
-              </svg>
-              WATCH THE SAMPLE RUN
-            </Link>
-          ) : (
-            <Link
-              href="/runs/sample"
-              className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-md border border-nominal bg-nominal/10 px-5 py-3 font-mono text-[14px] tracking-[0.08em] text-readout shadow-glow-nominal transition-colors hover:bg-nominal/20"
-            >
-              <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
-                <polygon points="2,1 11,6 2,11" fill="currentColor" />
-              </svg>
-              PLAY SAMPLE RUN
-            </Link>
-          )}
-          <span className="instrument">→ streams into Live Attack Replay</span>
-        </div>
-        {live && !showGate && selectedCount === 0 && (
-          <p className="reading mt-2.5 text-ink-muted">
-            Select at least one attack category to launch.
-          </p>
-        )}
-      </div>
+      </section>
     </div>
   );
 }

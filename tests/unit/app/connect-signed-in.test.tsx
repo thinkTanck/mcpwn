@@ -13,6 +13,10 @@ vi.mock('@/lib/auth/user', () => ({ getUser: vi.fn() }));
  *
  * The gate only applies to LIVE mode, so each case switches there first; asserting
  * on the default sample view would pass for the wrong reason.
+ *
+ * The assertion is on the GATE ITSELF — the sign-in route being offered in place
+ * of the live console — rather than on a sentence, so the Connect redesign can
+ * reword the gate without silently disabling this guard.
  */
 describe('Connect page — real session state', () => {
   beforeEach(() => vi.clearAllMocks());
@@ -28,7 +32,9 @@ describe('Connect page — real session state', () => {
     render(await ConnectPage());
     await goLive();
 
-    expect(screen.queryByText(/live runs require sign-in/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /sign in/i })).not.toBeInTheDocument();
+    // The signed-in visitor gets the live console, not the gate.
+    expect(screen.getByRole('button', { name: /issue run endpoint/i })).toBeInTheDocument();
   });
 
   it('still gates a signed-out visitor', async () => {
@@ -37,6 +43,7 @@ describe('Connect page — real session state', () => {
     render(await ConnectPage());
     await goLive();
 
-    expect(screen.getByText(/live runs require sign-in/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /sign in/i })).toHaveAttribute('href', '/sign-in');
+    expect(screen.queryByRole('button', { name: /issue run endpoint/i })).not.toBeInTheDocument();
   });
 });

@@ -35,10 +35,14 @@ const SCREENS: Screen[] = [
       await expect(
         page.getByRole('heading', { level: 1, name: 'Set up a red-team run.' }),
       ).toBeVisible();
-      // The three real choices on the console: mode, categories, and the launch.
+      // The three real choices on the console: mode, the ONE category this run
+      // will serve (a radio group under ADR-0006, not a checklist), and the launch.
       await expect(page.getByRole('group', { name: 'Run mode' })).toBeVisible();
-      await expect(page.getByRole('group', { name: /^Attack categories/ })).toBeVisible();
+      await expect(page.getByRole('radiogroup', { name: /^Attack category/ })).toBeVisible();
       await expect(page.getByRole('link', { name: /play sample run/i })).toBeVisible();
+      // The retired outbound model asked for an endpoint and a key. Nothing on
+      // this screen takes typed input at all now.
+      await expect(page.locator('input')).toHaveCount(0);
     },
   },
   {
@@ -165,3 +169,29 @@ for (const screen of SCREENS) {
     await expectNoWcagViolations(page);
   });
 }
+
+/**
+ * Connect has a SECOND resting state the loop above cannot reach: live mode.
+ * The loop scans whatever `content` leaves on screen, and Connect's default is
+ * sample, so the live half would never be scanned at all. Signed out, live shows
+ * the sign-in gate rather than the run console, which is exactly the state a
+ * first-time visitor meets.
+ *
+ * STATED GAP: the SIGNED-IN live console (issued endpoint, masked token, task
+ * goal, connection panel) is not scanned here, because reaching it needs a real
+ * Supabase session that this suite does not create. Its roles and names are
+ * covered by `tests/unit/components/connect/LiveRunConsole.test.tsx`.
+ */
+test('Connect in live mode (signed out) renders the gate and has no WCAG A/AA violations', async ({
+  page,
+}) => {
+  await gotoOk(page, '/connect');
+  await page.getByRole('button', { name: /^LIVE/ }).click();
+
+  await expect(page.getByRole('link', { name: /sign in/i })).toHaveAttribute('href', '/sign-in');
+  // Gated, so nothing was issued: no run console, and still nothing to type into.
+  await expect(page.getByRole('button', { name: /issue run endpoint/i })).toHaveCount(0);
+  await expect(page.locator('input')).toHaveCount(0);
+
+  await expectNoWcagViolations(page);
+});
