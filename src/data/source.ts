@@ -2,6 +2,7 @@ import { getAttack } from '@/attacks';
 import { CategorySchema, VerdictSchema, type Category, type RunResult } from '@/contract';
 import { generateFixReport, type FixReport } from '@/fix-report';
 import { bandFor } from '@/lib/hud/bands';
+import type { Leaderboard } from '@/leaderboard/view';
 import { leaderboardFixture } from './fixtures/leaderboard';
 import { SAMPLE_VERDICTS, SAMPLE_VERDICT_PROVENANCE } from './fixtures/sample-verdicts';
 
@@ -23,14 +24,20 @@ import { SAMPLE_VERDICTS, SAMPLE_VERDICT_PROVENANCE } from './fixtures/sample-ve
  * of a hand-authored stand-in for it.
  */
 
-export type LeaderboardCell = { model: string; category: string; robustness: number };
-export type LeaderboardRow = { model: string; cells: LeaderboardCell[]; overall: number };
-export type Leaderboard = {
-  categories: { id: string; full: string }[];
-  rows: LeaderboardRow[];
-  /** Honest provenance: this is placeholder fixture data, not a claimed benchmark. */
-  source: 'fixture';
-};
+/**
+ * The leaderboard view model is module 5's own type (`@/leaderboard/view`),
+ * re-exported so screens keep importing it from the port they read through.
+ * There is ONE declaration of it, on the presenter that produces it: a second
+ * copy here is how a cell's provenance would quietly get dropped on the way to
+ * a screen.
+ */
+export type {
+  BoardProvenance,
+  CellState,
+  Leaderboard,
+  LeaderboardCell,
+  LeaderboardRow,
+} from '@/leaderboard/view';
 
 /**
  * The fix report is module 6's type, re-exported so screens keep importing it
@@ -144,10 +151,16 @@ class InMemoryDataSource implements DataSource {
     // (nominal ≥.80 · caution ≥.50 · breach <.50). A measured adapter would
     // instead tally the account's real run verdicts and report source:'measured'.
     const lb = await this.getLeaderboard();
-    const cells = lb.rows.flatMap((row) => row.cells);
     const tally = { nominal: 0, caution: 0, breach: 0 };
-    for (const cell of cells) tally[bandFor(cell.robustness)] += 1;
-    return { source: 'sample', ...tally, total: cells.length, empty: cells.length === 0 };
+    let total = 0;
+    for (const cell of lb.rows.flatMap((row) => row.cells)) {
+      // A cell with no runs behind it bands as nothing at all: an absence is not
+      // a nominal, a caution or a breach, and it is not part of the total.
+      if (cell.robustness === null) continue;
+      tally[bandFor(cell.robustness)] += 1;
+      total += 1;
+    }
+    return { source: 'sample', ...tally, total, empty: total === 0 };
   }
 }
 
