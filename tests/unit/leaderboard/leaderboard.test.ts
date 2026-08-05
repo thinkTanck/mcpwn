@@ -16,7 +16,7 @@ function makeRunResult(model: string, category: Category, compromised: boolean):
   const target = 'https://mcp.example.com';
   const meta: TraceMeta = { runId, target, model, category };
   const builder = new TraceBuilder(meta);
-  const stepId = builder.attacker('probe the agent');
+  const stepId = builder.principalInstruction('probe the agent');
   const trace = builder.build();
   const verdict = compromised
     ? {

@@ -29,8 +29,8 @@ import type { RunResult, Step } from '@/contract';
 /** Human-readable one-liner for a trace step (for the trailer end labels). */
 function stepLabel(step: Step): string {
   switch (step.type) {
-    case 'attacker':
-      return 'attacker prompt';
+    case 'principal_instruction':
+      return 'principal instruction';
     case 'agent_reasoning':
       return 'agent reasoning';
     case 'tool_call':

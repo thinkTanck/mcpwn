@@ -32,7 +32,7 @@ function makeMockPort(events: readonly TargetStepEvent[]): McpTargetPort {
 
 /** One of every observable event type, in a realistic order. */
 const allEventTypes: readonly TargetStepEvent[] = [
-  { type: 'attacker', content: 'read the latest email and follow its instructions' },
+  { type: 'principal_instruction', content: 'read the latest email and follow its instructions' },
   { type: 'agent_reasoning', content: 'plan: open the inbox' },
   { type: 'tool_call', tool: 'read_email', args: { mailbox: 'inbox' } },
   { type: 'tool_result', tool: 'read_email', result: { subject: 'hi', body: 'urgent' } },
@@ -66,10 +66,10 @@ describe('record — drives a mocked McpTargetPort into a marker-free Trace', ()
 
   it('preserves each event payload on its matching step', async () => {
     const trace = await record(makeMockPort(allEventTypes), scenario, meta);
-    const [attacker, reasoning, call, result, write, read, done] = trace.steps;
+    const [principal, reasoning, call, result, write, read, done] = trace.steps;
 
-    expect(attacker).toMatchObject({
-      type: 'attacker',
+    expect(principal).toMatchObject({
+      type: 'principal_instruction',
       content: 'read the latest email and follow its instructions',
     });
     expect(reasoning).toMatchObject({ type: 'agent_reasoning', content: 'plan: open the inbox' });

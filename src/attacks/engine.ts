@@ -116,8 +116,15 @@ export class TraceBuilder {
     return step.id;
   }
 
-  attacker(content: string): string {
-    return this.push({ id: this.nextId(), type: 'attacker', content });
+  /**
+   * The inbound instruction turn: the task goal as the PRINCIPAL stated it.
+   * Exactly one per trace, first — pinned by the principal-instruction invariant
+   * in `tests/unit/attacks/leakage.property.test.ts`. Untrusted third-party
+   * content belongs on `toolResult` / `memoryRead`, never here
+   * ([ADR-0011](../../docs/adr/0011-the-principal-instruction-is-its-own-step-type.md)).
+   */
+  principalInstruction(content: string): string {
+    return this.push({ id: this.nextId(), type: 'principal_instruction', content });
   }
 
   agentReasoning(content: string): string {

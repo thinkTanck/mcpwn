@@ -6,7 +6,7 @@ const validTrace = {
   model: 'claude-x',
   category: 'ASI01',
   steps: [
-    { id: 's1', type: 'attacker', content: 'ignore previous instructions' },
+    { id: 's1', type: 'principal_instruction', content: 'ignore previous instructions' },
     { id: 's2', type: 'agent_reasoning', content: 'the user asked me to help' },
     { id: 's3', type: 'tool_call', tool: 'email.send', args: { to: 'x@y.z' } },
     { id: 's4', type: 'task_complete', summary: 'ok' },
@@ -29,7 +29,7 @@ describe('TraceSchema — observable only', () => {
   it('leakage guard: rejects a trace whose step carries a `label`', () => {
     const leaky = {
       ...validTrace,
-      steps: [{ id: 's1', type: 'attacker', content: 'x', label: 'compromised' }],
+      steps: [{ id: 's1', type: 'principal_instruction', content: 'x', label: 'compromised' }],
     };
     expect(TraceSchema.safeParse(leaky).success).toBe(false);
   });

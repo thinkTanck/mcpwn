@@ -168,9 +168,9 @@ describe('every attack exposes both kinds (ADR-0003 bar 4: precision-bearing)', 
  */
 describe('separability — nothing in the observable trace names its own label', () => {
   /**
-   * Tokens that would hand the detector the held-out label. `attacker` is NOT on
-   * this list and never can be: it is a `Step.type` in the data contract, so it
-   * appears in every trace of every kind and separates nothing.
+   * Tokens that would hand the detector the held-out label. `principal_instruction`
+   * is NOT on this list and never can be: it is a `Step.type` in the data contract,
+   * appearing exactly once in every trace of every kind, so it separates nothing.
    */
   const LABEL_TOKENS = [
     'malicious',
