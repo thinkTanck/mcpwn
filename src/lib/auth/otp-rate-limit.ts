@@ -70,18 +70,30 @@
  * rationale rather than env knobs nobody would ever set. They are injectable for
  * tests, and the sentence a user sees derives from no numeral at all.
  *
- * ── THE HONEST LIMIT OF THE IN-MEMORY STORE ──
+ * ── THE COUNTERS ARE DURABLE NOW, AND THE KEY IS WHY THAT WORKS ──
  *
- * State lives in the process. On serverless that means PER INSTANCE, so the
- * effective limit is the constant times however many instances are warm. It is
- * still worth having (it bounds a single hot instance, and it is free), but a
- * durable limiter is the {@link OtpRateLimitStore} port's job, and the platform
- * firewall's rate limiting sits in front of all of it. Nothing here should be
- * read as "sign-up is rate limited globally".
+ * This module used to record the limit's own defect: state lived in the process,
+ * which on serverless means PER INSTANCE, so the effective limit was the constant
+ * times however many instances were warm. The number in the code was not the
+ * number the internet met.
+ *
+ * {@link resolveOtpRateLimiter} now picks a Supabase-backed
+ * {@link OtpRateLimitStore} whenever Supabase is configured, on exactly the test
+ * `getRunRepository()` uses, with the in-memory store as the offline fallback.
+ * Moving the rows was only half of it: the bucket KEY is a salted digest, and a
+ * per-process salt would have given every instance its own private bucket inside
+ * the shared table, multiplying the limit exactly as before with a database bill
+ * attached. So the salt is injected, and the durable path derives ONE salt that
+ * every instance computes identically (see {@link resolveOtpRateLimiter}).
+ *
+ * The platform firewall's rate limiting still sits in front of all of it.
  */
 import { createHash, randomBytes } from 'node:crypto';
 import { z } from 'zod';
+import { getSupabaseConfig, getSupabaseServiceRoleKey } from '@/config/env';
 import { BAD_EMAIL_MESSAGE, RATE_LIMITED_MESSAGE } from '@/lib/auth/errors';
+import { createAdminSupabase } from '@/lib/supabase/server';
+import { SupabaseOtpRateLimitStore } from '@/lib/auth/otp-rate-limit.supabase';
 
 /**
  * The two buckets.
@@ -142,6 +154,16 @@ export interface OtpRateLimitStore {
   countSince(key: string, since: number): Promise<number>;
   record(key: string, at: number): Promise<void>;
 }
+
+/**
+ * The longest window any bucket uses. It is what a durable row's own expiry is
+ * measured from: a hit older than this can never be counted by any bucket, so it
+ * is safe to delete.
+ */
+export const OTP_RATE_LIMIT_MAX_WINDOW_MS = Math.max(
+  OTP_RATE_LIMIT.email.windowMs,
+  OTP_RATE_LIMIT.ip.windowMs,
+);
 
 /** Guard against a hostile header becoming an unbounded map key. */
 const IpSchema = z
@@ -227,6 +249,12 @@ export interface OtpRateLimiterOptions {
   readonly store?: OtpRateLimitStore;
   /** Injected clock, so nothing in the tests sleeps. */
   readonly now?: () => Date;
+  /**
+   * The salt bucket keys are digested with. Defaults to the per-process random
+   * salt, which is right for a store that dies with the process and WRONG for a
+   * shared one — every instance must derive the same key or the limit multiplies.
+   */
+  readonly salt?: string;
 }
 
 export interface OtpRateLimitRequest {
@@ -246,10 +274,10 @@ export interface OtpRateLimiter {
  * process either, so a stable salt would buy nothing and keep a correlatable
  * value around.
  */
-const KEY_SALT = randomBytes(16).toString('hex');
+const PROCESS_KEY_SALT = randomBytes(16).toString('hex');
 
-const bucketKey = (scope: string, value: string): string =>
-  `${scope}:${createHash('sha256').update(`${KEY_SALT}:${scope}:${value}`).digest('hex')}`;
+const bucketKey = (salt: string, scope: string, value: string): string =>
+  `${scope}:${createHash('sha256').update(`${salt}:${scope}:${value}`).digest('hex')}`;
 
 /**
  * Build a limiter over the given state and clock.
@@ -262,6 +290,7 @@ const bucketKey = (scope: string, value: string): string =>
 export function createOtpRateLimiter(options: OtpRateLimiterOptions = {}): OtpRateLimiter {
   const store = options.store ?? new InMemoryOtpRateLimitStore();
   const now = options.now ?? (() => new Date());
+  const salt = options.salt ?? PROCESS_KEY_SALT;
 
   const refuse = (scope: OtpRateLimitScope): OtpRateLimitDecision => ({
     allowed: false,
@@ -279,12 +308,12 @@ export function createOtpRateLimiter(options: OtpRateLimiterOptions = {}): OtpRa
       const buckets = [
         {
           scope: 'email' as const,
-          key: bucketKey('email', email.data),
+          key: bucketKey(salt, 'email', email.data),
           rule: OTP_RATE_LIMIT.email,
         },
         {
           scope: 'ip' as const,
-          key: bucketKey('ip', request.ip ?? 'unknown'),
+          key: bucketKey(salt, 'ip', request.ip ?? 'unknown'),
           rule: OTP_RATE_LIMIT.ip,
         },
       ];
@@ -308,8 +337,81 @@ export function createOtpRateLimiter(options: OtpRateLimiterOptions = {}): OtpRa
 }
 
 /**
- * The process-wide limiter the sign-in path uses. A singleton because the state
- * IS the control: a per-request limiter would count every request as the first.
+ * The offline/test counters. A module singleton because the state IS the control:
+ * a per-request in-memory limiter would count every request as the first.
  */
 export const otpRateLimitStore = new InMemoryOtpRateLimitStore();
-export const otpRateLimiter = createOtpRateLimiter({ store: otpRateLimitStore });
+
+/** The offline limiter, over the process-local counters and the process salt. */
+const processLimiter = createOtpRateLimiter({ store: otpRateLimitStore });
+
+/**
+ * Label mixed into the durable salt, so the same secret used for another purpose
+ * one day cannot produce the same digests as this one.
+ */
+const DURABLE_SALT_LABEL = 'mcpwn/otp-rate-limit/v1';
+
+/**
+ * THE DURABLE SALT — derived, not configured, and not stored beside the digests.
+ *
+ * Three options were on the table and two are worse:
+ *
+ *   - A CONSTANT in the source. Useless: this repository is public, so anyone
+ *     holding a dump of the table holds the salt too and can walk a list of
+ *     addresses straight back to the buckets.
+ *   - A ROW IN THE SAME DATABASE. Also weak, and in a way that is easy to miss:
+ *     one dump would then carry the salt AND the digests, which is the precise
+ *     thing salting is meant to prevent.
+ *   - DERIVED FROM THE SERVICE-ROLE KEY, which is what this does. That key is
+ *     already required to reach these tables at all, it is identical on every
+ *     instance (so every instance computes the same bucket), and it lives in the
+ *     deployment's configuration rather than in the database — so a database dump
+ *     alone reverses nothing. The digest is one-way: the key is not recoverable
+ *     from it, is never stored, and is never logged.
+ *
+ * The stated consequence: rotating the service-role key rotates the salt, which
+ * empties every in-flight rate window. A 15-minute window resetting during a
+ * planned rotation is a fair price, and it fails in the harmless direction.
+ */
+function durableSalt(adminSecret: string): string {
+  return createHash('sha256').update(`${DURABLE_SALT_LABEL}:${adminSecret}`).digest('hex');
+}
+
+/**
+ * Pick the counters the same way every other store in this codebase is picked:
+ * purely on whether Supabase is configured. There is no driver switch, because a
+ * driver switch is a way to deploy the wrong store by typo.
+ *
+ * It resolves per call rather than caching, matching `getRunRepository()`. The
+ * cost is one client object on a path that is about to send an email.
+ *
+ * FALLBACK, DELIBERATE: if Supabase is configured but the admin credential is
+ * missing or unusable, this returns the in-memory limiter instead of throwing.
+ * A misconfigured deployment then has a weaker limit rather than no sign-in at
+ * all, which is the same direction this module already chose when it evicts
+ * rather than refuses at capacity. It is an operator error either way, and the
+ * lifetime allowance still bounds spend.
+ */
+export function resolveOtpRateLimiter(): OtpRateLimiter {
+  try {
+    if (!getSupabaseConfig()) return processLimiter;
+    const client = createAdminSupabase();
+    const adminSecret = getSupabaseServiceRoleKey();
+    if (!client || !adminSecret) return processLimiter;
+    return createOtpRateLimiter({
+      store: new SupabaseOtpRateLimitStore(client),
+      salt: durableSalt(adminSecret),
+    });
+  } catch {
+    return processLimiter;
+  }
+}
+
+/**
+ * The limiter the sign-in path uses. It delegates on every call so the store is
+ * chosen from the running configuration rather than from whatever was true when
+ * this module happened to be imported.
+ */
+export const otpRateLimiter: OtpRateLimiter = {
+  check: (request: OtpRateLimitRequest) => resolveOtpRateLimiter().check(request),
+};

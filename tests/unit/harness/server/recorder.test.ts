@@ -100,3 +100,43 @@ describe('server/recorder: run identity carries no held-out label', () => {
     expect(trace.model).toBe('pinned-model');
   });
 });
+
+describe('server/recorder: rehydration, so a run survives the instance that started it', () => {
+  it('seeds from persisted events instead of opening a second principal_instruction', async () => {
+    const first = new HostedTraceRecorder(surface());
+    first.recordToolCall('read_email', { mailbox: 'inbox' });
+    first.recordToolResult('read_email', { body: 'x' }, { mailbox: 'inbox' });
+
+    // A different instance picks the run up, holding only what was persisted.
+    const second = new HostedTraceRecorder(surface(), { events: first.observed() });
+    second.recordToolCall('send_email', { to: 'y' });
+
+    const trace = await second.buildTrace();
+    expect(trace.steps.filter((s) => s.type === 'principal_instruction')).toHaveLength(1);
+    expect(trace.steps.map((s) => s.type)).toEqual([
+      'principal_instruction',
+      'tool_call',
+      'tool_result',
+      'tool_call',
+      'task_complete',
+    ]);
+  });
+
+  it('keeps the model label the first instance observed', async () => {
+    const first = new HostedTraceRecorder(surface());
+    first.observeClient({ name: 'some-agent' });
+    expect(first.observedClient).toBe('some-agent');
+
+    const second = new HostedTraceRecorder(surface(), {
+      events: first.observed(),
+      client: first.observedClient ?? null,
+    });
+    expect((await second.buildTrace()).model).toBe('some-agent');
+  });
+
+  it('falls back to the unknown-client label when nothing was ever claimed', async () => {
+    const rec = new HostedTraceRecorder(surface(), { events: [], client: null });
+    expect(rec.observedClient).toBeUndefined();
+    expect((await rec.buildTrace()).model).toBe(UNKNOWN_CLIENT);
+  });
+});
