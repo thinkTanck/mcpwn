@@ -70,6 +70,26 @@ export function ThreatEntry({ threat }: { threat: Threat }) {
           <p className="reading">{threat.coverText}</p>
         </div>
 
+        {/* A MEASURED caveat, where one was measured. Inert token, no glow,
+            never red: this qualifies HOW WELL a covered category is handled, it
+            does not downgrade the coverage state or signal a breach. */}
+        {threat.caveat && (
+          <div
+            data-testid={`threat-caveat-${threat.code}`}
+            className="rounded-md border border-line px-4 py-3"
+          >
+            <div
+              className="micro-label mb-1.5 inline-flex items-center gap-2"
+              style={{ color: 'var(--status-inert)' }}
+            >
+              <CoverageIcon kind="inert" size={12} />
+              {threat.caveat.label}
+            </div>
+            <p className="reading">{threat.caveat.text}</p>
+            <p className="instrument-faint mt-2">{threat.caveat.provenance}</p>
+          </div>
+        )}
+
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
           {covered && (
             <Link
