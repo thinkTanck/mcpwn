@@ -8,6 +8,35 @@ import { SAMPLE_VERDICTS, SAMPLE_VERDICT_PROVENANCE } from '@/data/fixtures/samp
 import { RunResultSchema, type RunResult } from '@/contract';
 import { TraceBuilder } from '@/attacks/engine';
 import { generateFixReport, type FixReport } from '@/fix-report';
+import { getUser } from '@/lib/auth/user';
+import { getRunRepository } from '@/data/run-repository.factory';
+import type { StoredRun } from '@/data/run-repository';
+
+// The screen now resolves EITHER a sample or one of your persisted live runs, so
+// both doors are stubbed here. Signed out by default: sample playback must not
+// depend on either of them.
+vi.mock('@/lib/auth/user', () => ({ getUser: vi.fn() }));
+vi.mock('@/data/run-repository.factory', () => ({ getRunRepository: vi.fn() }));
+
+const asMock = <T extends (...args: never[]) => unknown>(fn: T) => vi.mocked(fn);
+
+function repoWith(rows: StoredRun[]) {
+  return {
+    saveRun: vi.fn(),
+    listRuns: vi.fn(),
+    countRunsSince: vi.fn(),
+    getRun: vi.fn(
+      async (userId: string, id: string) =>
+        rows.find((r) => r.id === id && r.userId === userId) ?? null,
+    ),
+  };
+}
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  asMock(getUser).mockResolvedValue(null);
+  asMock(getRunRepository).mockResolvedValue(repoWith([]));
+});
 
 /**
  * A run whose fields are all DISTINCT from the sample's and from any literal that
@@ -130,13 +159,30 @@ describe('Findings / fix report screen', () => {
     expect(screen.getByText(customReport.finding!.rationale)).toBeInTheDocument();
   });
 
-  it('renders a clean run as a no-findings report, with no remediation list', async () => {
+  /**
+   * THE CLEAN-RESISTANCE RESULT IS A FIRST-CLASS OUTCOME — a successful run that
+   * says the agent resisted, tested as an equal peer of the compromised path. It
+   * is a real report with no findings, never an empty state and never an error.
+   */
+  it('renders a clean run as a result that says the agent resisted', async () => {
     const clean = generateFixReport(customRun(false));
     render(<FindingsReport report={clean} />);
-    expect(screen.getByRole('heading', { level: 1, name: /no findings/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: /agent resisted/i })).toBeInTheDocument();
     expect(screen.getByText(clean.summary)).toBeInTheDocument();
     expect(screen.getByText('NOT COMPROMISED')).toBeInTheDocument();
+    // The run is still identified: this is that run's result, not a placeholder.
+    expect(screen.getByText(clean.runId)).toBeInTheDocument();
     expect(screen.queryByRole('list', { name: /remediation/i })).not.toBeInTheDocument();
+    // Nothing may read as a missing report, which is a different state entirely.
+    expect(screen.queryByText(/no report for run/i)).not.toBeInTheDocument();
+  });
+
+  it('says plainly that a run with no findings is a result, not a missing report', async () => {
+    const clean = generateFixReport(customRun(false));
+    render(<FindingsReport report={clean} />);
+    const panel = screen.getByTestId('clean-result');
+    expect(panel).toHaveTextContent(/nothing here to fix/i);
+    expect(panel.textContent ?? '').not.toMatch(/—/);
   });
 
   it('copy button has an accessible name and shows COPIED feedback after activation', async () => {
@@ -250,6 +296,60 @@ describe('Findings / fix report screen', () => {
     expect(screen.queryByTestId('classification-badge')).not.toBeInTheDocument();
     expect(screen.queryByTestId('classification-unreliable')).not.toBeInTheDocument();
     expect(screen.getByTestId('classification-caveat')).toBeInTheDocument();
+  });
+
+  /**
+   * The screen reads a PERSISTED run through the repository port and reports on
+   * it with module 6's real generator. The sample is one door; your own runs are
+   * the other, and they are owner-scoped at both the port and the database (RLS).
+   */
+  describe('a persisted live run', () => {
+    function storedRow(run: RunResult, userId = 'user-1'): StoredRun {
+      return { id: 'row-uuid-4321', userId, createdAt: '2026-08-05T09:41:07.123456+00:00', run };
+    }
+
+    it('reports on the run read from the repository, owner-scoped', async () => {
+      const run = customRun();
+      asMock(getUser).mockResolvedValue({ id: 'user-1' } as never);
+      const repo = repoWith([storedRow(run)]);
+      asMock(getRunRepository).mockResolvedValue(repo);
+
+      await renderPage('row-uuid-4321');
+      expect(screen.getByText(run.runId)).toBeInTheDocument();
+      expect(screen.getByText(run.verdict.rationale)).toBeInTheDocument();
+      expect(repo.getRun).toHaveBeenCalledWith('user-1', 'row-uuid-4321');
+    });
+
+    it('labels the live verdict as a live run, never as the constructed demonstration', async () => {
+      asMock(getUser).mockResolvedValue({ id: 'user-1' } as never);
+      asMock(getRunRepository).mockResolvedValue(repoWith([storedRow(customRun())]));
+
+      await renderPage('row-uuid-4321');
+      expect(screen.getByText(/live run/i)).toBeInTheDocument();
+      expect(screen.queryByText(SAMPLE_VERDICT_PROVENANCE)).not.toBeInTheDocument();
+    });
+
+    it('renders a resisted live run as a real no-findings result', async () => {
+      asMock(getUser).mockResolvedValue({ id: 'user-1' } as never);
+      asMock(getRunRepository).mockResolvedValue(repoWith([storedRow(customRun(false))]));
+
+      await renderPage('row-uuid-4321');
+      expect(
+        screen.getByRole('heading', { level: 1, name: /agent resisted/i }),
+      ).toBeInTheDocument();
+      expect(screen.getByText('NOT COMPROMISED')).toBeInTheDocument();
+      expect(screen.queryByText(/no report for run/i)).not.toBeInTheDocument();
+    });
+
+    it("shows another account's run as not found", async () => {
+      asMock(getUser).mockResolvedValue({ id: 'user-1' } as never);
+      asMock(getRunRepository).mockResolvedValue(
+        repoWith([storedRow(customRun(), 'someone-else')]),
+      );
+
+      await renderPage('row-uuid-4321');
+      expect(screen.getByText(/no report for run/i)).toBeInTheDocument();
+    });
   });
 
   it('keeps the AUTHORED report copy em-dash free (locked rule; also carried into the ticket)', async () => {

@@ -53,16 +53,27 @@
  * outcomes persist a `RunResult` and produce a fix report, and "no findings" is a
  * report, not an empty state.
  *
- * ── WHAT IS DELIBERATELY IN MEMORY ──
+ * ── THE OPEN-RUN REGISTRY IS DURABLE, AND WHY THAT IS A BUG FIX ──
  *
- * The registry of open runs (`runId -> the hosted server recording it`) is
- * process-local. A hosted server is a live object holding a live recorder, so it
- * cannot be serialized into Postgres and read back mid-run; what CAN outlive the
- * process already does (the token record, and the finished `RunResult`). The
- * consequence is stated rather than hidden: a run in progress belongs to the
- * instance that started it, and a restart loses the unfinished trace. Fixing that
- * needs a sticky routing or a durable recorder decision that no evidence has been
- * gathered for yet, so it is not invented here.
+ * This registry used to be a plain `Map` in the process, with the consequence
+ * written down honestly: a run in progress belonged to the instance that started
+ * it, and a restart lost the unfinished trace. On the platform we deploy to that
+ * is not a footnote, it is a correctness bug — nothing pins an agent's second
+ * request to the instance that served its first, so `handle()` refused valid
+ * connections at random depending on where the platform routed them.
+ *
+ * The fix is `LiveRunSessionStore` (`./live-run-store.ts`): the run's identity,
+ * framing and observed events are persisted, so ANY instance can rebuild the
+ * hosted server. `HostedMcpServer` is a pure function of `(category, kind)` plus
+ * the events recorded so far, which is what makes rebuilding it exact rather than
+ * approximate. The in-process `Map` survives only as a CACHE of the live objects.
+ *
+ * Two consequences worth naming. Events are flushed after every inbound request,
+ * positionally, so a run that changes instance mid-session keeps every step the
+ * agent took — a resolvable run with a silently truncated trace would be worse
+ * than a refused one. And finishing is a CLAIM against the store rather than an
+ * in-process boolean, because two instances would each have answered "not yet"
+ * and judged (and charged for) the same run twice.
  */
 import { z } from 'zod';
 import {
@@ -89,9 +100,22 @@ import {
   RUN_TOKEN_REJECTION_MESSAGE,
   type RunTokenStore,
 } from '@/runs/run-token';
+import { InMemoryLiveRunSessionStore, type LiveRunSessionStore } from '@/runs/live-run-store';
 
 /** Where a run's MCP endpoint lives, under the site origin. */
 export const LIVE_RUN_ENDPOINT_PREFIX = '/api/mcp';
+
+/**
+ * How long a session row outlives the token that reaches it, before the sweep
+ * may delete it.
+ *
+ * The token is what stops an agent connecting, and it dies with the run or on its
+ * own wall clock. The session row is not a credential, so keeping it a while
+ * longer grants nobody anything — but deleting it on the token's clock would
+ * strand a user who worked the full TTL and then asked to finish, losing a
+ * verdict for work already done. A day of grace costs a few rows.
+ */
+export const LIVE_RUN_SESSION_GRACE_MS = 24 * 60 * 60_000;
 
 /** How long the pipeline waits for one judge answer before giving up. */
 export const DEFAULT_JUDGE_TIMEOUT_MS = 60_000;
@@ -224,6 +248,12 @@ export interface LiveRunHostDeps {
   readonly preflight: LiveRunPreflight;
   /** Where per-run tokens are written, read and revoked. */
   readonly tokens: RunTokenStore;
+  /**
+   * The open-run registry. Defaults to the in-memory adapter, which is correct
+   * offline and in tests and WRONG in production: pass the durable adapter
+   * (`getLiveRunSessionStore()`) anywhere more than one instance can serve a run.
+   */
+  readonly sessions?: LiveRunSessionStore;
   /** Where a finished run is persisted, owner-scoped. */
   readonly repository: Pick<RunRepository, 'saveRun'>;
   /**
@@ -256,7 +286,11 @@ export interface LiveRunHost {
   finish(input: { runId: string; userId: string }): Promise<LiveRunDecision<LiveRunOutcome>>;
 }
 
-/** One open run, held for as long as its agent is connected. */
+/**
+ * One open run as THIS instance holds it: the live objects, plus how much of the
+ * run has been written to the durable registry. It is a cache of the row, never
+ * the authority on it — `flushed` is the only field the row cannot restate.
+ */
 interface LiveRunSession {
   readonly runId: string;
   readonly userId: string;
@@ -265,7 +299,10 @@ interface LiveRunSession {
   readonly taskGoal: string;
   readonly server: HostedMcpServer;
   readonly handler: StreamableHttpHandler;
-  finishedAt: string | null;
+  /** How many observed events are already durable. The append index. */
+  flushed: number;
+  /** The client name last written, so an unchanged label is not rewritten. */
+  client: string | null;
 }
 
 const fail = (
@@ -324,7 +361,10 @@ async function withDeadline<T>(work: Promise<T>, ms: number): Promise<T> {
 }
 
 export function createLiveRunHost(deps: LiveRunHostDeps): LiveRunHost {
-  const sessions = new Map<string, LiveRunSession>();
+  /** The durable registry. The authority on which runs exist. */
+  const registry = deps.sessions ?? new InMemoryLiveRunSessionStore();
+  /** Live objects for runs this instance is already serving. A cache, not a store. */
+  const live = new Map<string, LiveRunSession>();
   const now = deps.now ?? (() => new Date());
   const newRunId = deps.newRunId ?? (() => globalThis.crypto.randomUUID());
   const origin = deps.origin ?? getSiteOrigin();
@@ -357,10 +397,77 @@ export function createLiveRunHost(deps: LiveRunHostDeps): LiveRunHost {
     return { ok: true, value: null };
   }
 
-  /** The owner's own session, or nothing. Another account gets the same nothing. */
-  function ownedSession(runId: string, userId: string): LiveRunSession | undefined {
-    const session = sessions.get(runId);
+  /**
+   * The run, whichever instance started it.
+   *
+   * A cache hit is served straight from memory. A miss goes to the durable
+   * registry and REBUILDS the hosted server from the row: the framing decides the
+   * tool surface, and the persisted events restore everything the agent already
+   * did, so the rebuilt run is the same run and not a fresh one wearing its id.
+   */
+  async function resolve(runId: string): Promise<LiveRunSession | undefined> {
+    const cached = live.get(runId);
+    if (cached !== undefined) return cached;
+
+    const row = await registry.find(runId);
+    if (row === null) return undefined;
+
+    const server = new HostedMcpServer({
+      category: row.category,
+      kind: row.kind,
+      runId,
+      target: row.target,
+      events: row.events,
+      client: row.client,
+      ...(row.model === null ? {} : { model: row.model }),
+    });
+    const session: LiveRunSession = {
+      runId,
+      userId: row.userId,
+      category: row.category,
+      kind: row.kind,
+      taskGoal: server.taskGoal,
+      server,
+      handler: createStreamableHttpHandler(() => server),
+      flushed: row.events.length,
+      client: row.client,
+    };
+    live.set(runId, session);
+    logger?.info('live run rehydrated', { runId, steps: row.events.length });
+    return session;
+  }
+
+  /** The owner's own run, or nothing. Another account gets the same nothing. */
+  async function ownedSession(runId: string, userId: string): Promise<LiveRunSession | undefined> {
+    const session = await resolve(runId);
     return session !== undefined && session.userId === userId ? session : undefined;
+  }
+
+  /**
+   * Write everything this instance has observed since the last flush.
+   *
+   * Positional (`from`), so the durable row's `(run, index)` identity makes a
+   * retried write land on the same slots instead of inventing steps. Flushing
+   * after the response is already built keeps it off the agent's critical path
+   * for the answer, and a failed flush is logged rather than thrown: refusing a
+   * request the agent already got an answer to would help nobody.
+   */
+  async function flush(session: LiveRunSession): Promise<void> {
+    const observed = session.server.observedEvents;
+    const client = session.server.observedClient ?? null;
+    if (observed.length === session.flushed && client === session.client) return;
+    try {
+      await registry.appendEvents({
+        runId: session.runId,
+        from: session.flushed,
+        events: observed.slice(session.flushed),
+        client,
+      });
+      session.flushed = observed.length;
+      session.client = client;
+    } catch {
+      logger?.error('live run steps could not be persisted', { runId: session.runId });
+    }
   }
 
   /**
@@ -443,7 +550,24 @@ export function createLiveRunHost(deps: LiveRunHostDeps): LiveRunHost {
       // ONE server per RUN, not per session: every reconnect an agent makes lands
       // on the same recorder, so a run is one trace even if the transport blinks.
       const handler = createStreamableHttpHandler(() => server);
-      sessions.set(runId, {
+      // Durable FIRST. A run recorded nowhere is a run the next instance refuses,
+      // and the principal instruction is already an observed event here, so even
+      // a restart before the agent connects rebuilds a valid run.
+      await registry.create({
+        runId,
+        userId,
+        category,
+        kind,
+        model: model ?? null,
+        client: null,
+        target,
+        startedAt: at.toISOString(),
+        expiresAt: new Date(
+          new Date(record.expiresAt).getTime() + LIVE_RUN_SESSION_GRACE_MS,
+        ).toISOString(),
+        events: server.observedEvents,
+      });
+      live.set(runId, {
         runId,
         userId,
         category,
@@ -451,7 +575,8 @@ export function createLiveRunHost(deps: LiveRunHostDeps): LiveRunHost {
         taskGoal: server.taskGoal,
         server,
         handler,
-        finishedAt: null,
+        flushed: server.observedEvents.length,
+        client: null,
       });
 
       logger?.info('live run started', { runId, userId, category, kind });
@@ -472,7 +597,7 @@ export function createLiveRunHost(deps: LiveRunHostDeps): LiveRunHost {
 
     async handle(request) {
       const runId = runIdFrom(request);
-      const session = runId === null ? undefined : sessions.get(runId);
+      const session = runId === null ? undefined : await resolve(runId);
       // An unknown run and a forged token get the SAME answer. Telling them apart
       // is exactly the oracle that lets someone enumerate which runs exist.
       if (runId === null || session === undefined) return unauthorized();
@@ -487,25 +612,28 @@ export function createLiveRunHost(deps: LiveRunHostDeps): LiveRunHost {
       });
       if (!verified.valid) return unauthorized();
 
-      return session.handler.handle(request);
+      const response = await session.handler.handle(request);
+      await flush(session);
+      return response;
     },
 
     async getTrace({ runId, userId }) {
-      const session = ownedSession(runId, userId);
+      const session = await ownedSession(runId, userId);
       if (session === undefined) return fail('RUN_NOT_FOUND', 'That run was not found.');
       return { ok: true, value: await session.server.buildTrace() };
     },
 
     async finish({ runId, userId }) {
-      const session = ownedSession(runId, userId);
+      const session = await ownedSession(runId, userId);
       if (session === undefined) return fail('RUN_NOT_FOUND', 'That run was not found.');
-      if (session.finishedAt !== null) {
-        return fail('RUN_ALREADY_FINISHED', 'That run has already finished.');
-      }
 
       const at = now();
-      // Set before the first await so two concurrent finishes cannot both proceed.
-      session.finishedAt = at.toISOString();
+      // CLAIM the run before anything is spent. The store grants this exactly
+      // once, so two instances (or two clicks) cannot both reach the judge — an
+      // in-process flag would have let each answer "not yet" on its own copy.
+      if (!(await registry.finish(runId, at))) {
+        return fail('RUN_ALREADY_FINISHED', 'That run has already finished.');
+      }
       // The session is over however this call ends, so the token dies here — a
       // refusal below must not leave a live credential on a public endpoint.
       await deps.tokens.endRun(runId, at);

@@ -80,6 +80,53 @@ describe('Replay — fix-report off-ramp', () => {
   });
 });
 
+describe('Replay — outcome and provenance', () => {
+  it('states the compromise and the step number it is anchored to', async () => {
+    const run = await sampleRun();
+    render(<Replay run={run} />);
+    const outcome = screen.getByTestId('run-outcome');
+    expect(outcome).toHaveTextContent(/compromised at step/i);
+    const compromiseIndex = run.trace.steps.findIndex((s) => s.id === run.verdict.stepId);
+    expect(outcome).toHaveTextContent(String(compromiseIndex + 1));
+  });
+
+  it('shows the provenance it is given, so a verdict never travels unlabelled', async () => {
+    const run = await sampleRun();
+    render(<Replay run={run} provenance="constructed demonstration · recorded verdict" />);
+    expect(screen.getByText('constructed demonstration · recorded verdict')).toBeInTheDocument();
+  });
+
+  /**
+   * THE CLEAN-RESISTANCE RESULT IS A FIRST-CLASS OUTCOME. The same replay, the
+   * same controls, a different answer: the agent was served the run and did not
+   * take the bait.
+   */
+  it('replays a run the agent resisted as a successful result', async () => {
+    const compromisedRun = await sampleRun();
+    const run: RunResult = {
+      ...compromisedRun,
+      verdict: {
+        runId: compromisedRun.verdict.runId,
+        compromised: false,
+        score: 0.03,
+        severity: 'None',
+        category: compromisedRun.verdict.category,
+        rationale: 'The agent did not act on the injected instruction.',
+      },
+    };
+    render(<Replay run={run} />);
+
+    expect(screen.getByTestId('run-outcome')).toHaveTextContent(/agent resisted/i);
+    expect(screen.queryByRole('button', { name: /compromise step/i })).not.toBeInTheDocument();
+    const verdict = screen.getByRole('complementary', { name: /detector verdict/i });
+    expect(within(verdict).getByText('NOT COMPROMISED')).toBeInTheDocument();
+    // Still a full replay: the transcript and the transport are unchanged.
+    const timeline = screen.getByRole('list', { name: /step timeline/i });
+    expect(within(timeline).getAllByRole('button')).toHaveLength(run.trace.steps.length);
+    expect(screen.getByRole('button', { name: /^Play$/ })).toBeInTheDocument();
+  });
+});
+
 describe('sample verdicts — copy hygiene', () => {
   it('carries no em dashes in any rationale (UI copy rule)', () => {
     for (const [category, v] of Object.entries(SAMPLE_VERDICTS)) {

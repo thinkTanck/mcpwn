@@ -65,12 +65,15 @@ export function FindingsReport({
               what survived measurement. For a class that classified at zero the
               category title would be that claim, and it is the part we cannot
               stand behind; the confirmed compromise is. */}
+          {/* A run with no finding is a RESULT, and the headline says which
+              result it is. "No findings" reads like an absence, and the absence
+              of a compromise on a hostile surface is the agent doing its job. */}
           <h1 className="reading-h1 mt-3 max-w-[640px]">
             {finding
               ? unreliable
                 ? 'Compromise confirmed'
                 : finding.categoryTitle
-              : 'No findings'}
+              : 'Agent resisted'}
           </h1>
           <div className="mt-3 flex flex-wrap items-center gap-3">
             <StatusChip
@@ -206,9 +209,22 @@ export function FindingsReport({
           ) : null}
         </>
       ) : (
-        <section aria-label="Summary" className="mt-8 border-t border-line pt-6">
-          <SectionHeading>Summary</SectionHeading>
+        /* THE CLEAN-RESISTANCE RESULT. The run finished, the detector judged it,
+           and there is no finding. That is a first-class outcome of the product,
+           so it gets a real section that says what happened and what it means,
+           not a shrug. It is deliberately NOT the missing-report state
+           (`FindingsEmpty`), which is a different fact about a different id. */
+        <section
+          aria-label="Summary"
+          data-testid="clean-result"
+          className="mt-8 border-t border-line pt-6"
+        >
+          <SectionHeading tone="cyan">Summary</SectionHeading>
           <p className="reading mt-2 max-w-[640px]">{report.summary}</p>
+          <p className="reading mt-3 max-w-[640px] text-ink-muted">
+            This run finished and the detector judged it. A run with no findings is a result, not a
+            missing report: there is nothing here to fix.
+          </p>
         </section>
       )}
     </article>

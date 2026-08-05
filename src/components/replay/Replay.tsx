@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import type { RunResult } from '@/contract';
+import { StatusChip } from '@/components/hud';
 import { ReplayTerminal } from './ReplayTerminal';
 import { Transport } from './Transport';
 import { StepDetail } from './StepDetail';
@@ -27,7 +28,18 @@ const CATEGORY_TITLE: Record<string, string> = {
   ASI10: 'Rogue Agents',
 };
 
-export function Replay({ run }: { run: RunResult }) {
+export function Replay({
+  run,
+  provenance,
+}: {
+  run: RunResult;
+  /**
+   * Where this verdict came from, supplied by the resolver. Optional because a
+   * run's provenance is not this component's to invent: when nothing is passed,
+   * nothing is claimed.
+   */
+  provenance?: string | null;
+}) {
   const steps = run.trace.steps;
   const total = steps.length;
   const compromiseIndex = steps.findIndex((s) => s.id === run.verdict.stepId);
@@ -76,14 +88,36 @@ export function Replay({ run }: { run: RunResult }) {
 
   const title = CATEGORY_TITLE[run.category] ?? 'Attack replay';
 
+  // One sentence for the whole run. A clean verdict is a RESULT, not an absence:
+  // the agent was served the run and did not act on it.
+  const outcomeLabel = run.verdict.compromised
+    ? compromiseStepNumber === null
+      ? 'COMPROMISED'
+      : `COMPROMISED AT STEP ${compromiseStepNumber}`
+    : 'AGENT RESISTED';
+
   return (
     <div className="flex min-h-[calc(100dvh-72px)] flex-col">
-      {/* Header — kicker + title. */}
+      {/* Header — kicker + title + the run's outcome and provenance.
+          THE OUTCOME IS STATED UP FRONT, both ways round. A compromise names the
+          step it is anchored to; a run the agent resisted says so in the nominal
+          state, because resisting is the product working, not a missing result.
+          The step number is EVIDENCE quoted from the trace, so it is printed,
+          never counted up. */}
       <header className="border-b border-line px-6 py-5 lg:px-8">
         <p className="micro-label text-nominal">Live Attack Replay</p>
-        <h1 className="reading-h2 mt-2 font-semibold text-ink-hi">
-          {run.category} · {title}
-        </h1>
+        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
+          <h1 className="reading-h2 font-semibold text-ink-hi">
+            {run.category} · {title}
+          </h1>
+          <span data-testid="run-outcome" className="shrink-0">
+            <StatusChip
+              state={run.verdict.compromised ? 'breach' : 'nominal'}
+              label={outcomeLabel}
+            />
+          </span>
+        </div>
+        {provenance ? <p className="instrument mt-2 text-ink-faint">{provenance}</p> : null}
       </header>
 
       {/* Stage — two terminals in a row, then a full-width transport and the

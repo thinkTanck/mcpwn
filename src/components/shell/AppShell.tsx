@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { headers } from 'next/headers';
 import { getDataSource } from '@/data/source';
+import { resolveRun } from '@/data/run-view';
 import { Graticule } from './Graticule';
 import { StatusBar } from './StatusBar';
 import { CommandDeck } from './CommandDeck';
@@ -15,13 +16,18 @@ import { CommandDeck } from './CommandDeck';
 export async function AppShell({ children }: { children: ReactNode }) {
   const headerList = await headers();
   const pathname = headerList.get('x-pathname') ?? '/';
-  // On a run screen, fetch the run server-side so the status bar can show the
-  // run-context telemetry (RUN · TARGET · DETECTOR + outcome + severity).
+  // On a run screen, resolve the run server-side so the status bar can show the
+  // run-context telemetry (RUN · TARGET · DETECTOR + outcome + severity). It goes
+  // through the SAME resolver the replay screen uses, so the chrome and the
+  // screen can never disagree about which run is on show: reading the sample
+  // library alone left a persisted live run with no telemetry at all, and left
+  // the mode badge saying SAMPLE over a run that was not one.
   const runId = /^\/runs\/([^/]+)/.exec(pathname)?.[1];
-  const [fleet, run] = await Promise.all([
+  const [fleet, view] = await Promise.all([
     getDataSource().getFleetStatus(),
-    runId ? getDataSource().getRun(runId) : Promise.resolve(null),
+    runId ? resolveRun(runId) : Promise.resolve(null),
   ]);
+  const run = view?.run;
   const runContext = run
     ? {
         runId: run.runId,
@@ -31,6 +37,8 @@ export async function AppShell({ children }: { children: ReactNode }) {
         compromised: run.verdict.compromised,
       }
     : undefined;
+  // The badge is provenance, so it follows the run rather than a default.
+  const mode = view?.origin === 'live' ? 'live' : 'sample';
   return (
     <div className="relative min-h-dvh bg-base font-sans text-ink">
       {/* Skip link (WCAG 2.4.1) — first focusable element, so a keyboard user can
@@ -42,7 +50,7 @@ export async function AppShell({ children }: { children: ReactNode }) {
         Skip to content
       </a>
       <Graticule />
-      <StatusBar pathname={pathname} fleet={fleet} runContext={runContext} />
+      <StatusBar pathname={pathname} fleet={fleet} mode={mode} runContext={runContext} />
       <div className="flex min-h-[calc(100dvh-72px)]">
         <CommandDeck pathname={pathname} fleet={fleet} />
         <main

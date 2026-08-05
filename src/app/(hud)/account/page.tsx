@@ -75,9 +75,19 @@ export default async function AccountPage() {
                 </span>
                 <span className="text-ink-muted">{r.run.model}</span>
               </span>
-              <time className="font-mono text-[13px] text-ink-faint" dateTime={r.createdAt}>
-                {new Date(r.createdAt).toISOString().slice(0, 10)}
-              </time>
+              <span className="flex items-center gap-4">
+                <time className="font-mono text-[13px] text-ink-faint" dateTime={r.createdAt}>
+                  {new Date(r.createdAt).toISOString().slice(0, 10)}
+                </time>
+                {/* The run is addressed by its ROW id: `RunResult.runId` is
+                    `model::category` and is not unique per user over time. */}
+                <Link
+                  href={`/runs/${r.id}`}
+                  className="inline-flex min-h-11 items-center font-mono text-[13px] uppercase tracking-[0.1em] text-nominal underline-offset-4 hover:underline"
+                >
+                  Replay
+                </Link>
+              </span>
             </li>
           ))}
         </ul>
