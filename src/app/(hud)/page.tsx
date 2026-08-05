@@ -3,6 +3,7 @@ import { SentinelCore } from '@/components/hud';
 import { Core7List } from '@/components/home/Core7List';
 import { SampleTrailer } from '@/components/home/SampleTrailer';
 import { getDataSource } from '@/data/source';
+import { SAMPLE_VERDICT_PROVENANCE } from '@/data/fixtures/sample-verdicts';
 import {
   MEASURED_CLASSIFICATION,
   MEASURED_CLASSIFICATION_PROVENANCE,
@@ -19,11 +20,24 @@ import type { RunResult, Step } from '@/contract';
  * Everything about the featured run is BOUND to the real sample `RunResult`
  * (run id, step total, compromise step) — no `RG-0472`/`/13` literals.
  *
+ * ── WHAT THE PITCH IS ALLOWED TO PROMISE ──
+ *
+ * That we measure, and how. Never what the reader will find. We have no
+ * evidence about how often a real agent takes the bait: the ASI01 spike came
+ * back a confounded no and the ASI04 spike has never been run against a naive
+ * client, so "we will find your agent's weaknesses" and "most agents hold" are
+ * both unsupported and the first one is the tempting one. So the headline
+ * names the two results a run can have and says which one you get is the
+ * measurement. `tests/unit/app/framing.test.tsx` fails if that drifts back.
+ *
  * TWO measured figures reach this screen, and they are structurally separated
  * because they are separate measurements: the compromise precision/recall, and
  * the category-classification accuracy (a different question over a smaller
- * denominator). Both live in `@/eval/measured`, each welded to its own
- * provenance line; neither may be edited here.
+ * denominator). Each sits in its own labelled group, named for the question it
+ * answers rather than for "accuracy", because one heading over both is how they
+ * merge and the weaker figure disappears behind the stronger one. Both live in
+ * `@/eval/measured`, each welded to its own provenance line; neither may be
+ * edited here.
  */
 
 /** Human-readable one-liner for a trace step (for the trailer end labels). */
@@ -78,11 +92,12 @@ export default async function Home() {
           {/* ── left: pitch + stat + CTAs + trailer ── */}
           <section aria-labelledby="home-title" className="flex min-w-0 flex-col gap-4">
             <h1 id="home-title" className="reading-h1 max-w-[22ch]">
-              Pwn your MCP agent before an attacker does. Trust the verdict.
+              Red-team your MCP agent. Trust the verdict either way.
             </h1>
 
             <p className="reading-lead">
-              Bring your own MCP agent and red-team it against the OWASP Agentic Top 10.
+              Point your own agent at an endpoint we host, and we serve it one of the OWASP Agentic
+              Top 10 attacks and record every tool call it chooses to make.
             </p>
 
             <p className="reading">
@@ -92,9 +107,27 @@ export default async function Home() {
               you can trust its verdicts.
             </p>
 
-            {/* Detector accuracy readout. Provenance leads; the numbers render at their FINAL
-                value immediately (SSR + client), NEVER counting up: this claim is the evidence
-                of the core promise, so a transient "0.00 precision" would assert the opposite. */}
+            {/* BOTH RESULTS, NAMED TOGETHER, WITH NEITHER MARKED AS THE EXPECTED ONE.
+                A landing page wants to promise a finding, and we cannot: nothing we have
+                measured says anything about how often a real agent takes the bait. What
+                we can say is what a run produces in each case, and that the answer is
+                measured rather than predicted. */}
+            <p className="reading text-ink-muted">
+              A run ends one of two ways, and both are results. If the detector finds a compromise,
+              you get a fix report anchored to the offending step. If it finds none, you get a clean
+              run on the robustness leaderboard. Which one your agent gets is the thing we measure,
+              not something we predict.
+            </p>
+
+            {/* THE COMPROMISE CALL — "was this run compromised", scored over every labeled
+                realization. Labelled for the QUESTION, never "detector accuracy": one
+                heading over this and the classification figure below is exactly how two
+                measurements with different denominators become one number, and the weaker
+                of the two then hides behind the stronger.
+
+                Provenance leads; the numbers render at their FINAL value immediately (SSR +
+                client), NEVER counting up: this claim is the evidence of the core promise,
+                so a transient "0.00 precision" would assert the opposite. */}
             <div
               role="group"
               aria-labelledby="metric-compromise-label"
@@ -102,7 +135,7 @@ export default async function Home() {
             >
               <div className="mb-2 flex flex-wrap items-baseline gap-x-2 gap-y-1">
                 <span id="metric-compromise-label" className="micro-label text-nominal">
-                  Detector accuracy
+                  Compromise detection
                 </span>
                 <span className="instrument-faint">{MEASURED_COMPROMISE_PROVENANCE}</span>
               </div>
@@ -144,6 +177,16 @@ export default async function Home() {
               <span className="instrument-faint">{MEASURED_CLASSIFICATION_PROVENANCE}</span>
             </div>
 
+            {/* THE CONDITION BOTH FIGURES CARRY. Stated once, in prose, because a
+                measured number with no stated condition reads as a property of the
+                product rather than of one pinned judge. It names no model and no
+                temperature: the provenance lines above already carry the judge, and
+                re-typing a config value here would give it a second place to drift. */}
+            <p className="reading text-ink-muted">
+              Both figures hold only for the frozen judge named in their provenance lines. Change
+              the rubric, the model or the temperature and they are void until re-measured.
+            </p>
+
             {/* CTAs */}
             <div className="flex flex-col gap-3">
               <div className="flex flex-wrap items-center gap-5">
@@ -156,9 +199,12 @@ export default async function Home() {
                   </svg>
                   Play ASI06 sample
                 </Link>
+                {/* The secondary CTA sits in a control row, not in a sentence, so
+                    the WCAG 2.2 2.5.8 inline-link exception does not cover it. It
+                    measured 195x21 and now clears the 24px minimum with room. */}
                 <Link
                   href="/connect"
-                  className="font-mono text-[14px] tracking-[0.06em] text-nominal hover:underline"
+                  className="inline-flex min-h-11 items-center font-mono text-[14px] tracking-[0.06em] text-nominal hover:underline"
                 >
                   Connect your agent →
                 </Link>
@@ -176,6 +222,11 @@ export default async function Home() {
               firstLabel={first ? stepLabel(first) : ''}
               lastLabel={last ? stepLabel(last) : ''}
               watchHref="/runs/sample"
+              /* WHAT THE TRAILER IS, in the sample library's own words. The strip
+                 badges a breach dot, and a breach dot on the front door reads as a
+                 captured agent unless the label says otherwise. It is a constructed
+                 trace with a recorded verdict, and it never travels without saying so. */
+              provenance={SAMPLE_VERDICT_PROVENANCE}
             />
           </section>
 

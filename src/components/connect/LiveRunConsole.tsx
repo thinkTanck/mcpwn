@@ -420,7 +420,8 @@ function Connection({
         <div className="flex flex-col gap-2.5">
           <p className="reading max-w-[68ch]">
             When your agent is done, end the run. That revokes the token, asks the fixed judge for a
-            verdict on what was recorded, and saves the result.
+            verdict on what was recorded, and saves the result. A compromise comes back anchored to
+            one step; a clean run comes back as a clean run. Both are saved and both are results.
           </p>
           <div>
             <button

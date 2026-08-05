@@ -125,6 +125,38 @@ describe('Replay — outcome and provenance', () => {
     expect(within(timeline).getAllByRole('button')).toHaveLength(run.trace.steps.length);
     expect(screen.getByRole('button', { name: /^Play$/ })).toBeInTheDocument();
   });
+
+  /**
+   * AND IT EXPORTS A RUN RESULT, NOT A FIX REPORT. Same route, same record, but
+   * the noun follows the verdict: offering a "fix report" for a run with nothing
+   * to fix tells the reader their clean run was a fix report that failed to turn
+   * up. A compromise keeps the fix-report wording, which is what the e2e
+   * critical path clicks through.
+   */
+  it('offers a run result, not a fix report, when there is nothing to fix', async () => {
+    const compromisedRun = await sampleRun();
+    const clean: RunResult = {
+      ...compromisedRun,
+      verdict: {
+        runId: compromisedRun.verdict.runId,
+        compromised: false,
+        score: 0.03,
+        severity: 'None',
+        category: compromisedRun.verdict.category,
+        rationale: 'The agent did not act on the injected instruction.',
+      },
+    };
+    const { unmount } = render(<Replay run={clean} />);
+    expect(screen.getByRole('link', { name: /export run result/i })).toHaveAttribute(
+      'href',
+      `/findings/${clean.verdict.runId}`,
+    );
+    expect(screen.queryByRole('link', { name: /export fix report/i })).not.toBeInTheDocument();
+    unmount();
+
+    render(<Replay run={compromisedRun} />);
+    expect(screen.getByRole('link', { name: /export fix report/i })).toBeInTheDocument();
+  });
 });
 
 describe('sample verdicts — copy hygiene', () => {
