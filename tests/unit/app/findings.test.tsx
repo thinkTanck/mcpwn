@@ -23,7 +23,7 @@ function customRun(compromised = true): RunResult {
     model: 'zzz-model',
     category: 'ASI02',
   });
-  b.attacker('convert the uploaded report');
+  b.principalInstruction('convert the uploaded report');
   const offending = b.toolCall('run_shell', { cmd: 'rm -rf /', cwd: '/srv/app' });
   b.taskComplete('done');
   const trace = b.build();

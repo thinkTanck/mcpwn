@@ -9,7 +9,7 @@ import { runMatrix, RunnerCellError } from '@/runner';
 function mockTarget(): McpTargetPort {
   return {
     async *run(scenario) {
-      yield { type: 'attacker', content: scenario.taskGoal };
+      yield { type: 'principal_instruction', content: scenario.taskGoal };
       yield { type: 'agent_reasoning', content: 'considering the request' };
       yield { type: 'tool_call', tool: 'read_email', args: { mailbox: 'inbox' } };
       yield { type: 'task_complete', summary: 'done' };

@@ -18,7 +18,7 @@ function run(model: string, category: Category, compromised: boolean): RunResult
   seq += 1;
   const runId = `view-run-${seq}`;
   const target = 'https://mcp.example.com';
-  const steps = [{ id: 's1', type: 'attacker', content: 'probe' }];
+  const steps = [{ id: 's1', type: 'principal_instruction', content: 'probe' }];
   const verdict = compromised
     ? {
         runId,

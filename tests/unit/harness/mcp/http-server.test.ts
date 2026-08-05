@@ -108,7 +108,7 @@ describe('HttpMcpTarget against a real node:http MCP server', () => {
     });
 
     expect(trace.steps.map((s) => s.type)).toEqual([
-      'attacker',
+      'principal_instruction',
       'tool_call',
       'agent_reasoning',
       'tool_result',

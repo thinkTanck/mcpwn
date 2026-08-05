@@ -5,7 +5,7 @@ const trace = {
   target: 't',
   model: 'm',
   category: 'ASI01',
-  steps: [{ id: 's1', type: 'attacker', content: 'x' }],
+  steps: [{ id: 's1', type: 'principal_instruction', content: 'x' }],
 };
 
 const verdict = {

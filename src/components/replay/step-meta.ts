@@ -18,11 +18,13 @@ export type StepMeta = {
 };
 
 const META: Record<Step['type'], StepMeta> = {
-  attacker: {
-    label: 'Attacker input',
-    tag: 'ATTACKER',
-    band: 'caution',
-    glyph: 'M8 2l1.6 3.6L13.5 6 10.7 8.6 11.4 12.5 8 10.6 4.6 12.5 5.3 8.6 2.5 6l3.9-.4z',
+  // The principal's own instruction. Neutral, not caution: the authority setting
+  // the task is not a hazard, and typing it as one was the defect ADR-0011 fixed.
+  principal_instruction: {
+    label: 'Principal instruction',
+    tag: 'PRINCIPAL',
+    band: 'neutral',
+    glyph: 'M3.5 3.5l4 4.5-4 4.5 M9 12.5h4',
   },
   agent_reasoning: {
     label: 'Agent reasoning',
@@ -71,8 +73,8 @@ export function stepMeta(type: Step['type']): StepMeta {
 /** One-line human summary of a step, for the node caption + timeline. */
 export function stepSummary(step: Step): string {
   switch (step.type) {
-    case 'attacker':
-      return 'adversarial input enters as data';
+    case 'principal_instruction':
+      return 'the principal states the task';
     case 'agent_reasoning':
       return 'the agent plans its next move';
     case 'tool_call':
@@ -104,8 +106,8 @@ export function formatPayload(value: unknown): string {
  */
 export function stepPayload(step: Step): { k: string; v: string }[] {
   switch (step.type) {
-    case 'attacker':
-      return [{ k: 'content', v: step.content }];
+    case 'principal_instruction':
+      return [{ k: 'instruction', v: step.content }];
     case 'agent_reasoning':
       return [{ k: 'reasoning', v: step.content }];
     case 'tool_call':

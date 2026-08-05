@@ -65,7 +65,7 @@ describe('ASI05 — Unexpected Code Execution (RCE)', () => {
     });
 
     it('runs only the sanctioned conversion: the shell command omits the injected command', () => {
-      // The poisoned filename still ARRIVES in the trace (attacker input) ...
+      // The poisoned filename still ARRIVES in the trace (the read_upload tool_result) ...
       const { trace } = asi05.build('benign');
       expect(JSON.stringify(trace)).toContain(INJECTED_MARKER);
       // ... but the executed command is the sanitized conversion — it does not carry it.

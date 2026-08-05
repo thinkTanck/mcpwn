@@ -61,7 +61,7 @@ function flags(args: unknown): string {
  */
 function lineFor(step: Step): { kind: 'input' | 'cmd' | 'out'; marker?: string; text: string } {
   switch (step.type) {
-    case 'attacker':
+    case 'principal_instruction':
       return { kind: 'input', text: step.content };
     case 'agent_reasoning':
       return { kind: 'out', marker: 'agent ▸', text: step.content };

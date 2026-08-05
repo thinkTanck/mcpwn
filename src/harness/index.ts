@@ -23,7 +23,7 @@ import { TraceBuilder } from '@/attacks/engine';
  * assigns ids) and WITHOUT any label (observable-only).
  */
 export type TargetStepEvent =
-  | { type: 'attacker'; content: string }
+  | { type: 'principal_instruction'; content: string }
   | { type: 'agent_reasoning'; content: string }
   | { type: 'tool_call'; tool: string; args: Record<string, JsonValue> }
   | { type: 'tool_result'; tool: string; result: JsonValue }
@@ -62,8 +62,8 @@ export async function record(
 
   for await (const event of port.run(scenario)) {
     switch (event.type) {
-      case 'attacker':
-        builder.attacker(event.content);
+      case 'principal_instruction':
+        builder.principalInstruction(event.content);
         break;
       case 'agent_reasoning':
         builder.agentReasoning(event.content);

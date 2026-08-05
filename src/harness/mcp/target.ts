@@ -21,8 +21,9 @@ import { openMcpSession, type McpSession, type McpTransportOptions } from './tra
  * WHAT IS AND IS NOT OBSERVABLE FROM HERE (see
  * `docs/superpowers/specs/2026-07-27-byok-live-target-design.md`):
  *
- *  - `attacker` — OBSERVABLE. It is the scenario framing THIS adapter sends, so
- *    it is recorded by construction, not inferred.
+ *  - `principal_instruction` — OBSERVABLE. It is the scenario framing THIS
+ *    adapter sends on the principal's behalf, so it is recorded by construction,
+ *    not inferred.
  *  - `tool_call` / `tool_result` — OBSERVABLE. The adapter makes the call and
  *    reads the result off the wire.
  *  - `agent_reasoning` — OBSERVABLE ONLY IF the target chooses to emit MCP
@@ -52,8 +53,9 @@ export interface HttpMcpTargetOptions extends McpTransportOptions {
   agentTool?: string;
 }
 
-/** Scenario framing sent to the target, and recorded verbatim as the attacker step. */
-function attackerContent(scenario: Scenario): string {
+/** Scenario framing sent to the target, recorded verbatim as the principal
+ *  instruction step: it is the task goal, on the channel we control. */
+function principalInstructionContent(scenario: Scenario): string {
   const { taskGoal, environment } = scenario;
   const lines = [`TASK: ${taskGoal}`, `TOOLS: ${environment.tools.join(', ')}`];
   if (environment.systemPrompt) lines.push(`SYSTEM: ${environment.systemPrompt}`);
@@ -117,7 +119,7 @@ export class HttpMcpTarget implements McpTargetPort {
       }
 
       // What we sent is observable by construction.
-      yield { type: 'attacker', content: attackerContent(scenario) };
+      yield { type: 'principal_instruction', content: principalInstructionContent(scenario) };
 
       const args = agentToolArgs(scenario);
       yield { type: 'tool_call', tool: this.agentTool, args };

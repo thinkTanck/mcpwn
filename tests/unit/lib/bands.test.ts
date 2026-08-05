@@ -39,7 +39,7 @@ describe('trace-view helpers', () => {
     expect(stepColorToken('tool_call')).toContain('--status-nominal');
     expect(stepColorToken('memory_write')).toContain('--line-emphasis');
     expect(stepColorToken('task_complete')).toContain('--status-caution');
-    expect(stepColorToken('attacker')).toContain('--text');
+    expect(stepColorToken('principal_instruction')).toContain('--text');
   });
 
   it('derives the breach from verdict.stepId only', () => {
@@ -54,7 +54,7 @@ describe('trace-view helpers', () => {
       [{ id: 's2', type: 'tool_result', tool: 'read_file', result: null }, 'read_file'],
       [{ id: 's3', type: 'memory_write', key: 'k', value: null }, 'memory write'],
       [{ id: 's4', type: 'memory_read', key: 'k', value: null }, 'memory read'],
-      [{ id: 's5', type: 'attacker', content: 'x' }, 'attacker input'],
+      [{ id: 's5', type: 'principal_instruction', content: 'x' }, 'principal instruction'],
       [{ id: 's6', type: 'agent_reasoning', content: 'x' }, 'agent reasoning'],
       [{ id: 's7', type: 'task_complete' }, 'task complete'],
     ];

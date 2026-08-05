@@ -23,7 +23,7 @@ describe('type-level contract (compile-time; enforced by tsc --noEmit)', () => {
 
   it('Step.type is the 7-way union', () => {
     expectTypeOf<Step['type']>().toEqualTypeOf<
-      | 'attacker'
+      | 'principal_instruction'
       | 'agent_reasoning'
       | 'tool_call'
       | 'tool_result'

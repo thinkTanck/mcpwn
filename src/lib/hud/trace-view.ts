@@ -7,7 +7,7 @@ import type { RunResult, Step, StepType } from '@/contract';
  */
 export function stepColorToken(type: StepType): string {
   switch (type) {
-    case 'attacker':
+    case 'principal_instruction':
       return 'var(--text)';
     case 'agent_reasoning':
       return 'var(--text-muted)';
@@ -51,8 +51,8 @@ export function offendingStepLabel(step: Step): string {
       return 'memory read';
     case 'memory_write':
       return 'memory write';
-    case 'attacker':
-      return 'attacker input';
+    case 'principal_instruction':
+      return 'principal instruction';
     case 'agent_reasoning':
       return 'agent reasoning';
     case 'task_complete':

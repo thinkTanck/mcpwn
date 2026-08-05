@@ -94,8 +94,8 @@ export const LEADERBOARD_FIXTURE_CAMPAIGN: readonly LeaderboardFixtureCell[] =
 const FIXTURE_STEPS: readonly Step[] = [
   {
     id: 's1',
-    type: 'attacker',
-    content: 'Placeholder fixture run. No attacker turn was recorded.',
+    type: 'principal_instruction',
+    content: 'Placeholder fixture run. No principal instruction was recorded.',
   },
   { id: 's2', type: 'tool_call', tool: 'placeholder_tool', args: {} },
 ];
