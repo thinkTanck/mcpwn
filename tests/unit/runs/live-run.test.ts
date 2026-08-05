@@ -24,6 +24,7 @@ import {
   RUN_TOKEN_PATTERN,
   RUN_TOKEN_REJECTION_MESSAGE,
 } from '@/runs/run-token';
+import { InMemoryLiveRunSessionStore } from '@/runs/live-run-store';
 import type { Trace, Verdict } from '@/contract';
 
 const USER = 'user-1';
@@ -610,5 +611,141 @@ describe('live run: the leakage barrier at the judge boundary', () => {
       'verdict',
     ]);
     expect(decision.value.stored.id).toBe(stored!.id);
+  });
+});
+
+describe('live run: the open-run registry is durable, not process-local', () => {
+  /**
+   * A restart, simulated the only way that is honest: a SECOND host built over
+   * the SAME stores, holding none of the first host's in-process state. That is
+   * exactly the serverless case — a new instance, the same database.
+   */
+  function restarted(first: HostFixture, sessions: InMemoryLiveRunSessionStore): LiveRunHost {
+    return createLiveRunHost({
+      preflight: grant,
+      tokens: first.tokens,
+      sessions,
+      repository: first.repository,
+      resolveDetector: () => biteDetector,
+      origin: ORIGIN,
+      sleep: async () => {},
+    });
+  }
+
+  it('records the run in the session store when it starts', async () => {
+    const sessions = new InMemoryLiveRunSessionStore();
+    const { host } = fixture({ sessions });
+
+    const ticket = await startRun(host);
+
+    const row = await sessions.find(ticket.runId);
+    expect(row?.userId).toBe(USER);
+    expect(row?.category).toBe('ASI01');
+    expect(row?.kind).toBe('malicious');
+    expect(row?.finishedAt).toBeNull();
+    // The principal instruction is recorded from the first moment, so a restart
+    // that happens before the agent connects still rebuilds a valid run.
+    expect(row?.events.map((e) => e.type)).toEqual(['principal_instruction']);
+  });
+
+  it('serves an agent whose run was started by another instance', async () => {
+    const sessions = new InMemoryLiveRunSessionStore();
+    const first = fixture({ sessions });
+    const ticket = await startRun(first.host);
+
+    const second = restarted(first, sessions);
+    const opened = await post(second, ticket.endpoint, initialize, { token: ticket.token });
+
+    expect(opened.status).toBe(200);
+  });
+
+  it('keeps the steps the agent took before the restart', async () => {
+    const sessions = new InMemoryLiveRunSessionStore();
+    const first = fixture({ sessions });
+    const ticket = await startRun(first.host);
+    await driveAgent(first.host, ticket, false);
+
+    const second = restarted(first, sessions);
+    await driveAgent(second, ticket, true);
+
+    const decision = await second.finish({ runId: ticket.runId, userId: USER });
+    expect(decision.ok).toBe(true);
+    if (!decision.ok) return;
+    const tools = decision.value.trace.steps
+      .filter((s) => s.type === 'tool_call')
+      .map((s) => (s.type === 'tool_call' ? s.tool : ''));
+    // Both halves of the session are in one trace: the pre-restart reads and the
+    // post-restart transfer that is the compromise.
+    expect(tools).toEqual(['read_email', 'read_email', 'transfer_funds']);
+    expect(decision.value.verdict.compromised).toBe(true);
+  });
+
+  it('lets the owner read the trace of a run another instance started', async () => {
+    const sessions = new InMemoryLiveRunSessionStore();
+    const first = fixture({ sessions });
+    const ticket = await startRun(first.host);
+    await driveAgent(first.host, ticket, true);
+
+    const second = restarted(first, sessions);
+    const decision = await second.getTrace({ runId: ticket.runId, userId: USER });
+
+    expect(decision.ok).toBe(true);
+    if (!decision.ok) return;
+    expect(decision.value.steps.some((s) => s.type === 'tool_call')).toBe(true);
+  });
+
+  it('still shows another account nothing, however durable the row is', async () => {
+    const sessions = new InMemoryLiveRunSessionStore();
+    const first = fixture({ sessions });
+    const ticket = await startRun(first.host);
+
+    const second = restarted(first, sessions);
+    const decision = await second.getTrace({ runId: ticket.runId, userId: 'someone-else' });
+
+    expect(decision.ok).toBe(false);
+    if (decision.ok) return;
+    expect(decision.error.code).toBe('RUN_NOT_FOUND');
+  });
+
+  it('finishes a run exactly once ACROSS instances, so no run is judged twice', async () => {
+    const sessions = new InMemoryLiveRunSessionStore();
+    const first = fixture({ sessions });
+    const ticket = await startRun(first.host);
+    await driveAgent(first.host, ticket, true);
+
+    const one = await first.host.finish({ runId: ticket.runId, userId: USER });
+    const second = restarted(first, sessions);
+    const two = await second.finish({ runId: ticket.runId, userId: USER });
+
+    expect(one.ok).toBe(true);
+    expect(two.ok).toBe(false);
+    if (two.ok) return;
+    expect(two.error.code).toBe('RUN_ALREADY_FINISHED');
+    expect(await first.repository.listRuns(USER)).toHaveLength(1);
+  });
+
+  it('keeps the model label the first instance observed', async () => {
+    const sessions = new InMemoryLiveRunSessionStore();
+    const first = fixture({ sessions });
+    const ticket = await startRun(first.host);
+    await driveAgent(first.host, ticket, true);
+
+    const second = restarted(first, sessions);
+    const decision = await second.finish({ runId: ticket.runId, userId: USER });
+
+    expect(decision.ok).toBe(true);
+    if (!decision.ok) return;
+    expect(decision.value.trace.model).toBe('agent-under-test');
+  });
+
+  it('refuses a run no store has ever heard of', async () => {
+    const sessions = new InMemoryLiveRunSessionStore();
+    const { host } = fixture({ sessions });
+
+    const decision = await host.finish({ runId: 'never-started', userId: USER });
+
+    expect(decision.ok).toBe(false);
+    if (decision.ok) return;
+    expect(decision.error.code).toBe('RUN_NOT_FOUND');
   });
 });

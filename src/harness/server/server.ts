@@ -27,6 +27,7 @@
  * agent can read. `neutrality.test.ts` fails on any tell.
  */
 import type { Category, JsonValue, Trace, VariantKind } from '@/contract';
+import type { TargetStepEvent } from '@/harness';
 import { MCP_PROTOCOL_VERSION } from '@/harness/mcp/protocol';
 import {
   ServerProtocolError,
@@ -89,6 +90,9 @@ export class HostedMcpServer {
   private initialized = false;
 
   constructor(options: HostedServerOptions) {
+    // `recorderOptions` deliberately carries the rehydration seam (`events`,
+    // `client`) straight through, so rebuilding a run after a restart is a
+    // constructor argument rather than a second code path.
     const { category, kind, now, ...recorderOptions } = options;
     this.surface = buildHostedSurface(category, kind);
     this.recorder = new HostedTraceRecorder(this.surface, recorderOptions);
@@ -103,6 +107,23 @@ export class HostedMcpServer {
   /** The task goal to hand the agent OUT OF BAND (published prompt / paste). */
   get taskGoal(): string {
     return this.surface.taskGoal;
+  }
+
+  /**
+   * Everything observable this run has recorded, in order.
+   *
+   * The durable open-run registry (`src/runs/live-run-store.ts`) reads this after
+   * each inbound request and persists whatever is new, so a run that moves to
+   * another instance keeps the steps it already took. It is the observable
+   * events only: no label, no framing, nothing the judge is not shown anyway.
+   */
+  get observedEvents(): readonly TargetStepEvent[] {
+    return this.recorder.observed();
+  }
+
+  /** The client name the agent claimed, so a rehydrated run keeps its label. */
+  get observedClient(): string | undefined {
+    return this.recorder.observedClient;
   }
 
   /** Assemble the observable Trace, including the inferred completion step. */

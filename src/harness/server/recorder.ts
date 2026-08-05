@@ -56,6 +56,23 @@ export interface HostedRecorderOptions {
   readonly target?: string;
   /** Pin the model/agent label; otherwise the client's self-reported name is used. */
   readonly model?: string;
+  /**
+   * REHYDRATION — the events a previous instance already observed for this run.
+   *
+   * A hosted run is not guaranteed to stay on the instance that started it, so
+   * the durable open-run registry (`src/runs/live-run-store.ts`) persists the
+   * observable events as they happen and hands them back here. Providing this
+   * option AT ALL (even as an empty array) means "continue that run": the
+   * principal instruction is already in the seed, so the constructor does not
+   * open a second one.
+   */
+  readonly events?: readonly TargetStepEvent[];
+  /**
+   * The client name a previous instance observed on `initialize`. Restored so a
+   * rehydrated run keeps its model label instead of falling back to
+   * {@link UNKNOWN_CLIENT} halfway through.
+   */
+  readonly client?: string | null;
 }
 
 /** The client's self-reported identity from `initialize`. Unverifiable by us. */
@@ -79,13 +96,26 @@ export class HostedTraceRecorder {
     this.runId = options.runId ?? this.surface.variantId.replace(/-(malicious|benign)$/, '');
     this.target = options.target ?? 'https://mcp.example.com/mcp';
     this.pinnedModel = options.model;
-    // The principal's own goal is the first, and only, inbound turn.
-    this.events.push({ type: 'principal_instruction', content: surface.taskGoal });
+    if (options.client) this.clientName = options.client;
+    if (options.events === undefined) {
+      // The principal's own goal is the first, and only, inbound turn.
+      this.events.push({ type: 'principal_instruction', content: surface.taskGoal });
+    } else {
+      // Continuing a run another instance started: its principal instruction is
+      // already the first seeded event, and opening another would put a second
+      // inbound turn in a trace the judge reads as one session.
+      this.events.push(...options.events);
+    }
   }
 
   /** Note who connected. The name is the client's own claim, not a verified fact. */
   observeClient(client: ObservedClient): void {
     this.clientName = client.name;
+  }
+
+  /** The client's claimed name, so the registry can persist it for a restart. */
+  get observedClient(): string | undefined {
+    return this.clientName;
   }
 
   /** The agent chose to call a tool. This is the load-bearing observation. */
