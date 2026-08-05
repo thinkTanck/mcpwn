@@ -313,11 +313,16 @@ and every pull request to `main`**:
 - [`CLAUDE.md`](CLAUDE.md) — full architecture, stack, data contract, module map,
   and the Definition of Done.
 - [`plan.md`](plan.md) — the phased build order and current rebuild status.
-- [`docs/adr/`](docs/adr/) — Architecture Decision Records (Nygard format):
-  [ADR-0001](docs/adr/0001-record-architecture-decisions.md) (using ADRs),
-  [ADR-0002](docs/adr/0002-lighthouse-devtools-throttling.md) (Lighthouse CI
-  DevTools throttling — measured over simulated),
-  [ADR-0003](docs/adr/0003-core-7-scope-and-measurability-bar.md) (Core-7 scope +
-  the measurability bar), and
-  [ADR-0008](docs/adr/0008-cwv-gate-measures-five-runs-and-asserts-the-median.md)
-  (the CWV gate measures five runs and asserts the median, amending ADR-0002).
+- [`docs/adr/`](docs/adr/) — Architecture Decision Records (Nygard format). Titles
+  and statuses below are the records' own, and
+  [a unit test fails if a new ADR lands without an entry here](tests/unit/docs/adr-index.test.ts):
+  - [ADR-0001](docs/adr/0001-record-architecture-decisions.md) — Record architecture decisions · Accepted
+  - [ADR-0002](docs/adr/0002-lighthouse-devtools-throttling.md) — Lighthouse CI throttling: DevTools (measured) over Lantern (simulated) · Accepted
+  - [ADR-0003](docs/adr/0003-core-7-scope-and-measurability-bar.md) — Core-7 scope and the measurability bar · Accepted
+  - [ADR-0004](docs/adr/0004-design-frozen-and-impeccable-as-craft-gate.md) — The design as default reference; Impeccable as the design method; the three-role type model · Accepted
+  - [ADR-0005](docs/adr/0005-leakage-invariant-is-executable.md) — The leakage invariant is executable, not reviewed · Accepted
+  - [ADR-0006](docs/adr/0006-mcpwn-is-the-mcp-server.md) — MCPwn is the MCP server; the user's agent connects to us · Accepted
+  - [ADR-0007](docs/adr/0007-access-and-cost-model.md) — Public access, with a per-account lifetime free allowance · Accepted
+  - [ADR-0008](docs/adr/0008-cwv-gate-measures-five-runs-and-asserts-the-median.md) — The CWV gate measures five runs and asserts the median · Accepted
+  - [ADR-0009](docs/adr/0009-compromise-vs-exposure.md) — Compromise vs exposure · Accepted
+  - [ADR-0010](docs/adr/0010-accept-eol-eslint-9-until-the-react-plugin-supports-eslint-10.md) — Accept an EOL ESLint 9 until eslint-plugin-react supports ESLint 10 · Accepted

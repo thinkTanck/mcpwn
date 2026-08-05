@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { render, screen } from '@testing-library/react';
 import ErrorBoundary from '@/app/error';
+import { contrast, hexToRgb, type RGB } from '../support/wcag';
 
 /**
  * Locks the DTCG two-tier token layer shipped in this increment
@@ -58,18 +59,6 @@ const tokenRefs = (source: string): string[] => [
 
 // --- color resolution + WCAG ----------------------------------------------
 
-type RGB = [number, number, number];
-
-function hexToRgb(hex: string): RGB {
-  const h = hex.replace('#', '');
-  const full = h.length === 3 ? h.replace(/(.)/g, '$1$1') : h;
-  return [
-    parseInt(full.slice(0, 2), 16),
-    parseInt(full.slice(2, 4), 16),
-    parseInt(full.slice(4, 6), 16),
-  ];
-}
-
 /**
  * Resolve a CSS color value to an RGB triple, following var() chains and
  * compositing `color-mix(in srgb, X P%, transparent)` over `base` (the surface
@@ -100,19 +89,6 @@ function resolveColor(value: string, base: RGB): RGB {
 
   if (/^#[0-9a-f]{3}([0-9a-f]{3})?$/i.test(v)) return hexToRgb(v);
   throw new Error(`cannot resolve color value: ${value}`);
-}
-
-function relativeLuminance([r, g, b]: RGB): number {
-  const lin = (c: number) => {
-    const s = c / 255;
-    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
-  };
-  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
-}
-
-function contrast(a: RGB, b: RGB): number {
-  const [l1, l2] = [relativeLuminance(a), relativeLuminance(b)];
-  return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
 }
 
 const surfaceBase = resolveColor('var(--surface-base)', [0, 0, 0]);

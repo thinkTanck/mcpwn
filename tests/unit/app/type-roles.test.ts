@@ -2,6 +2,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, resolve as resolvePath } from 'node:path';
 import { createRequire } from 'node:module';
 import { compile } from 'tailwindcss';
+import { contrast, hexToRgb } from '../support/wcag';
 
 /**
  * THREE-ROLE type model — RESOLVED values, not class strings.
@@ -289,6 +290,16 @@ const family = (classes: string[]): 'sans' | 'mono' | 'none' => {
   return 'none';
 };
 
+/** Contrast of the resolved text colour against the page surface. Both screens
+ *  below paint on --surface-base (verified in the built app); the token tiers
+ *  are separately asserted AA on --surface-panel in tokens.test.tsx. */
+const onSurfaceBase = (classes: string[]): number => {
+  const fg = substitute(resolved(classes, 'color')).trim();
+  const bg = substitute('var(--surface-base)').trim();
+  if (!/^#[0-9a-f]{3,8}$/i.test(fg)) throw new Error(`colour did not resolve to a hex: "${fg}"`);
+  return contrast(hexToRgb(fg), hexToRgb(bg));
+};
+
 // --- the roles --------------------------------------------------------------
 
 const READING = ['reading', 'reading-lead', 'reading-h1', 'reading-h2', 'reading-h3'];
@@ -471,5 +482,83 @@ describe('every type-role call site in src/ resolves to the role it wears', () =
       )
       .map(where);
     expect(bad).toEqual([]);
+  });
+});
+
+// --- the two adjudicated prose-vs-telemetry flags ---------------------------
+
+/**
+ * "Prose NEVER wears an INSTRUMENT role" is a blocking rule, but the size/family
+ * resolver above cannot tell a sentence from a label — that reading is a
+ * judgement, made once and then pinned here so it is not re-litigated.
+ *
+ * Two elements were flagged. They were adjudicated separately, on the nature of
+ * the TEXT against the CLAUDE.md definition (INSTRUMENT = "telemetry only:
+ * labels, chips, metadata, cues, column/row headers"):
+ *
+ *   Home, "Featured run: memory poisoning. Pick any of the Core-7 to watch its
+ *   own attack." — PROSE. Two complete sentences; the second is an imperative
+ *   addressed to the reader, with a finite verb and a purpose clause. No label,
+ *   chip or column header is a sentence that tells a human what to do. Moved to
+ *   READING.
+ *
+ *   Leaderboard, "Cell -> its run in Live Attack Replay" — TELEMETRY. A legend:
+ *   a source-to-destination mapping with no finite verb, read by scanning the
+ *   grid rather than by reading a line. That is a key/cue, which the definition
+ *   names explicitly. Kept as INSTRUMENT.
+ *
+ * Both are asserted on RESOLVED values, so the disposition cannot rot into a
+ * class name that no longer means what it says.
+ */
+
+/** The class list of the element rendering `copy` — the nearest `className`
+ *  attribute preceding it in the source. Throws if the copy has moved, so a
+ *  reworded line fails loudly instead of silently unhooking the guard. */
+function classesRendering(file: string, copy: string): string[] {
+  const source = readFileSync(join(root, file), 'utf8');
+  const at = source.indexOf(copy);
+  if (at === -1) throw new Error(`copy not found in ${file}: "${copy}"`);
+  const opener = [...source.slice(0, at).matchAll(/className=(?:"([^"]*)"|\{`([^`]*)`\})/g)].at(-1);
+  if (!opener) throw new Error(`no className precedes the copy in ${file}`);
+  return (opener[1] ?? opener[2] ?? '').split(/\s+/).filter(Boolean);
+}
+
+const HOME = 'src/app/(hud)/page.tsx';
+const HOME_COPY = 'Featured run: memory poisoning.';
+const LEADERBOARD = 'src/components/leaderboard/LeaderboardHeatmap.tsx';
+const LEADERBOARD_COPY = 'Cell → its run in Live Attack Replay';
+
+describe('the adjudicated prose-vs-telemetry dispositions hold', () => {
+  it('Home: the featured-run line is prose, so it reads at a READING size in sans', () => {
+    const classes = classesRendering(HOME, HOME_COPY);
+    const detail = `[${classes.join(' ')}] -> ${px(classes)}px ${family(classes)}`;
+    expect(
+      classes.filter((c) => INSTRUMENT.includes(c)),
+      detail,
+    ).toEqual([]);
+    expect(
+      classes.some((c) => READING.includes(c)),
+      detail,
+    ).toBe(true);
+    expect(family(classes), detail).toBe('sans');
+    // READING body is 17px, lead 18px — a caption takes body, never below it.
+    expect(px(classes), detail).toBeGreaterThanOrEqual(17);
+  });
+
+  it('Home: the featured-run line still clears WCAG 2.2 AA on the page surface', () => {
+    const classes = classesRendering(HOME, HOME_COPY);
+    expect(onSurfaceBase(classes)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('Leaderboard: the cell legend stays INSTRUMENT telemetry', () => {
+    const classes = classesRendering(LEADERBOARD, LEADERBOARD_COPY);
+    const detail = `[${classes.join(' ')}] -> ${px(classes)}px ${family(classes)}`;
+    expect(
+      classes.some((c) => INSTRUMENT.includes(c)),
+      detail,
+    ).toBe(true);
+    expect(family(classes), detail).toBe('mono');
+    expect(px(classes), detail).toBeLessThanOrEqual(13);
+    expect(onSurfaceBase(classes)).toBeGreaterThanOrEqual(4.5);
   });
 });

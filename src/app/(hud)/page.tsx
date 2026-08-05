@@ -163,7 +163,12 @@ export default async function Home() {
                   Connect your agent →
                 </Link>
               </div>
-              <p className="instrument-faint">
+              {/* PROSE, not telemetry. Two complete sentences, the second an imperative
+                  addressed to the reader; INSTRUMENT is labels, chips, metadata and cues, and
+                  no label tells a human what to do. So it reads at READING body (17px sans),
+                  on the muted tier so it stays subordinate to the CTAs above while clearing
+                  AA. Adjudicated once; asserted in tests/unit/app/type-roles.test.ts. */}
+              <p className="reading text-ink-muted">
                 Featured run: memory poisoning. Pick any of the Core-7 to watch its own attack.
               </p>
             </div>
