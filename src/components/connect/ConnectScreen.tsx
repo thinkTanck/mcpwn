@@ -1,11 +1,16 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { CORE7 } from './categories';
 import { LiveRunConsole } from './LiveRunConsole';
-import type { ConnectLiveRunPort } from './live-run-port';
+import {
+  createConnectLiveRunPort,
+  notWiredLiveRunPort,
+  type ConnectLiveRunActions,
+  type ConnectLiveRunPort,
+} from './live-run-port';
 import type { Category } from '@/contract';
 
 /**
@@ -104,6 +109,7 @@ export function ConnectScreen({
   signedIn = false,
   sampleRunIds,
   sampleProvenance,
+  liveActions,
   livePort,
 }: {
   signedIn?: boolean;
@@ -112,14 +118,24 @@ export function ConnectScreen({
   /** What the sample IS, in the sample library's own words. */
   sampleProvenance?: string;
   /**
-   * The live-run port. Injected so the screen is coded against the port and not
-   * against a server module; see `./live-run-port.ts`. Absent means this build
-   * has no live-run action bound, and the console says exactly that.
+   * The three live-run server actions, bound by the route. They are adapted into
+   * the screen's port HERE and nowhere else, so the screen itself never learns
+   * the server's shape. Absent means nothing is bound, and the console refuses
+   * plainly rather than pretending.
    */
+  liveActions?: ConnectLiveRunActions;
+  /** A ready-made port. Tests inject one; the route passes actions instead. */
   livePort?: ConnectLiveRunPort;
 }) {
   const [mode, setMode] = useState<Mode>('sample');
   const [category, setCategory] = useState<Category>(DEFAULT_CATEGORY);
+
+  // Memoized because the console polls on an effect keyed by the port: a fresh
+  // object every render would tear the interval down and rebuild it every time.
+  const port = useMemo(
+    () => livePort ?? (liveActions ? createConnectLiveRunPort(liveActions) : notWiredLiveRunPort),
+    [livePort, liveActions],
+  );
 
   const live = mode === 'live';
   const sampleHref = `/runs/${sampleRunIds?.[category] ?? CANONICAL_SAMPLE}`;
@@ -248,11 +264,7 @@ export function ConnectScreen({
           label={live ? 'YOUR RUN ENDPOINT' : 'RECORDED PLAYBACK'}
         />
         {live ? (
-          <LiveRunConsole
-            {...(livePort ? { port: livePort } : {})}
-            category={category}
-            signedIn={signedIn}
-          />
+          <LiveRunConsole port={port} category={category} signedIn={signedIn} />
         ) : (
           <div className="flex flex-col gap-4">
             <p className="reading max-w-[68ch]">

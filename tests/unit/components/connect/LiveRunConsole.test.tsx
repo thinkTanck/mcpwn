@@ -3,21 +3,26 @@ import userEvent from '@testing-library/user-event';
 import { LiveRunConsole } from '@/components/connect/LiveRunConsole';
 import type {
   ConnectLiveRunPort,
-  LiveRunStateView,
+  LiveRunStatusView,
+  LiveRunSummaryView,
   LiveRunTicketView,
 } from '@/components/connect/live-run-port';
 
 /**
  * THE LIVE CONSOLE under the inverted model (ADR-0006): we host the MCP endpoint
  * and the user's agent connects to US. So this panel ISSUES a per-run endpoint
- * and token, explains how the task goal travels out of band, and then WAITS on
- * state the server really observed.
+ * and token, explains how the task goal travels out of band, waits on state the
+ * server really observed, and ends the run when the user says the agent is done.
  *
- * Three things this suite exists to hold down:
+ * Four things this suite exists to hold down:
  *   1. the token is a secret shown once — masked by default, copyable, and never
  *      handed to anything that persists it;
  *   2. a refusal is calm, typed, and quotes no numeral the screen authored;
- *   3. a state we cannot observe is never drawn as if we could.
+ *   3. a state we cannot observe is never drawn as if we could;
+ *   4. AGENT ACTIVITY IS `toolCalls`, NOT `steps`. The trace count includes the
+ *      task goal we sent and the completion step we infer, so it is never zero
+ *      even when the agent did nothing at all. Printing it as activity would
+ *      assert something that never happened.
  */
 
 const TICKET: LiveRunTicketView = {
@@ -26,30 +31,55 @@ const TICKET: LiveRunTicketView = {
   token: `mcpwn_rt_${'a'.repeat(32)}_${'b'.repeat(64)}`,
   expiresAt: '2026-08-05T12:00:00.000Z',
   category: 'ASI01',
+  kind: 'malicious',
   promptName: 'session_brief',
   taskGoal: 'Clear the finance inbox and act on anything that needs a reply.',
 };
 
-const AWAITING: LiveRunStateView = {
+/** A run that exists and that nothing has connected to. Steps is 2, not 0. */
+const WAITING: LiveRunStatusView = {
   runId: 'run-77',
-  phase: 'awaiting_agent',
-  steps: 0,
-  observedAt: '2026-08-05T11:00:00.000Z',
-  resultRunId: null,
+  phase: 'waiting',
+  connectedAt: null,
+  lastSeenAt: null,
+  requests: 0,
+  steps: 2,
+  toolCalls: 0,
+  finishedAt: null,
 };
+
+const SUMMARY: LiveRunSummaryView = {
+  runId: 'run-77',
+  storedRunId: 'stored-77',
+  compromised: true,
+  category: 'ASI01',
+  severity: 'High',
+  stepId: 's4',
+  steps: 11,
+};
+
+const statusOf = (over: Partial<LiveRunStatusView>) => ({
+  ok: true as const,
+  value: { ...WAITING, ...over },
+});
 
 function portWith(overrides: Partial<ConnectLiveRunPort> = {}): ConnectLiveRunPort {
   return {
     start: vi.fn(async () => ({ ok: true as const, value: TICKET })),
-    readState: vi.fn(async () => ({ ok: true as const, value: AWAITING })),
+    readState: vi.fn(async () => ({ ok: true as const, value: WAITING })),
+    finish: vi.fn(async () => ({ ok: true as const, value: SUMMARY })),
     ...overrides,
   };
 }
 
-/** Refuse both calls with one code + sentence, the way a gate does. */
+/** Refuse every call with one code and one sentence, the way a gate does. */
 function refusingPort(code: string, message: string): ConnectLiveRunPort {
   const refusal = { ok: false as const, refusal: { code: code as never, message } };
-  return { start: vi.fn(async () => refusal), readState: vi.fn(async () => refusal) };
+  return {
+    start: vi.fn(async () => refusal),
+    readState: vi.fn(async () => refusal),
+    finish: vi.fn(async () => refusal),
+  };
 }
 
 const issue = async (user: ReturnType<typeof userEvent.setup>) =>
@@ -134,7 +164,7 @@ describe('LiveRunConsole · the per-run token is a secret shown once', () => {
     // No form control (autofill, password managers), no storage, no URL.
     expect(document.querySelector('input')).toBeNull();
     expect(document.querySelector('textarea')).toBeNull();
-    expect(window.localStorage.getItem('token')).toBeNull();
+    expect(JSON.stringify({ ...window.localStorage })).not.toContain(TICKET.token);
     expect(JSON.stringify({ ...window.sessionStorage })).not.toContain(TICKET.token);
     expect(window.location.href).not.toContain(TICKET.token);
   });
@@ -186,19 +216,54 @@ describe('LiveRunConsole · real connection state, and only real connection stat
     expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
   });
 
-  it('reports the recorded step count the server observed, as evidence', async () => {
+  /**
+   * THE ONE THAT WOULD HAVE LIED. `steps` is 2 on a run nothing has touched,
+   * because it counts the task goal and the inferred completion. The headline
+   * numeral must be `toolCalls`, which is 0, and the trace count must be named
+   * for what it is.
+   */
+  it('reports zero agent activity on a run nothing has connected to', async () => {
+    const user = userEvent.setup();
+    render(<LiveRunConsole port={portWith()} category="ASI01" signedIn />);
+    await issue(user);
+    await screen.findByText(/no agent has connected yet/i);
+
+    expect(screen.getByText('0')).toBeInTheDocument();
+    expect(screen.getByText(/tool calls/i)).toBeInTheDocument();
+    // The trace count is present but never passes itself off as activity.
+    expect(screen.getByText(/the trace holds 2 steps in total/i)).toBeInTheDocument();
+    expect(screen.getByText(/counts the task goal we sent and the completion step/i)).toBeVisible();
+  });
+
+  it('reports the tool calls the agent actually chose to make', async () => {
     const user = userEvent.setup();
     const port = portWith({
-      readState: vi.fn(async () => ({
-        ok: true as const,
-        value: { ...AWAITING, phase: 'recording' as const, steps: 6 },
-      })),
+      readState: vi.fn(async () =>
+        statusOf({
+          phase: 'connected',
+          steps: 9,
+          toolCalls: 6,
+          lastSeenAt: '2026-08-05T11:31:00Z',
+        }),
+      ),
     });
     render(<LiveRunConsole port={port} category="ASI01" signedIn />);
     await issue(user);
 
     expect(await screen.findByText('6')).toBeInTheDocument();
-    expect(screen.getByText(/steps recorded/i)).toBeInTheDocument();
+    expect(screen.getByText(/tool calls/i)).toBeInTheDocument();
+    expect(screen.getByText(/your agent is calling tools/i)).toBeInTheDocument();
+  });
+
+  it('separates "the agent is here" from "the agent has done something"', async () => {
+    const user = userEvent.setup();
+    const port = portWith({
+      readState: vi.fn(async () => statusOf({ phase: 'connected', toolCalls: 0, steps: 2 })),
+    });
+    render(<LiveRunConsole port={port} category="ASI01" signedIn />);
+    await issue(user);
+
+    expect(await screen.findByText(/has not called a tool yet/i)).toBeInTheDocument();
   });
 
   it('states plainly that reasoning is not observable and is never invented', async () => {
@@ -209,26 +274,34 @@ describe('LiveRunConsole · real connection state, and only real connection stat
 
     expect(screen.getByText(/we record what your agent does, not what it thinks/i)).toBeVisible();
   });
+});
 
-  it('hands off to the replay once the run has really finished', async () => {
+describe('LiveRunConsole · ending the run and handing off', () => {
+  it('offers no end control until the agent has actually connected', async () => {
+    const user = userEvent.setup();
+    render(<LiveRunConsole port={portWith()} category="ASI01" signedIn />);
+    await issue(user);
+    await screen.findByText(/no agent has connected yet/i);
+
+    // Ending a run nobody connected to would spend a judge call on nothing.
+    expect(screen.queryByRole('button', { name: /end run and judge/i })).not.toBeInTheDocument();
+  });
+
+  it('ends the run for the run that was issued, and hands off to its stored replay', async () => {
     const user = userEvent.setup();
     const port = portWith({
-      readState: vi.fn(async () => ({
-        ok: true as const,
-        value: {
-          ...AWAITING,
-          phase: 'finished' as const,
-          steps: 11,
-          resultRunId: 'run-77',
-        },
-      })),
+      readState: vi.fn(async () => statusOf({ phase: 'connected', toolCalls: 5, steps: 9 })),
     });
     render(<LiveRunConsole port={port} category="ASI01" signedIn />);
     await issue(user);
 
+    await user.click(await screen.findByRole('button', { name: /end run and judge/i }));
+
+    expect(port.finish).toHaveBeenCalledWith({ runId: 'run-77' });
+    // The replay is addressed by the PERSISTED row id, not the hosting run id.
     expect(await screen.findByRole('link', { name: /open the replay/i })).toHaveAttribute(
       'href',
-      '/runs/run-77',
+      '/runs/stored-77',
     );
   });
 
@@ -239,6 +312,47 @@ describe('LiveRunConsole · real connection state, and only real connection stat
     await screen.findByText(/no agent has connected yet/i);
 
     expect(screen.queryByRole('link', { name: /open the replay/i })).not.toBeInTheDocument();
+  });
+
+  it('states a judge that did not answer, and keeps the endpoint on screen', async () => {
+    const user = userEvent.setup();
+    const port = portWith({
+      readState: vi.fn(async () => statusOf({ phase: 'connected', toolCalls: 5, steps: 9 })),
+      finish: vi.fn(async () => ({
+        ok: false as const,
+        refusal: {
+          code: 'DETECTION_FAILED' as const,
+          message: 'The judge could not reach a verdict for this run.',
+        },
+      })),
+    });
+    render(<LiveRunConsole port={port} category="ASI01" signedIn />);
+    await issue(user);
+    await user.click(await screen.findByRole('button', { name: /end run and judge/i }));
+
+    expect(await screen.findByText('DETECTOR DID NOT ANSWER')).toBeInTheDocument();
+    // The run is not lost: what the user needs to reconnect is still there.
+    expect(screen.getByText(TICKET.endpoint)).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /open the replay/i })).not.toBeInTheDocument();
+  });
+
+  it('states an unusable result under its own heading', async () => {
+    const user = userEvent.setup();
+    const port = portWith({
+      readState: vi.fn(async () => statusOf({ phase: 'connected', toolCalls: 5, steps: 9 })),
+      finish: vi.fn(async () => ({
+        ok: false as const,
+        refusal: {
+          code: 'RESULT_INVALID' as const,
+          message: 'This run did not produce a valid result.',
+        },
+      })),
+    });
+    render(<LiveRunConsole port={port} category="ASI01" signedIn />);
+    await issue(user);
+    await user.click(await screen.findByRole('button', { name: /end run and judge/i }));
+
+    expect(await screen.findByText('RUN RESULT UNUSABLE')).toBeInTheDocument();
   });
 });
 
@@ -274,8 +388,7 @@ describe('LiveRunConsole · refusals fail closed and say so calmly', () => {
 
     await issue(user);
 
-    const heading = await screen.findByText('LIVE RUNS PAUSED');
-    expect(heading).toBeInTheDocument();
+    expect(await screen.findByText('LIVE RUNS PAUSED')).toBeInTheDocument();
     expect(screen.getByRole('status').textContent).not.toMatch(/\d/);
   });
 
@@ -331,6 +444,18 @@ describe('LiveRunConsole · refusals fail closed and say so calmly', () => {
       'href',
       '/runs/sample',
     );
+  });
+
+  it('states a signed-out refusal as printable copy, not a redirect', async () => {
+    const user = userEvent.setup();
+    const sentence = 'Sign in to start a live run. The sample run needs no account.';
+    render(
+      <LiveRunConsole port={refusingPort('NOT_SIGNED_IN', sentence)} category="ASI01" signedIn />,
+    );
+
+    await issue(user);
+
+    expect(await screen.findByText(sentence)).toBeInTheDocument();
   });
 });
 

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { finishLiveRun, getLiveRunStatus, startLiveRun } from '@/app/actions/live-run';
 import { ConnectScreen, type SampleRunIds } from '@/components/connect/ConnectScreen';
 import { CategorySchema } from '@/contract';
 import { SAMPLE_VERDICT_PROVENANCE } from '@/data/fixtures/sample-verdicts';
@@ -23,20 +24,20 @@ export const metadata: Metadata = {
  *   3. WHAT THE SAMPLE IS, in the sample library's own provenance words. A
  *      constructed demonstration must never travel without that label.
  *
- * ── THE LIVE PORT IS DELIBERATELY UNBOUND HERE ──
+ * ── THE LIVE PORT IS BOUND HERE, AND ONLY HERE ──
  *
  * The screen is coded against `ConnectLiveRunPort`
- * (`src/components/connect/live-run-port.ts`), and this route is the ONE place a
- * real implementation is bound to it. The live-run server action is built
- * separately, so nothing is passed yet and the console falls back to its
- * not-wired port, which refuses plainly and issues nothing. That is the same
- * discipline `resolveLiveDetector()` follows for an unconfigured judge: an
- * unwired path is a fact about this build, stated, not a screen pretending.
+ * (`src/components/connect/live-run-port.ts`), and this route is the ONE place
+ * the real server actions are attached to it. The three actions go down as
+ * props; `ConnectScreen` adapts them through `createConnectLiveRunPort` and the
+ * console never learns the server's shape.
  *
- * Binding it is two lines here plus the adapter's two structural action types:
- *
- *   const livePort = createConnectLiveRunPort({ start: startLiveRun, readState: readLiveRunState });
- *   return <ConnectScreen livePort={livePort} ... />;
+ * The actions are passed rather than imported by the client component because
+ * `@/app/actions/live-run` is a `'use server'` module: importing it from the
+ * browser bundle is not a thing, and a Server Component handing an action down
+ * as a prop is how Next intends the boundary to be crossed. None of them takes a
+ * `userId` — the account is read from the session on the server, so the browser
+ * cannot name an account at all.
  */
 export default async function ConnectPage() {
   const user = await getUser();
@@ -50,6 +51,11 @@ export default async function ConnectPage() {
       signedIn={user !== null}
       sampleRunIds={sampleRunIds}
       sampleProvenance={SAMPLE_VERDICT_PROVENANCE}
+      liveActions={{
+        start: startLiveRun,
+        status: getLiveRunStatus,
+        finish: finishLiveRun,
+      }}
     />
   );
 }
