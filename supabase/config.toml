@@ -265,6 +265,23 @@ otp_expiry = 3600
 # subject = "You have been invited"
 # content_path = "./supabase/templates/invite.html"
 
+# THE LOCAL STACK MUST EMAIL A CODE, because that is the only thing the sign-in
+# form accepts. The CLI's stock templates carry a confirmation link and no
+# `{{ .Token }}` at all, so a from-scratch local stack cannot complete a sign-in
+# the app itself can drive: the code step appears, the mailbox holds a link, and
+# nothing a human could type is anywhere in the message. The hosted project's
+# templates are already code-only (no clickable link, by design - a link and a
+# typed code share one token, so a scanner that pre-fetches the URL spends both).
+# These two entries make local match that. Both point at one file because the
+# first code an account receives and every code after it say the same thing.
+[auth.email.template.confirmation]
+subject = "Your MCPwn sign-in code"
+content_path = "./supabase/templates/sign-in-code.html"
+
+[auth.email.template.magic_link]
+subject = "Your MCPwn sign-in code"
+content_path = "./supabase/templates/sign-in-code.html"
+
 # Uncomment to customize notification email template
 # [auth.email.notification.password_changed]
 # enabled = true

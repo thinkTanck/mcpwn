@@ -1,0 +1,19 @@
+<!--
+  The sign-in email for the LOCAL Supabase stack.
+
+  MCPwn's sign-in is code-only by design: the email carries a one-time code and
+  no clickable link, because a link and a typed code share one token, so a
+  corporate scanner that pre-fetches the URL spends it and breaks the code too.
+  The hosted project's templates are configured that way. The CLI's stock local
+  templates are NOT - they carry a confirmation link and no code at all - so a
+  from-scratch local stack could not complete a sign-in the app's own form can
+  drive. This file closes that gap, for local development and for the
+  authenticated axe scan in CI.
+
+  Used for both the first code an account ever receives (confirmation) and every
+  code after it (magic link), because they say the same thing.
+-->
+<h2>Your MCPwn sign-in code</h2>
+<p>Enter this code on the sign-in screen:</p>
+<p><strong>{{ .Token }}</strong></p>
+<p>It expires shortly. If you did not ask for it, nothing happens when you ignore it.</p>
