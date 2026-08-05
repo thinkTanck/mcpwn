@@ -31,6 +31,11 @@
  * both cost more than it saves and refuse an agent halfway through a session it
  * was already granted.
  *
+ * Both gate calls treat a THROWN preflight the same way they treat a returned
+ * refusal: the run stops. The gate throws when the store it counts against is
+ * unreachable, which is a different fact from "you are out of runs" and gets its
+ * own code, but an unreadable spend control is never a granted one.
+ *
  * ── THE LEAKAGE BARRIER ──
  *
  * A live run is UNLABELED. There is no `GroundTruth` here, none is synthesized,
@@ -105,10 +110,18 @@ const RETRY_CAP_MS = 2_000;
  * The first two are the preflight gates and are RELAYED, not decided here: this
  * module never counts an allowance or reads a spend cap, so it cannot drift from
  * whatever `src/runs/preflight.ts` decides.
+ *
+ * `GATE_UNAVAILABLE` is the third thing a gate can do. `checkLiveRunPreflight`
+ * REFUSES by returning, but it THROWS when the store it counts against is
+ * unreachable, deliberately: "we could not read your allowance" is not "you are
+ * out of runs", and answering the first with the second would be a lie in
+ * whichever direction it fell. So the throw is caught here and named separately,
+ * and it fails CLOSED like every other refusal.
  */
 export type LiveRunErrorCode =
   | 'ALLOWANCE_EXHAUSTED'
   | 'SPEND_CAP_REACHED'
+  | 'GATE_UNAVAILABLE'
   | 'INVALID_REQUEST'
   | 'DETECTION_UNAVAILABLE'
   | 'DETECTION_FAILED'
@@ -126,6 +139,11 @@ export class LiveRunError extends Error {
     this.code = code;
   }
 }
+
+/** The gate could not be read, so nothing was granted. Fails closed. */
+export const GATE_UNAVAILABLE_MESSAGE =
+  'We could not check your run allowance just now, so this run did not go ahead. ' +
+  'Please try again in a moment.';
 
 /** Live detection is off, and sample playback is the path that still works. */
 export const DETECTION_UNAVAILABLE_MESSAGE =
@@ -315,6 +333,30 @@ export function createLiveRunHost(deps: LiveRunHostDeps): LiveRunHost {
   const sleep = deps.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
   const { logger } = deps;
 
+  /**
+   * Ask the gate, and treat BOTH of its negative answers as a refusal.
+   *
+   * A returned refusal is a decision the gate made. A THROWN error is the gate
+   * being unable to decide (its store is unreachable), and the safe reading of an
+   * unreadable spend control is not "granted": it is the same closed door with a
+   * different sentence on it. Neither leaves anything half-created, because this
+   * runs before the token on one side and before the judge on the other.
+   */
+  async function gate(userId: string, at: Date): Promise<LiveRunDecision<null>> {
+    let decision: Awaited<ReturnType<LiveRunPreflight>>;
+    try {
+      decision = await deps.preflight({ userId, now: at });
+    } catch (cause) {
+      logger?.error('live run gate could not be read', { userId });
+      return fail('GATE_UNAVAILABLE', GATE_UNAVAILABLE_MESSAGE, { cause });
+    }
+    if (!decision.allowed) {
+      logger?.info('live run refused', { userId, code: decision.refusal.code });
+      return fail(decision.refusal.code, decision.refusal.message);
+    }
+    return { ok: true, value: null };
+  }
+
   /** The owner's own session, or nothing. Another account gets the same nothing. */
   function ownedSession(runId: string, userId: string): LiveRunSession | undefined {
     const session = sessions.get(runId);
@@ -362,11 +404,8 @@ export function createLiveRunHost(deps: LiveRunHostDeps): LiveRunHost {
       const at = now();
 
       // GATE 1 — before anything is issued, hosted or spent.
-      const decision = await deps.preflight({ userId, now: at });
-      if (!decision.allowed) {
-        logger?.info('live run refused', { userId, code: decision.refusal.code });
-        return fail(decision.refusal.code, decision.refusal.message);
-      }
+      const gated = await gate(userId, at);
+      if (!gated.ok) return gated;
 
       // Refuse EARLY when there is no judge: inviting an agent to work a scenario
       // we could never judge would waste the user's inference, not just ours.
@@ -472,10 +511,10 @@ export function createLiveRunHost(deps: LiveRunHostDeps): LiveRunHost {
       await deps.tokens.endRun(runId, at);
 
       // GATE 2 — before the judge, which is the only thing left that spends.
-      const decision = await deps.preflight({ userId, now: at });
-      if (!decision.allowed) {
-        logger?.info('live run paused at the judge gate', { runId, code: decision.refusal.code });
-        return fail(decision.refusal.code, decision.refusal.message);
+      const gated = await gate(userId, at);
+      if (!gated.ok) {
+        logger?.info('live run paused at the judge gate', { runId, code: gated.error.code });
+        return gated;
       }
 
       const detector = deps.resolveDetector();

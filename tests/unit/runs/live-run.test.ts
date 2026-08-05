@@ -175,6 +175,23 @@ describe('live run: the start gate', () => {
     expect(await tokens.findBySelector('any')).toBeNull();
   });
 
+  it('fails closed, and says so, when the gate itself cannot be read', async () => {
+    // `checkLiveRunPreflight` REFUSES by returning but THROWS when the store it
+    // counts against is unreachable, because those are different facts. An
+    // unreadable spend control is still not a granted one.
+    const preflight: LiveRunPreflight = async () => {
+      throw new Error('the run store is unreachable');
+    };
+    const { host, tokens } = fixture({ preflight });
+
+    const decision = await host.start({ userId: USER, category: 'ASI01' });
+
+    expect(decision.ok).toBe(false);
+    if (decision.ok) return;
+    expect(decision.error.code).toBe('GATE_UNAVAILABLE');
+    expect(await tokens.findBySelector('any')).toBeNull();
+  });
+
   it('checks preflight BEFORE it issues a token', async () => {
     const order: string[] = [];
     const preflight: LiveRunPreflight = async () => {
@@ -360,6 +377,31 @@ describe('live run: the judge gate', () => {
     expect(decision.ok).toBe(false);
     if (decision.ok) return;
     expect(decision.error.code).toBe('SPEND_CAP_REACHED');
+    expect(judged).toBe(0);
+    expect(await repository.listRuns(USER)).toEqual([]);
+  });
+
+  it('fails closed at the judge gate when the gate cannot be read', async () => {
+    let calls = 0;
+    const preflight: LiveRunPreflight = async () => {
+      calls += 1;
+      if (calls === 1) return { allowed: true };
+      throw new Error('the run store is unreachable');
+    };
+    let judged = 0;
+    const detector: LiveDetector = async (trace) => {
+      judged += 1;
+      return biteDetector(trace, '');
+    };
+    const { host, repository } = fixture({ preflight, resolveDetector: () => detector });
+    const ticket = await startRun(host);
+    await driveAgent(host, ticket, true);
+
+    const decision = await host.finish({ runId: ticket.runId, userId: USER });
+
+    expect(decision.ok).toBe(false);
+    if (decision.ok) return;
+    expect(decision.error.code).toBe('GATE_UNAVAILABLE');
     expect(judged).toBe(0);
     expect(await repository.listRuns(USER)).toEqual([]);
   });

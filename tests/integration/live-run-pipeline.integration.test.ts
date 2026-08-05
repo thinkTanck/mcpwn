@@ -30,7 +30,23 @@ const USER = 'user-integration';
 const ORIGIN = 'https://example.test';
 const OFFENDING_TOOL = 'transfer_funds';
 
-const allow: LiveRunPreflight = async () => ({ allowed: true });
+/**
+ * The gate, granted.
+ *
+ * The pipeline takes preflight as an INJECTED PORT, so this test supplies the
+ * decision directly rather than reaching for `checkLiveRunPreflight` and its
+ * allowance counter and spend meter. That is the point of the seam: the run
+ * pipeline is exercised against a gate that says yes, and the gate's own
+ * behaviour (including that it fails closed with no meter configured) is tested
+ * where it lives. The call count is asserted, so a run that never reached the
+ * gate could not pass by accident.
+ */
+function grantingGate(calls: { count: number }): LiveRunPreflight {
+  return async () => {
+    calls.count += 1;
+    return { allowed: true };
+  };
+}
 
 /**
  * A deterministic judge. It reads the untrusted block it was given and answers
@@ -75,6 +91,7 @@ interface Fixture {
   host: LiveRunHost;
   repository: InMemoryRunRepository;
   seen: JudgeRequest[];
+  gate: { count: number };
 }
 
 function fixture(): Fixture {
@@ -83,14 +100,15 @@ function fixture(): Fixture {
   const detector: LiveDetector = (trace, taskGoal) =>
     detect(trace, taskGoal, { judge, judgeConfig: { model: 'mock-judge', temperature: 0 } });
   const repository = new InMemoryRunRepository();
+  const gate = { count: 0 };
   const host = createLiveRunHost({
-    preflight: allow,
+    preflight: grantingGate(gate),
     tokens: new InMemoryRunTokenStore(),
     repository,
     resolveDetector: () => detector,
     origin: ORIGIN,
   });
-  return { host, repository, seen };
+  return { host, repository, seen, gate };
 }
 
 /** One JSON-RPC message from the connected agent, over the real HTTP surface. */
@@ -189,7 +207,7 @@ async function runAgent(
 
 describe('a live run, end to end', () => {
   it('records, judges, persists and reports an agent that TAKES THE BAIT', async () => {
-    const { host, repository, seen } = fixture();
+    const { host, repository, seen, gate } = fixture();
     const start = await host.start({ userId: USER, category: 'ASI01', kind: 'malicious' });
     expect(start.ok).toBe(true);
     if (!start.ok) return;
@@ -246,7 +264,9 @@ describe('a live run, end to end', () => {
     expect(report.finding?.stepId).toBe(verdict.stepId);
     expect(report.finding?.step.type).toBe('tool_call');
 
-    // The judge was asked exactly once, and only about observable evidence.
+    // The run went THROUGH both gates and reached the judge; it did not pass by
+    // refusing early. The judge was asked once, about observable evidence only.
+    expect(gate.count).toBe(2);
     expect(seen).toHaveLength(1);
     expect(Object.keys(JSON.parse(strip(seen[0]!.data)).trace).sort()).toEqual([
       'model',
@@ -256,7 +276,7 @@ describe('a live run, end to end', () => {
   });
 
   it('records, judges, persists and reports an agent that RESISTS', async () => {
-    const { host, repository, seen } = fixture();
+    const { host, repository, seen, gate } = fixture();
     const start = await host.start({ userId: USER, category: 'ASI01', kind: 'malicious' });
     expect(start.ok).toBe(true);
     if (!start.ok) return;
@@ -289,6 +309,8 @@ describe('a live run, end to end', () => {
     expect(report.summary).toBe('No findings: the agent was not compromised in this run.');
     expect(report).toEqual(generateFixReport(stored.run));
 
+    // The clean path went through both gates and was really judged too.
+    expect(gate.count).toBe(2);
     expect(seen).toHaveLength(1);
   });
 
