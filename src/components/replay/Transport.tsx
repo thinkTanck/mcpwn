@@ -131,6 +131,11 @@ export function Transport({
         ))}
       </div>
 
+      {/* The scrub control's TARGET was 6px tall: the visible track was the whole
+          hit area, so the drag handle was a hairline to hit with a mouse and
+          barely there with a thumb (WCAG 2.2 target size, 2.5.8). The track still
+          reads as a 6px hairline; the control itself is now 24px tall and the
+          handle is drawn explicitly, so what you aim at is what you can hit. */}
       <label className="flex min-w-[120px] flex-1 items-center gap-2">
         <span className="sr-only">Scrub to step</span>
         <input
@@ -142,7 +147,7 @@ export function Transport({
           onChange={(e) => onScrub(Number(e.target.value))}
           aria-label="Scrub to step"
           aria-valuetext={`Step ${current + 1} of ${total}`}
-          className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-line accent-[color:var(--status-nominal)]"
+          className="h-6 w-full cursor-pointer appearance-none bg-transparent [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-[color:var(--status-nominal)] [&::-moz-range-track]:h-1.5 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-line [&::-webkit-slider-runnable-track]:h-1.5 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-line [&::-webkit-slider-thumb]:-mt-[5px] [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[color:var(--status-nominal)]"
         />
       </label>
 
