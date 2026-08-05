@@ -74,6 +74,9 @@ const SCREENS: Screen[] = [
       await expect(page.getByRole('region', { name: 'Step detail' })).toBeVisible();
       // The fix-report off-ramp the verdict offers.
       await expect(page.getByRole('link', { name: 'Export fix report' })).toBeVisible();
+      // The sample verdict never travels without its label, and the label never
+      // implies a captured live agent.
+      await expect(page.getByText(/constructed demonstration/)).toBeVisible();
     },
   },
   {

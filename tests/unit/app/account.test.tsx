@@ -42,4 +42,16 @@ describe('Account page (gated · your runs)', () => {
     expect(screen.getByText('COMPROMISED')).toBeInTheDocument();
     expect(screen.queryByText(/no runs yet/i)).not.toBeInTheDocument();
   });
+
+  it('opens each run in the replay, by its ROW id (the address a run is fetched by)', async () => {
+    const run = await getDataSource().getRun('sample');
+    if (!run) throw new Error('sample run missing');
+    asUser();
+    withRuns([{ id: 'r1', userId: 'u1', createdAt: '2026-01-01T00:00:00Z', run }]);
+    render(await AccountPage());
+
+    // A stored run the user cannot open is a run that was persisted for nobody.
+    // The row id is the link, not `RunResult.runId` (which is not unique per user).
+    expect(screen.getByRole('link', { name: /replay/i })).toHaveAttribute('href', '/runs/r1');
+  });
 });

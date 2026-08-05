@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
-import { getDataSource } from '@/data/source';
-import { Replay } from '@/components/replay';
+import { resolveRun } from '@/data/run-view';
+import { Replay, ReplayEmpty } from '@/components/replay';
 
 export const metadata: Metadata = {
   title: 'Live Attack Replay · MCPwn',
@@ -11,36 +10,19 @@ export const metadata: Metadata = {
 
 /**
  * Live Attack Replay (route `/runs/[id]`, register: PRODUCT, the hero). Server
- * component: resolves the run through the DataSource and hands the observable
- * RunResult to the client Replay. Falls back to the curated sample so a
- * leaderboard drill-down or a stale link never 404s.
+ * component: resolves the run through `resolveRun` and hands the observable
+ * `RunResult` to the client Replay, along with the provenance of its verdict.
+ *
+ * TWO KINDS OF RUN reach this screen through one door. The sample is the no-key
+ * demonstration and needs no sign-in; anything else is one of the signed-in
+ * user's own PERSISTED runs, read owner-scoped through the repository port. An id
+ * that is neither renders a labelled empty state. It used to fall back to the
+ * sample, which would show a stranger a constructed demonstration under their own
+ * run id.
  */
 export default async function RunReplay({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const ds = getDataSource();
-  const run = (await ds.getRun(id)) ?? (await ds.getRun('sample'));
-
-  if (!run) {
-    return (
-      <section
-        aria-label="Live Attack Replay"
-        className="mx-auto max-w-[720px] px-6 py-16 text-center"
-      >
-        <p className="micro-label text-nominal">Live Attack Replay</p>
-        <h1 className="reading-h2 mt-3">No run to replay.</h1>
-        <p className="reading mt-3 text-ink-muted">
-          There is no run for <span className="font-mono text-readout">{id}</span>. Try the sample
-          run.
-        </p>
-        <Link
-          href="/runs/sample"
-          className="mt-6 inline-flex items-center gap-2 rounded-md border border-nominal bg-nominal/10 px-5 py-2.5 font-mono text-[14px] tracking-[0.06em] text-readout shadow-glow-nominal"
-        >
-          Play the sample run
-        </Link>
-      </section>
-    );
-  }
-
-  return <Replay run={run} />;
+  const view = await resolveRun(id);
+  if (!view) return <ReplayEmpty id={id} />;
+  return <Replay run={view.run} provenance={view.provenance} />;
 }
