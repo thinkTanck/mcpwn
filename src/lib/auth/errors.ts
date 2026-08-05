@@ -22,8 +22,25 @@ export interface AuthErrorLike {
 
 const WRONG_OR_EXPIRED_CODE =
   'That code is incorrect or has expired. Enter the newest one, or resend a new code.';
-const RATE_LIMITED = 'Too many attempts. Wait about a minute, then try again.';
-const BAD_EMAIL = 'That email address was rejected. Check it and try again.';
+
+/**
+ * The ONE sentence a rate-limited sign-in ever sees, wherever the limit came
+ * from. Exported because our own limiter (`./otp-rate-limit.ts`) states it too:
+ * if a local refusal and a provider refusal read differently, the difference is
+ * itself a signal about which control tripped, and about the address that
+ * tripped it. One sentence, no numbers, no address, no bucket.
+ */
+export const RATE_LIMITED_MESSAGE = 'Too many attempts. Wait about a minute, then try again.';
+
+const RATE_LIMITED = RATE_LIMITED_MESSAGE;
+/**
+ * Exported for the same reason as {@link RATE_LIMITED_MESSAGE}: our own sign-in
+ * path refuses an unusable address before the provider ever sees it, and the two
+ * refusals must read identically or the difference is a signal in itself.
+ */
+export const BAD_EMAIL_MESSAGE = 'That email address was rejected. Check it and try again.';
+
+const BAD_EMAIL = BAD_EMAIL_MESSAGE;
 const UNAVAILABLE = 'Email sign-in is unavailable right now. Try again later.';
 const LAST_RESORT = 'Something went wrong. Try again in a moment.';
 

@@ -3,9 +3,17 @@
  *
  * Emits exactly one JSON line per call — `{ level, msg, timestamp, ctx }` — via
  * an injectable sink, with an injectable clock so tests are deterministic.
- * Sensitive context values are redacted by key before serialization so secrets
- * never reach the log sink (12-factor / no-secret-leakage).
+ *
+ * REDACTION IS SHARED, NOT LOCAL. Both the message and the whole context tree go
+ * through `@/lib/redact` before serialization, so a secret is removed whether it
+ * arrives under a telling key (`token`), at any depth, inside an Error, or
+ * interpolated into the message text where no key names it at all. This module
+ * used to carry its own top-level key filter; it was the only redaction in the
+ * codebase and it saw only the first level of one object.
+ * `tests/unit/lib/secret-leakage.guard.test.ts` is the guard that keeps this
+ * true for code not yet written.
  */
+import { redactSecrets, redactString } from '@/lib/redact';
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
@@ -34,28 +42,6 @@ export interface Logger {
   error(msg: string, ctx?: LogContext): void;
 }
 
-const REDACTED = '[REDACTED]';
-
-/**
- * Case-insensitive match on keys that conventionally hold secrets. Covers
- * password, token, secret, apiKey / api_key, authorization, auth, and
- * credential(s).
- */
-const SENSITIVE_KEY = /^(password|token|secret|api[_]?key|authorization|auth|credentials?)$/i;
-
-function isSensitiveKey(key: string): boolean {
-  return SENSITIVE_KEY.test(key);
-}
-
-/** Return a shallow copy of `ctx` with sensitive top-level values redacted. */
-function redact(ctx: LogContext): LogContext {
-  const out: LogContext = {};
-  for (const [key, value] of Object.entries(ctx)) {
-    out[key] = isSensitiveKey(key) ? REDACTED : value;
-  }
-  return out;
-}
-
 /** Create a logger bound to the given clock and sink. */
 export function createLogger(options: LoggerOptions = {}): Logger {
   const now = options.now ?? (() => new Date());
@@ -64,9 +50,9 @@ export function createLogger(options: LoggerOptions = {}): Logger {
   const emit = (level: LogLevel, msg: string, ctx?: LogContext): void => {
     const record: LogRecord = {
       level,
-      msg,
+      msg: redactString(msg),
       timestamp: now().toISOString(),
-      ctx: redact(ctx ?? {}),
+      ctx: redactSecrets(ctx ?? {}) as LogContext,
     };
     sink(JSON.stringify(record));
   };

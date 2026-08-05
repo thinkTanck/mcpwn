@@ -1,6 +1,8 @@
 import { requestEmailCode, verifyEmailCode } from '@/lib/auth/actions';
 import { createServerSupabase, createOtpSenderSupabase } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
+import { OTP_RATE_LIMIT, otpRateLimitStore } from '@/lib/auth/otp-rate-limit';
+import { BAD_EMAIL_MESSAGE, RATE_LIMITED_MESSAGE } from '@/lib/auth/errors';
 
 vi.mock('next/headers', () => ({
   headers: async () => ({
@@ -19,7 +21,12 @@ const mockVerify = (verifyOtp: ReturnType<typeof vi.fn>) =>
   vi.mocked(createServerSupabase).mockResolvedValue({ auth: { verifyOtp } } as never);
 
 describe('requestEmailCode (email OTP request)', () => {
-  beforeEach(() => vi.clearAllMocks());
+  // The limiter is process-wide state by design (a per-request one would count
+  // every request as the first), so each test starts from an empty count.
+  beforeEach(() => {
+    vi.clearAllMocks();
+    otpRateLimitStore.reset();
+  });
 
   it('is inert (ok:false) when auth is not configured', async () => {
     vi.mocked(createOtpSenderSupabase).mockReturnValue(null);
@@ -69,6 +76,59 @@ describe('requestEmailCode (email OTP request)', () => {
     const res = await requestEmailCode('a@b.com');
     expect(res).toMatchObject({ ok: false });
     expect(res.ok === false && res.error).toMatch(/too many|wait/i);
+  });
+
+  /**
+   * The abuse backstop from ADR-0007. It bounds nothing about spend (the
+   * lifetime allowance does that); it makes minting accounts cost time, which is
+   * what a lifetime allowance needs to mean anything.
+   */
+  it('stops sending once an address has had its share, without calling the provider', async () => {
+    const otp = vi.fn().mockResolvedValue({ error: null });
+    mockOtp(otp);
+    for (let i = 0; i < OTP_RATE_LIMIT.email.limit; i += 1) await requestEmailCode('a@b.com');
+    const sentSoFar = otp.mock.calls.length;
+
+    const res = await requestEmailCode('a@b.com');
+
+    expect(res.ok).toBe(false);
+    expect(otp).toHaveBeenCalledTimes(sentSoFar);
+  });
+
+  /**
+   * A local refusal and a provider refusal must read the same, or the difference
+   * is itself a signal about which control tripped and about the address that
+   * tripped it.
+   */
+  it('states a local rate limit in the same words as the provider rate limit', async () => {
+    mockOtp(vi.fn().mockResolvedValue({ error: null }));
+    for (let i = 0; i < OTP_RATE_LIMIT.email.limit; i += 1) await requestEmailCode('a@b.com');
+
+    const res = await requestEmailCode('a@b.com');
+
+    expect(res.ok === false && res.error).toBe(RATE_LIMITED_MESSAGE);
+  });
+
+  it('never names the address, the bucket or the count when it refuses', async () => {
+    mockOtp(vi.fn().mockResolvedValue({ error: null }));
+    for (let i = 0; i < OTP_RATE_LIMIT.email.limit; i += 1) await requestEmailCode('a@b.com');
+
+    const res = await requestEmailCode('a@b.com');
+    const wire = res.ok === false ? res.error : '';
+
+    expect(wire).not.toContain('a@b.com');
+    expect(wire).not.toContain('email');
+    expect(wire).not.toMatch(/\d+\s*(minutes?|requests?)/i);
+  });
+
+  it('refuses an unusable address before the provider is asked', async () => {
+    const otp = vi.fn().mockResolvedValue({ error: null });
+    mockOtp(otp);
+
+    const res = await requestEmailCode(`${'x'.repeat(400)}@b.com`);
+
+    expect(res).toEqual({ ok: false, error: BAD_EMAIL_MESSAGE });
+    expect(otp).not.toHaveBeenCalled();
   });
 
   /** The raw `{}` that reached /sign-in: auth-js JSON.stringifies an empty body. */
