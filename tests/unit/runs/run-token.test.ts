@@ -313,6 +313,34 @@ describe('verifyRunToken — the full lifecycle: issue, verify, expire with the 
     expect(longAfter.valid).toBe(false);
   });
 
+  /**
+   * A one-sided trim would refuse a genuinely correct token over invisible
+   * whitespace: issuing with `' run-1 '` stores `'run-1'`, and checking with the
+   * same string would compare unequal. Both ends share one normalization.
+   */
+  it('normalizes the ids identically at issue and at check, so padding cannot refuse its own token', async () => {
+    const store = new InMemoryRunTokenStore();
+    const { token } = await issued(store, { runId: ' run-1 ', userId: ' user-1 ' });
+
+    const padded = await verifyRunToken({
+      store,
+      presented: token,
+      runId: '  run-1  ',
+      userId: 'user-1 ',
+      now: T0,
+    });
+    const bare = await verifyRunToken({
+      store,
+      presented: token,
+      runId: RUN,
+      userId: USER,
+      now: T0,
+    });
+
+    expect(padded.valid).toBe(true);
+    expect(bare.valid).toBe(true);
+  });
+
   it('falls back to the wall clock when no instant is injected', async () => {
     const store = new InMemoryRunTokenStore();
     const { token } = await issued(store, { now: new Date(), ttlMs: minutes(10) });

@@ -299,10 +299,11 @@ export class InMemoryRunTokenStore implements RunTokenStore {
 
 // ── Issue ──
 
-const IssueSchema = z.object({
-  runId: z.string().trim().min(1),
-  userId: z.string().trim().min(1),
-});
+// Both ids go through the SAME normalization verification applies (see
+// `normalizeId`), so the two ends cannot drift apart.
+const BoundIdSchema = z.string().transform(normalizeId).pipe(z.string().min(1));
+
+const IssueSchema = z.object({ runId: BoundIdSchema, userId: BoundIdSchema });
 
 export interface IssueRunTokenInput {
   /** The one run this token opens. */
@@ -332,6 +333,21 @@ export interface IssuedRunToken {
 /** Hex digest of the verifier. See the hash reasoning at the top of the file. */
 function digest(verifier: string): string {
   return createHash(RUN_TOKEN_HASH_ALGORITHM).update(verifier).digest('hex');
+}
+
+/**
+ * The ONE normalization the run and account ids get, applied identically when a
+ * token is issued and when it is checked.
+ *
+ * It exists because a one-sided trim is a trap: issuing with `' run-1 '` would
+ * store `'run-1'`, and checking with the same `' run-1 '` would then compare
+ * unequal and refuse a token that is genuinely correct. That fails CLOSED, so it
+ * is not a hole, but a credential that rejects its own owner over invisible
+ * whitespace is a bug either way. Both ends go through here so the comparison is
+ * symmetric by construction rather than by discipline.
+ */
+function normalizeId(id: string): string {
+  return id.trim();
 }
 
 /**
@@ -476,8 +492,8 @@ export async function verifyRunToken(query: VerifyRunTokenQuery): Promise<RunTok
   // Both bindings are checked independently. A token satisfying one and not the
   // other means issuance is broken, and the safe reading of a broken invariant is
   // to refuse rather than to trust whichever half agreed.
-  if (record.runId !== query.runId) return refuse('WRONG_RUN');
-  if (record.userId !== query.userId) return refuse('WRONG_ACCOUNT');
+  if (record.runId !== normalizeId(query.runId)) return refuse('WRONG_RUN');
+  if (record.userId !== normalizeId(query.userId)) return refuse('WRONG_ACCOUNT');
 
   // Axis 1: the run ended. A recorded end is final; there is no clock reading
   // that un-ends a run, so this does not consult `now` at all.
