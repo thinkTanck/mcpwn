@@ -250,6 +250,11 @@ export function LeaderboardHeatmap({
         </div>
       </div>
 
+      {/* TELEMETRY, kept at INSTRUMENT. A legend, not prose: a source-to-destination
+          mapping with no finite verb, scanned alongside the grid rather than read as a
+          sentence. That is the "cue" case the role covers, so it is NOT the blocked
+          prose-in-INSTRUMENT pattern. Adjudicated; do not re-litigate. See
+          tests/unit/app/type-roles.test.ts. */}
       <p className="micro-label mt-3.5">Cell → its run in Live Attack Replay</p>
     </figure>
   );
