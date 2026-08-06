@@ -280,9 +280,23 @@ describe('createRunTableSpendMeter — the global count over public.runs', () =>
     expect(seen.value).toBe(since.toISOString());
   });
 
-  it('treats an absent count as zero rows, which is what an empty table returns', async () => {
+  /**
+   * MEASURED, NOT ASSUMED. An empty table does NOT answer `null`: PostgREST
+   * returns `count: 0` with status 200, which was checked against the real
+   * project (`npm run verify:durable-stores`, section 0). A `null` count means
+   * the number is UNKNOWN, and the case that produced it there was a HEAD
+   * request against a missing table, which supabase-js reports as status 204
+   * with `error: null` — a failed read wearing the shape of an empty one.
+   *
+   * This test used to assert the opposite, and that assertion was the hole: a
+   * meter that reads "nothing spent this period" off an unreadable table is the
+   * open tap `checkGlobalSpendCap` exists to close.
+   */
+  it('refuses to call an UNKNOWN count zero, because that reads as no spend', async () => {
     const { client } = fakeClient({ count: null, error: null });
-    expect(await createRunTableSpendMeter(client).countRunsSince(new Date(0))).toBe(0);
+    await expect(createRunTableSpendMeter(client).countRunsSince(new Date(0))).rejects.toThrow(
+      /count/i,
+    );
   });
 
   /**

@@ -192,6 +192,12 @@ export async function checkGlobalSpendCap(
  * A query error THROWS rather than answering zero. Answering zero would report
  * "nothing spent this period" for a failed read, which is the open tap
  * `checkGlobalSpendCap` fails closed against; throwing lets it refuse.
+ *
+ * An UNKNOWN count throws for the same reason. An empty table answers 0, so a
+ * `null` count is not "no rows", it is "no number" — and a HEAD request against
+ * a table PostgREST cannot see returns exactly that, with `error: null`. This
+ * meter used to read that as zero, which meant an unreadable meter reported a
+ * spotless month.
  */
 export function createRunTableSpendMeter(client: SupabaseClient): SpendMeter {
   return {
@@ -201,7 +207,10 @@ export function createRunTableSpendMeter(client: SupabaseClient): SpendMeter {
         .select('id', { count: 'exact', head: true })
         .gte('created_at', since.toISOString());
       if (error) throw new Error(`spend meter read failed: ${error.message}`);
-      return count ?? 0;
+      if (count === null || count === undefined) {
+        throw new Error('spend meter read failed: the count came back unknown.');
+      }
+      return count;
     },
   };
 }
