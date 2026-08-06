@@ -2,7 +2,15 @@
   "ci": {
     "collect": {
       "startServerCommand": "npm run start",
-      "url": ["http://localhost:3000/"],
+      "url": [
+        "http://localhost:3000/",
+        "http://localhost:3000/sign-in",
+        "http://localhost:3000/connect",
+        "http://localhost:3000/runs/sample",
+        "http://localhost:3000/findings/sample",
+        "http://localhost:3000/leaderboard",
+        "http://localhost:3000/threats"
+      ],
       "numberOfRuns": 5,
       "settings": {
         "throttlingMethod": "devtools"

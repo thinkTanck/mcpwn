@@ -21,7 +21,24 @@ max_rows = 1000
 # without explicit GRANTs. When unset, new entities are NOT auto-exposed, matching the new cloud
 # default. Set to `true` to keep the legacy behaviour of auto-exposing new entities; this is
 # deprecated and the field is removed on 2026-10-30 once the always-revoked behaviour is permanent.
-# auto_expose_new_tables = true
+#
+# SET ON, DELIBERATELY, BECAUSE THE MIGRATIONS ARE WRITTEN FOR IT. Every closed
+# table in `migrations/` creates itself and then REVOKES from `anon` and
+# `authenticated`, which presumes there is a grant to revoke. Left unset, the
+# local stack creates those tables with no grants at all: the revokes become
+# no-ops, and every server-side read fails with a permission error instead. That
+# failure is invisible and misleading rather than loud — the OTP rate limiter
+# fails closed on a store it cannot read, so a first sign-in attempt on a
+# completely empty stack is refused with "Too many attempts", which is the one
+# thing it is not. Found by the authenticated axe scan in CI (`.github/workflows/
+# ci.yml`), which is the first thing in this repo to drive real sign-in against a
+# from-scratch stack.
+#
+# The field is deprecated and goes away on 2026-10-30. When it does, the grants
+# the migrations assume have to become explicit `grant ... to service_role` (and
+# to `authenticated` for the RLS-scoped `runs` table) inside the migrations
+# themselves. Tracked in plan.md as the L27 caveat.
+auto_expose_new_tables = true
 
 [api.tls]
 # Enable HTTPS endpoints locally using a self-signed certificate.
@@ -247,6 +264,23 @@ otp_expiry = 3600
 # [auth.email.template.invite]
 # subject = "You have been invited"
 # content_path = "./supabase/templates/invite.html"
+
+# THE LOCAL STACK MUST EMAIL A CODE, because that is the only thing the sign-in
+# form accepts. The CLI's stock templates carry a confirmation link and no
+# `{{ .Token }}` at all, so a from-scratch local stack cannot complete a sign-in
+# the app itself can drive: the code step appears, the mailbox holds a link, and
+# nothing a human could type is anywhere in the message. The hosted project's
+# templates are already code-only (no clickable link, by design - a link and a
+# typed code share one token, so a scanner that pre-fetches the URL spends both).
+# These two entries make local match that. Both point at one file because the
+# first code an account receives and every code after it say the same thing.
+[auth.email.template.confirmation]
+subject = "Your MCPwn sign-in code"
+content_path = "./supabase/templates/sign-in-code.html"
+
+[auth.email.template.magic_link]
+subject = "Your MCPwn sign-in code"
+content_path = "./supabase/templates/sign-in-code.html"
 
 # Uncomment to customize notification email template
 # [auth.email.notification.password_changed]
