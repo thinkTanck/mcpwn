@@ -144,10 +144,19 @@ export function ConnectScreen({
     <div className="type-flow mx-auto max-w-[1440px] px-6 py-10">
       <p className="micro-label mb-2.5 tracking-[0.18em] text-nominal">CONNECT / RUN</p>
       <h1 className="reading-h2 mb-2.5">Set up a red-team run.</h1>
-      <p className="reading-lead mb-7 max-w-[68ch]">
+      <p className="reading-lead mb-4 max-w-[68ch]">
         Watch a recorded sample, or run live: you point your own MCP agent at an endpoint we host,
         and we record every tool call it chooses to make. The same fixed, blind detector judges
         either trace.
+      </p>
+      {/* WHAT COMES BACK, both ways round, before anything is set up. Stated here
+          because a console that only ever describes the compromise path teaches the
+          reader that a clean run is a non-result. It is the other half of the
+          measurement, and it is what the leaderboard is made of. */}
+      <p className="reading mb-7 max-w-[68ch] text-ink-muted">
+        The verdict comes back one of two ways: a compromise anchored to the step it happened at,
+        which becomes a fix report, or a clean run, which becomes a robustness result. We measure
+        which one you get. We do not predict it.
       </p>
 
       {/* 01 · Mode */}

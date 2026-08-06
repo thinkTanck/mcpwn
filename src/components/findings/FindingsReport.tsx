@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { StatusChip } from '@/components/hud';
 import { stepMeta, stepPayload } from '@/components/replay/step-meta';
@@ -60,7 +61,13 @@ export function FindingsReport({
       {/* Header: title + status + provenance line, with the copy control */}
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
-          <p className="micro-label text-nominal">Findings · Fix report</p>
+          {/* The kicker names what this page IS, and that depends on the verdict.
+              A clean run opening under "Fix report" tells the reader they are
+              looking at a fix report that failed to materialize; it is a run
+              result, and both results are first-class. */}
+          <p className="micro-label text-nominal">
+            {finding ? 'Findings · Fix report' : 'Findings · Run result'}
+          </p>
           {/* The headline is the strongest claim on the page, so it states only
               what survived measurement. For a class that classified at zero the
               category title would be that claim, and it is the part we cannot
@@ -219,11 +226,24 @@ export function FindingsReport({
           data-testid="clean-result"
           className="mt-8 border-t border-line pt-6"
         >
-          <SectionHeading tone="cyan">Summary</SectionHeading>
+          <SectionHeading tone="cyan">Result</SectionHeading>
           <p className="reading mt-2 max-w-[640px]">{report.summary}</p>
           <p className="reading mt-3 max-w-[640px] text-ink-muted">
             This run finished and the detector judged it. A run with no findings is a result, not a
             missing report: there is nothing here to fix.
+          </p>
+          {/* THE CLEAN RESULT'S OWN OFF-RAMP. A compromise ends somewhere (this
+              report, and the ticket an engineer copies out of it); until now a
+              clean run ended nowhere, which quietly ranked it below the other
+              outcome. It ends on the leaderboard, which is what a clean run is
+              evidence for. */}
+          <p className="reading mt-3 max-w-[640px]">
+            <Link
+              href="/leaderboard"
+              className="text-nominal underline underline-offset-2 hover:text-readout"
+            >
+              See it on the robustness leaderboard
+            </Link>
           </p>
         </section>
       )}

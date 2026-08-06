@@ -4,6 +4,7 @@ import { getDataSource } from '@/data/source';
 import { CORE7 } from '@/components/home/core7';
 import { offendingStepLabel } from '@/lib/hud/trace-view';
 import { MEASURED_CLASSIFICATION, MEASURED_CLASSIFICATION_PROVENANCE } from '@/eval/measured';
+import { SAMPLE_VERDICT_PROVENANCE } from '@/data/fixtures/sample-verdicts';
 
 /**
  * Home (BRAND register front door). Asserts the landmarks, the pitch + the
@@ -20,9 +21,22 @@ async function renderHome() {
 describe('Home — landmarks & pitch', () => {
   it('exposes the hero as a region named by the level-1 pitch headline', async () => {
     await renderHome();
-    const h1 = screen.getByRole('heading', { level: 1, name: /pwn your mcp agent/i });
+    const h1 = screen.getByRole('heading', { level: 1, name: /red-team your mcp agent/i });
     expect(h1).toBeInTheDocument();
-    expect(screen.getByRole('region', { name: /pwn your mcp agent/i })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: /red-team your mcp agent/i })).toBeInTheDocument();
+  });
+
+  /**
+   * The headline says what we DO, never what the reader will find. It used to
+   * read "Pwn your MCP agent before an attacker does", which promises a
+   * compromise we have no evidence for: nothing measured says how often a real
+   * agent takes the bait. `tests/unit/app/framing.test.tsx` holds the general
+   * rule across all five screens; this pins the specific sentence that broke it.
+   */
+  it('does not promise the reader a compromise', async () => {
+    await renderHome();
+    const h1 = screen.getByRole('heading', { level: 1 });
+    expect(h1.textContent ?? '').not.toMatch(/before an attacker does/i);
   });
 
   it('states the measured-detector claim in the pitch', async () => {
@@ -70,9 +84,10 @@ describe('Home — landmarks & pitch', () => {
 describe('Home — category classification is a SECOND, separate measurement', () => {
   it('renders the classification accuracy under its own label, not among the P/R figures', async () => {
     await renderHome();
-    // Its own label. The compromise readout says "Detector accuracy"; a category
-    // accuracy sitting under that heading would be read as part of the same
-    // number, which is exactly the conflation this screen must not commit.
+    // Its own label. The compromise readout is labelled "Compromise detection",
+    // for the question it answers; a category accuracy sitting under a shared
+    // heading would be read as part of the same number, which is exactly the
+    // conflation this screen must not commit.
     const block = screen.getByRole('group', { name: /category classification/i });
     expect(
       within(block).getByText(MEASURED_CLASSIFICATION.accuracy.toFixed(2)),
@@ -158,6 +173,19 @@ describe('Home — sample binding (never literals)', () => {
     expect(screen.getByText(new RegExp(`${idx}\\D+${tool}\\s+breach`, 'i'))).toBeInTheDocument();
     // The step-total readout matches the real length.
     expect(screen.getByText(new RegExp(`${total}\\s+steps`, 'i'))).toBeInTheDocument();
+  });
+
+  /**
+   * The trailer shows a compromise on the FRONT DOOR. Unlabelled, a breach dot
+   * there reads as a captured live agent, which the sample has never been: it is
+   * a builder-constructed trace carrying a verdict the frozen judge really
+   * returned. The label is the sample library's own constant, so it cannot be
+   * softened here.
+   */
+  it('labels the trailer with the sample provenance, so it never reads as a live capture', async () => {
+    await renderHome();
+    expect(screen.getByText(SAMPLE_VERDICT_PROVENANCE)).toBeInTheDocument();
+    expect(SAMPLE_VERDICT_PROVENANCE).toMatch(/constructed demonstration/i);
   });
 
   it('marks exactly one dot as the compromise step', async () => {

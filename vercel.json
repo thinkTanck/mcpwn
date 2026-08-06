@@ -3,6 +3,7 @@
   "framework": "nextjs",
   "buildCommand": "next build",
   "installCommand": "npm ci",
+  "crons": [{ "path": "/api/cron/reap-runs", "schedule": "0 4 * * *" }],
   "headers": [
     {
       "source": "/(.*)",

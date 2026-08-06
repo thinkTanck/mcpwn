@@ -118,6 +118,47 @@ describe('InMemoryLiveRunSessionStore — the offline/test adapter', () => {
   });
 });
 
+/**
+ * `findStale` is what lets a scheduled job finish a run its owner walked away
+ * from. It answers with the runs that are OPEN and whose whole window has passed
+ * — the token TTL plus the grace after it, both already baked into `expiresAt`
+ * when the run was created, so the query invents no clock of its own.
+ */
+describe('InMemoryLiveRunSessionStore — finding the runs nobody closed', () => {
+  it('answers with an open run whose window has passed', async () => {
+    const store = new InMemoryLiveRunSessionStore();
+    await store.create(newSession());
+
+    const stale = await store.findStale(new Date('2026-08-05T12:00:00.000Z'));
+
+    expect(stale).toEqual([{ runId: 'run-1', userId: 'user-1', expiresAt: EXPIRY.toISOString() }]);
+  });
+
+  it('leaves a run whose window has not passed, so a working user is never cut off', async () => {
+    const store = new InMemoryLiveRunSessionStore();
+    await store.create(newSession());
+
+    expect(await store.findStale(new Date('2026-08-05T10:30:00.000Z'))).toEqual([]);
+  });
+
+  it('leaves a run that has already been claimed for finishing', async () => {
+    const store = new InMemoryLiveRunSessionStore();
+    await store.create(newSession());
+    await store.finish('run-1', new Date('2026-08-05T10:30:00.000Z'));
+
+    expect(await store.findStale(new Date('2026-08-05T12:00:00.000Z'))).toEqual([]);
+  });
+
+  it('bounds one answer, so a backlog is drained over passes rather than in one', async () => {
+    const store = new InMemoryLiveRunSessionStore();
+    await store.create(newSession());
+    await store.create(newSession({ runId: 'run-2' }));
+    await store.create(newSession({ runId: 'run-3' }));
+
+    expect(await store.findStale(new Date('2026-08-05T12:00:00.000Z'), 2)).toHaveLength(2);
+  });
+});
+
 describe('LiveRunSessionRecordSchema — rows come back from a database as unknowns', () => {
   it('accepts a well-formed record', () => {
     const parsed = LiveRunSessionRecordSchema.parse({
