@@ -26,13 +26,23 @@ files via the Supabase CLI — never hand-edited in the dashboard.
 
 ```bash
 npm run db:link      # once
-npm run db:push      # applies 0001_runs.sql, 0002_run_tokens.sql (+ any later ones)
+npm run db:push      # applies every migration the project has not recorded yet
 ```
 
-| Migration             | What it adds                                                                                                                                                              |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `0001_runs.sql`       | `public.runs` — a user's finished live runs, owner-scoped by RLS.                                                                                                         |
-| `0002_run_tokens.sql` | `public.run_tokens` — the per-run, per-account connection credential (ADR-0006). Stores a SHA-256 digest, never a token. RLS on with **zero policies**: server-side only. |
+**Verify, do not assume.** `npm run verify:durable-stores` drives the real
+adapters against the linked project and reports, per table, whether the
+service-role client can actually read it and whether `anon` is actually shut out.
+Run it after any `db:push`. It exists because a missing table is easy to mistake
+for an empty one: a `head: true` count request against a table PostgREST cannot
+see comes back **status 204 with `error: null` and `count: null`**, while the
+same query as an ordinary `select` returns **404 `PGRST205`**. The first shape
+looks exactly like an empty table.
+
+| Migration                 | What it adds                                                                                                                                                                                                                                                                   |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `0001_runs.sql`           | `public.runs` — a user's finished live runs, owner-scoped by RLS.                                                                                                                                                                                                              |
+| `0002_run_tokens.sql`     | `public.run_tokens` — the per-run, per-account connection credential (ADR-0006). Stores a SHA-256 digest, never a token. RLS on with **zero policies**: server-side only.                                                                                                      |
+| `0003_durable_stores.sql` | `public.live_runs` + `public.live_run_events` (the open-run registry and its observable steps) and `public.otp_rate_limit_hits` (the sign-up rate-limit counters). Same posture as 0002: RLS on with zero policies **and** an explicit revoke from `anon` and `authenticated`. |
 
 Both are idempotent (they use `if not exists` / `drop policy if exists`), so they
 are safe whether first applied by hand in the SQL Editor or by `db push` — the CLI

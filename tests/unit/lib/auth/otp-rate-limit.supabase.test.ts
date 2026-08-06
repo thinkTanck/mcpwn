@@ -1,3 +1,4 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   OTP_RATE_LIMIT_MAX_WINDOW_MS,
   SupabaseOtpRateLimitStore,
@@ -66,5 +67,27 @@ describe('SupabaseOtpRateLimitStore', () => {
 
     await expect(store.countSince(KEY, AT)).rejects.toThrow(/permission denied/);
     await expect(store.record(KEY, AT)).rejects.toThrow(/permission denied/);
+  });
+
+  /**
+   * THE FAILURE THAT DOES NOT LOOK LIKE ONE. A HEAD request against a table
+   * PostgREST cannot see comes back status 204 with `error: null` and no count,
+   * which supabase-js hands over as `{ count: null, error: null }` — measured
+   * against the real project before migration 0003 was applied. Reading that as
+   * zero would answer "first attempt" for every request while the counters were
+   * unreachable, which is the one direction this control must never fail in.
+   */
+  it('refuses to read an UNKNOWN count as zero attempts', async () => {
+    const client = {
+      from: () => ({
+        select: () => ({
+          eq: () => ({ gte: async () => ({ count: null, error: null }) }),
+        }),
+      }),
+    } as unknown as SupabaseClient;
+
+    await expect(new SupabaseOtpRateLimitStore(client).countSince(KEY, AT)).rejects.toThrow(
+      /count/i,
+    );
   });
 });

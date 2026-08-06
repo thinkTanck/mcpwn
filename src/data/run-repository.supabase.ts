@@ -70,6 +70,14 @@ export class SupabaseRunRepository implements RunRepository {
       .eq('user_id', userId)
       .gte('created_at', since.toISOString());
     if (error) throw new Error(`countRunsSince failed: ${error.message}`);
-    return count ?? 0;
+    // An UNKNOWN count is not a zero count. An empty table answers 0; `null`
+    // means the read did not produce a number, and a HEAD request against a
+    // table PostgREST cannot see returns exactly that WITH NO ERROR. The
+    // allowance counts these rows, so reading it as zero would hand every
+    // account its lifetime allowance back.
+    if (count === null || count === undefined) {
+      throw new Error('countRunsSince failed: the count came back unknown.');
+    }
+    return count;
   }
 }
