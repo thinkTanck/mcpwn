@@ -51,6 +51,19 @@
  * Correctness never depends on the sweep running. If it never ran, the table
  * would get large and nothing would become reachable that was not reachable
  * already.
+ *
+ * ── FINDING THE RUNS NOBODY CLOSED ──
+ *
+ * {@link LiveRunSessionStore.findStale} answers the one question a scheduled job
+ * has to ask: which runs are still OPEN although their whole window has passed.
+ * It reuses `expiresAt` rather than inventing a second clock — that value is
+ * already the token's wall-clock death plus the grace after it, so a run it
+ * returns has been unable to record another step for the length of the grace,
+ * and its owner has had that whole grace to finish it themselves.
+ *
+ * The answer is BOUNDED. A backlog is drained over passes, because one pass that
+ * tries to judge every stale run at once is one pass that times out and finishes
+ * none of them.
  */
 import { z } from 'zod';
 import { CategorySchema, JsonValueSchema, VariantKindSchema } from '@/contract';
@@ -122,6 +135,21 @@ export interface AppendLiveRunEvents {
 }
 
 /**
+ * One open run whose window has passed, as the sweep needs to see it: enough to
+ * address the run and to say whose it is, and nothing else. The steps are read
+ * separately, only for the runs that turn out to be worth judging.
+ */
+export interface StaleLiveRun {
+  readonly runId: string;
+  readonly userId: string;
+  /** When the window closed. ISO-8601, carried so a caller can log the age. */
+  readonly expiresAt: string;
+}
+
+/** How many stale runs one `findStale` answers with, unless a caller says otherwise. */
+export const DEFAULT_STALE_RUN_LIMIT = 50;
+
+/**
  * The registry port. Two adapters satisfy it: the in-memory one below (tests and
  * offline), and the Supabase one in `./live-run-store.supabase.ts` (production,
  * where the row outlives the instance that wrote it).
@@ -142,6 +170,11 @@ export interface LiveRunSessionStore {
    * "no" — and a run judged twice is charged twice and stored twice.
    */
   finish(runId: string, finishedAt: Date): Promise<boolean>;
+  /**
+   * The runs that are still open although their window has passed — the ones a
+   * user started and never closed. Bounded; see the header.
+   */
+  findStale(now: Date, limit?: number): Promise<readonly StaleLiveRun[]>;
   /** Delete rows past their wall clock. Hygiene; correctness never depends on it. */
   sweepExpired(now: Date): Promise<number>;
 }
@@ -186,6 +219,17 @@ export class InMemoryLiveRunSessionStore implements LiveRunSessionStore {
     if (row === undefined || row.finishedAt !== null) return false;
     this.rows.set(runId, { ...row, finishedAt: finishedAt.toISOString() });
     return true;
+  }
+
+  async findStale(now: Date, limit = DEFAULT_STALE_RUN_LIMIT): Promise<readonly StaleLiveRun[]> {
+    const at = now.toISOString();
+    const stale: StaleLiveRun[] = [];
+    for (const row of this.rows.values()) {
+      if (stale.length >= limit) break;
+      if (row.finishedAt !== null || row.expiresAt > at) continue;
+      stale.push({ runId: row.runId, userId: row.userId, expiresAt: row.expiresAt });
+    }
+    return stale;
   }
 
   async sweepExpired(now: Date): Promise<number> {
