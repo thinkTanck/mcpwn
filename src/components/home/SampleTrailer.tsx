@@ -6,6 +6,11 @@ import Link from 'next/link';
  * real sample `RunResult` by the caller (run id, step total, compromise index +
  * offending tool) — never a literal. Status is glow PLUS the "breach" label +
  * icon, never colour alone.
+ *
+ * `provenance` says what this run IS. The strip shows a compromise on the front
+ * door, and a compromise with no label reads as a captured agent; the sample is
+ * a constructed trace carrying a recorded verdict, and the caller passes the
+ * sample library's own words rather than this component inventing them.
  */
 export function SampleTrailer({
   runId,
@@ -15,6 +20,7 @@ export function SampleTrailer({
   firstLabel,
   lastLabel,
   watchHref,
+  provenance,
 }: {
   runId: string;
   total: number;
@@ -23,6 +29,7 @@ export function SampleTrailer({
   firstLabel: string;
   lastLabel: string;
   watchHref: string;
+  provenance?: string;
 }) {
   const pad = (n: number) => String(n).padStart(2, '0');
   const steps = Array.from({ length: total }, (_, i) => i + 1);
@@ -94,6 +101,8 @@ export function SampleTrailer({
           {pad(total)} · {lastLabel}
         </span>
       </div>
+
+      {provenance ? <p className="instrument-faint mt-2.5">{provenance}</p> : null}
     </section>
   );
 }

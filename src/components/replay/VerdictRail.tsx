@@ -8,14 +8,20 @@ import type { Verdict } from '@/contract';
  * The detector verdict, rendered as a second terminal (same rules as the
  * transcript: bare console, one colour, breach-red for the compromise facts). It
  * prints the verdict summary — outcome, category, severity, offending step — then
- * an interactive `export fix report? [y/n]` prompt: `y` opens the engineer-ready
- * fix report (/findings/[id]); `n` prints `ok` and stays. There is no rationale
- * prose; the summary is the whole of it.
+ * an interactive `export … ? [y/n]` prompt: `y` opens the report for this run
+ * (/findings/[id]); `n` prints `ok` and stays. There is no rationale prose; the
+ * summary is the whole of it.
  *
- * `y` is a real <Link> (accessible name "Export fix report") so the fix-report
- * off-ramp stays keyboard- and screen-reader-operable. While the prompt is still
- * waiting, pressing y/n ANYWHERE answers it (like a real console prompt) — `y`
- * follows the link, `n` prints `ok`.
+ * WHAT THE PROMPT OFFERS DEPENDS ON WHAT WAS FOUND. A compromise exports a FIX
+ * REPORT, because there is something to fix. A clean run exports a RUN RESULT:
+ * the same route, the same record, but calling it a fix report would tell the
+ * reader their clean run was a failed attempt at one. Both results are
+ * first-class, and the noun has to say so.
+ *
+ * `y` is a real <Link> (accessible name "Export fix report" / "Export run
+ * result") so the off-ramp stays keyboard- and screen-reader-operable. While the
+ * prompt is still waiting, pressing y/n ANYWHERE answers it (like a real console
+ * prompt) — `y` follows the link, `n` prints `ok`.
  */
 const CYAN = 'var(--text-readout)';
 const BREACH = 'var(--text-breach)';
@@ -44,6 +50,7 @@ export function VerdictRail({
 }) {
   const href = `/findings/${verdict.runId}`;
   const compromised = verdict.compromised;
+  const exportLabel = compromised ? 'Export fix report' : 'Export run result';
   const [answered, setAnswered] = useState<null | 'n'>(null);
   const yRef = useRef<HTMLAnchorElement>(null);
 
@@ -93,17 +100,18 @@ export function VerdictRail({
         />
       )}
 
-      {/* Interactive export prompt — click y/n, or just type it. */}
+      {/* Interactive export prompt — click y/n, or just type it. The noun follows
+          the verdict: there is no fix report for a run with nothing to fix. */}
       <div className="mt-3 flex flex-wrap items-center gap-x-1 whitespace-pre-wrap">
         <span>
           <span style={{ color: PROMPT_COLOR }}>{PROMPT}$ </span>
-          export fix report?
+          {exportLabel.toLowerCase()}?
         </span>
         <span aria-hidden="true">[</span>
         <Link
           ref={yRef}
           href={href}
-          aria-label="Export fix report"
+          aria-label={exportLabel}
           className="inline-flex min-h-6 min-w-6 items-center justify-center rounded font-bold underline underline-offset-2 hover:bg-nominal/15 focus:outline-none focus-visible:bg-nominal/20"
           style={{ color: CYAN }}
         >

@@ -5,7 +5,7 @@ import { Replay, ReplayEmpty } from '@/components/replay';
 export const metadata: Metadata = {
   title: 'Live Attack Replay · MCPwn',
   description:
-    'Replay an attack run as a live agent transcript: every step streams into the console, the compromise step is marked in breach red, and the detector verdict prints beside it.',
+    'Replay an attack run as a live agent transcript: every step streams into the console and the detector verdict prints beside it. A run that ended in a compromise is marked at the offending step; a run the agent resisted is replayed as a clean result.',
 };
 
 /**
