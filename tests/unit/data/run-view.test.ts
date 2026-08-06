@@ -173,7 +173,7 @@ describe('resolveFixReport — module 6, over whichever run was resolved', () =>
    * served the hostile surface and did not act on it produces a real report with
    * no finding. Not an error, not an empty state, not a missing report.
    */
-  it('produces a real no-findings report for a run the agent resisted', async () => {
+  it('produces a real robustness result for a run the agent resisted', async () => {
     const run = liveRun(false);
     asMock(getUser).mockResolvedValue({ id: 'user-1' } as never);
     asMock(getRunRepository).mockResolvedValue(repoFor([storedRow(run)]));
@@ -182,7 +182,8 @@ describe('resolveFixReport — module 6, over whichever run was resolved', () =>
     expect(view).not.toBeNull();
     expect(view?.report.compromised).toBe(false);
     expect(view?.report.finding).toBeNull();
-    expect(view?.report.summary).toMatch(/no findings/i);
+    expect(view?.report.summary).toMatch(/not compromised in this run/i);
+    expect(view?.report.summary).not.toMatch(/no findings/i);
     expect(view?.report.runId).toBe(run.runId);
   });
 

@@ -221,12 +221,35 @@ describe('remediation — an ordered sequence of steps', () => {
   });
 });
 
+/**
+ * The clean-run summary, written out in full rather than imported from the
+ * module under test. Importing it would assert that the string equals itself;
+ * typing it here is what makes a silent rewrite of authored product copy show up
+ * as a failing test.
+ */
+const CLEAN_RUN_SUMMARY =
+  'The agent was not compromised in this run: the locked validated judge read the whole trace and found no compromising action. ' +
+  'That is one run against one staged attack, and it says nothing about other attacks or other runs.';
+
 describe('generateFixReport — not-compromised run', () => {
-  it('produces a clean "no findings" report', () => {
+  it('produces a robustness result, not an absence', () => {
     const report = generateFixReport(makeRun(false));
     expect(report.compromised).toBe(false);
     expect(report.finding).toBeNull();
-    expect(report.summary.toLowerCase()).toContain('no findings');
+    expect(report.summary).toBe(CLEAN_RUN_SUMMARY);
+  });
+
+  it('states what was established and bounds it to this one run', () => {
+    const { summary } = generateFixReport(makeRun(false));
+    // The positive fact, attributed to the detector that produced it.
+    expect(summary).toMatch(/not compromised in this run/i);
+    expect(summary).toMatch(/locked validated judge/i);
+    // And the limit of the claim, because one clean run is one run. Nothing
+    // here may read as a safety property of the agent.
+    expect(summary).toMatch(/one run against one staged attack/i);
+    expect(summary).not.toMatch(/\b(safe|secure|guarantee|proven)\b/i);
+    expect(summary).not.toMatch(/no findings/i);
+    expect(summary).not.toMatch(/—/);
   });
 });
 
@@ -240,9 +263,18 @@ describe('toMarkdown', () => {
     expect(md).toMatch(/remediation/i);
   });
 
-  it('renders a clean "no findings" report when not compromised', () => {
+  it('renders a clean run as a run result, headed like one', () => {
     const md = toMarkdown(generateFixReport(makeRun(false)));
-    expect(md.toLowerCase()).toContain('no findings');
+    expect(md).toContain('# Run result · `run-1`');
+    expect(md).toContain('## Robustness result');
+    expect(md).toContain('**Compromised:** no');
+    // The ticket carries the whole summary, bound and all: a caveat that
+    // survives only on screen is not a caveat.
+    expect(md).toContain(CLEAN_RUN_SUMMARY);
+    // And it says the run is unlabeled, so nobody reads the verdict as a score.
+    expect(md).toMatch(/unlabeled/i);
+    expect(md).not.toMatch(/no findings/i);
+    expect(md).not.toMatch(/—/);
   });
 });
 

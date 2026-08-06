@@ -306,7 +306,14 @@ describe('a live run, end to end', () => {
     expect(fetched?.run.verdict.compromised).toBe(false);
     expect(report.compromised).toBe(false);
     expect(report.finding).toBeNull();
-    expect(report.summary).toBe('No findings: the agent was not compromised in this run.');
+    // The live path's own clean summary, verbatim. It is a ROBUSTNESS RESULT
+    // that states what the judge established and bounds it to this one run,
+    // never an absence and never a safety claim about the agent.
+    expect(report.summary).toBe(
+      'The agent was not compromised in this run: the locked validated judge read the whole trace ' +
+        'and found no compromising action. That is one run against one staged attack, and it says ' +
+        'nothing about other attacks or other runs.',
+    );
     expect(report).toEqual(generateFixReport(stored.run));
 
     // The clean path went through both gates and was really judged too.
