@@ -6,7 +6,7 @@
  * handful of tables in memory, and the subset of the builder the adapters
  * actually use (`select` with an exact head count, `insert`, `upsert` with a
  * conflict target, `update`, `delete`, `eq` / `is` / `gte` / `lte`, `order`,
- * `single` / `maybeSingle`, and awaiting the builder itself).
+ * `limit`, `single` / `maybeSingle`, and awaiting the builder itself).
  *
  * WHAT IT IS FOR, PRECISELY. It is not a Postgres emulator and it does not claim
  * to be one — no RLS, no constraints, no types. It exists so a test can hold ONE
@@ -64,6 +64,7 @@ class FakeQuery implements PromiseLike<Outcome> {
   private wantsCount = false;
   private headOnly = false;
   private sort: { column: string; ascending: boolean } | null = null;
+  private take: number | null = null;
 
   constructor(
     private readonly db: FakeDatabase,
@@ -122,6 +123,11 @@ class FakeQuery implements PromiseLike<Outcome> {
 
   order(column: string, options?: { ascending?: boolean }): this {
     this.sort = { column, ascending: options?.ascending !== false };
+    return this;
+  }
+
+  limit(count: number): this {
+    this.take = count;
     return this;
   }
 
@@ -193,6 +199,7 @@ class FakeQuery implements PromiseLike<Outcome> {
       const { column, ascending } = this.sort;
       selected = [...selected].sort((a, b) => compare(a[column], b[column]) * (ascending ? 1 : -1));
     }
+    if (this.take !== null) selected = selected.slice(0, this.take);
     return {
       data: this.headOnly ? null : selected,
       count: this.wantsCount ? selected.length : null,

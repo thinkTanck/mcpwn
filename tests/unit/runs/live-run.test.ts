@@ -549,6 +549,89 @@ describe('live run: finishing', () => {
   });
 });
 
+/**
+ * `abandon()` is `finish()` without the judge: the same claim, the same token
+ * revocation, no gate and no spend. It exists for the run a scheduled job closes
+ * because the agent never did anything worth judging.
+ */
+describe('live run: abandoning a run instead of judging it', () => {
+  it('claims the run and revokes its token, without asking the judge', async () => {
+    let judged = 0;
+    const { host } = fixture({
+      resolveDetector: () => async (trace, goal) => {
+        judged += 1;
+        return biteDetector(trace, goal);
+      },
+    });
+    const ticket = await startRun(host);
+
+    const decision = await host.abandon({ runId: ticket.runId, userId: USER });
+    const after = await post(host, ticket.endpoint, initialize, { token: ticket.token });
+
+    expect(decision.ok).toBe(true);
+    expect(judged).toBe(0);
+    expect(after.status).toBe(401);
+  });
+
+  it('never asks the gate again, because closing a run spends nothing', async () => {
+    let gated = 0;
+    const { host } = fixture({
+      preflight: async () => {
+        gated += 1;
+        return { allowed: true };
+      },
+    });
+    const ticket = await startRun(host);
+    // One call, and it belongs to `start()`.
+    expect(gated).toBe(1);
+
+    await host.abandon({ runId: ticket.runId, userId: USER });
+
+    expect(gated).toBe(1);
+  });
+
+  it('refuses a second close, and refuses to close a run already finished', async () => {
+    const { host } = fixture();
+    const first = await startRun(host);
+    const second = await startRun(host);
+    await driveAgent(host, second, true);
+    await host.finish({ runId: second.runId, userId: USER });
+
+    await host.abandon({ runId: first.runId, userId: USER });
+    const again = await host.abandon({ runId: first.runId, userId: USER });
+    const finished = await host.abandon({ runId: second.runId, userId: USER });
+
+    expect(again.ok).toBe(false);
+    expect(finished.ok).toBe(false);
+    if (again.ok || finished.ok) return;
+    expect(again.error.code).toBe('RUN_ALREADY_FINISHED');
+    expect(finished.error.code).toBe('RUN_ALREADY_FINISHED');
+  });
+
+  it('refuses an unknown run and another account with the same answer', async () => {
+    const { host } = fixture();
+    const ticket = await startRun(host);
+
+    const unknown = await host.abandon({ runId: 'no-such-run', userId: USER });
+    const otherAccount = await host.abandon({ runId: ticket.runId, userId: 'user-2' });
+
+    expect(unknown.ok).toBe(false);
+    expect(otherAccount.ok).toBe(false);
+    if (unknown.ok || otherAccount.ok) return;
+    expect(unknown.error.code).toBe('RUN_NOT_FOUND');
+    expect(otherAccount.error.code).toBe('RUN_NOT_FOUND');
+  });
+
+  it('persists nothing, because an unjudged run has no result to persist', async () => {
+    const { host, repository } = fixture();
+    const ticket = await startRun(host);
+
+    await host.abandon({ runId: ticket.runId, userId: USER });
+
+    expect(await repository.listRuns(USER)).toHaveLength(0);
+  });
+});
+
 describe('live run: the leakage barrier at the judge boundary', () => {
   it('sends the judge the observable trace only, through the allow-list', async () => {
     const requests: JudgeRequest[] = [];
