@@ -139,18 +139,20 @@ case.
 **Needs an operator, and is NOT claimed to be working without it:**
 
 1. **`CRON_SECRET` must be set** in the deployment environment. Until then every
-   invocation is refused, by design.
-2. **Migration `0003_durable_stores.sql` must be applied** (`npm run db:push`).
-3. **The interactive path must write to the durable registry.**
-   `src/app/api/mcp/host.ts` still builds the live-run host with
-   `InMemoryRunTokenStore` and the default in-memory session store — the state
-   L22 recorded — so a live run today exists only inside the instance that
-   started it. The reaper reads `getLiveRunSessionStore()`, which is the durable
-   adapter, so **until that wiring changes the reaper will correctly find nothing
-   to do.** It is a one-line-per-store change in that module and it is deliberately
-   not made here: the durable adapters have never run against the real project,
-   and pointing the only working live path at unverified tables is a bigger risk
-   than a job that finds an empty list.
+   invocation is refused, by design. **STILL OUTSTANDING.**
+2. ~~**Migration `0003_durable_stores.sql` must be applied**~~ — **DONE
+   2026-08-06.** It had NOT been applied, and neither had `0002`: the project's
+   `supabase_migrations.schema_migrations` held no rows at all, and only
+   `public.runs` (applied by hand in the SQL editor) existed. `npm run db:push`
+   applied `0001`, `0002` and `0003`, all of which are idempotent.
+3. ~~**The interactive path must write to the durable registry.**~~ — **DONE
+   2026-08-06.** `src/app/api/mcp/host.ts` now binds `tokens` and `sessions` to
+   `getRunTokenStore()` / `getLiveRunSessionStore()`, so the reaper reads the
+   registry the live path writes. The condition this item set for making the
+   change — that the durable adapters had never run against the real project —
+   was met first: `npm run verify:durable-stores` drives them against it and
+   proves the token lifecycle, the two-instance case and a real abandoned row
+   being found, closed and swept.
 
 ## Consequences
 

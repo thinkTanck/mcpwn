@@ -6,12 +6,15 @@
  * The pipeline's own behaviour is tested in `tests/unit/runs/live-run.test.ts`.
  * What is asserted here is only that the seams point at the real things: the
  * gate is `checkLiveRunPreflight`, persistence is the RLS-scoped
- * `getRunRepository()`, and the judge is `resolveLiveDetector()`.
+ * `getRunRepository()`, the judge is `resolveLiveDetector()`, and the token store
+ * and open-run registry are the ones `src/runs/live-run-stores.factory.ts`
+ * picks — which is what makes a run outlive the instance that started it.
  */
 import type { RunResult } from '@/contract';
 import { checkLiveRunPreflight } from '@/runs/preflight';
 import { getRunRepository } from '@/data/run-repository.factory';
 import { resolveLiveDetector } from '@/detector/resolve';
+import { getLiveRunSessionStore, getRunTokenStore } from '@/runs/live-run-stores.factory';
 import {
   getLiveRunHost,
   liveRunDeps,
@@ -25,6 +28,10 @@ import {
 vi.mock('@/runs/preflight', () => ({ checkLiveRunPreflight: vi.fn() }));
 vi.mock('@/data/run-repository.factory', () => ({ getRunRepository: vi.fn() }));
 vi.mock('@/detector/resolve', () => ({ resolveLiveDetector: vi.fn() }));
+vi.mock('@/runs/live-run-stores.factory', () => ({
+  getRunTokenStore: vi.fn(),
+  getLiveRunSessionStore: vi.fn(),
+}));
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -70,6 +77,77 @@ describe('the live-run host wiring', () => {
     vi.mocked(resolveLiveDetector).mockReturnValue(null);
     expect(liveRunDeps().resolveDetector()).toBeNull();
     expect(resolveLiveDetector).toHaveBeenCalled();
+  });
+});
+
+/**
+ * THE WIRING THIS MODULE EXISTS FOR.
+ *
+ * The durable adapters shipped tested and with no production caller, so a run
+ * still belonged to the instance that started it and the reaper read an empty
+ * registry. These assertions are the join: every token read and every registry
+ * write goes through the factory, which picks Supabase whenever Supabase is
+ * configured and the in-memory adapter otherwise.
+ */
+describe('the live-run host is wired to the durable stores', () => {
+  const tokens = {
+    save: vi.fn().mockResolvedValue(undefined),
+    findBySelector: vi.fn().mockResolvedValue(null),
+    endRun: vi.fn().mockResolvedValue(undefined),
+  };
+  const sessions = {
+    create: vi.fn().mockResolvedValue(undefined),
+    find: vi.fn().mockResolvedValue(null),
+    appendEvents: vi.fn().mockResolvedValue(undefined),
+    finish: vi.fn().mockResolvedValue(true),
+    findStale: vi.fn().mockResolvedValue([]),
+    sweepExpired: vi.fn().mockResolvedValue(0),
+  };
+
+  beforeEach(() => {
+    vi.mocked(getRunTokenStore).mockReturnValue(tokens);
+    vi.mocked(getLiveRunSessionStore).mockReturnValue(sessions);
+  });
+
+  it('writes, reads and revokes run tokens through the store factory', async () => {
+    const deps = liveRunDeps();
+    const record = { selector: 'sel' } as never;
+    const endedAt = new Date('2026-08-05T10:00:00.000Z');
+
+    await deps.tokens.save(record);
+    await deps.tokens.findBySelector('sel');
+    await deps.tokens.endRun('run-1', endedAt);
+
+    expect(tokens.save).toHaveBeenCalledWith(record);
+    expect(tokens.findBySelector).toHaveBeenCalledWith('sel');
+    expect(tokens.endRun).toHaveBeenCalledWith('run-1', endedAt);
+  });
+
+  it('keeps the open-run registry in the durable store, not in the process', async () => {
+    const deps = liveRunDeps();
+    expect(deps.sessions).toBeDefined();
+    const at = new Date('2026-08-05T10:00:00.000Z');
+
+    await deps.sessions?.find('run-1');
+    await deps.sessions?.finish('run-1', at);
+
+    expect(sessions.find).toHaveBeenCalledWith('run-1');
+    expect(sessions.finish).toHaveBeenCalledWith('run-1', at);
+  });
+
+  it('resolves the store on every call, so the running config decides, not import order', async () => {
+    const deps = liveRunDeps();
+    await deps.tokens.findBySelector('one');
+    await deps.tokens.findBySelector('two');
+
+    expect(getRunTokenStore).toHaveBeenCalledTimes(2);
+  });
+
+  it('returns what the durable store returns, rather than a value of its own', async () => {
+    const record = { selector: 'sel', runId: 'run-1' };
+    tokens.findBySelector.mockResolvedValueOnce(record);
+
+    await expect(liveRunDeps().tokens.findBySelector('sel')).resolves.toEqual(record);
   });
 });
 

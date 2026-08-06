@@ -48,6 +48,11 @@ export class SupabaseOtpRateLimitStore implements OtpRateLimitStore {
    * rather than answering zero: the limiter treats a throw as a refusal, and a
    * silent zero would read as "first attempt" for every request while the
    * database was unreachable.
+   *
+   * An UNKNOWN count throws for the same reason, and it is not a hypothetical.
+   * A HEAD request against a table PostgREST cannot see comes back status 204
+   * with `error: null` and no count, so the failure arrives wearing the shape of
+   * an empty table. An empty table answers 0; `null` answers nothing.
    */
   async countSince(key: string, since: number): Promise<number> {
     const { count, error } = await this.client
@@ -56,7 +61,10 @@ export class SupabaseOtpRateLimitStore implements OtpRateLimitStore {
       .eq('bucket', key)
       .gte('hit_at', new Date(since).toISOString());
     if (error) throw new Error(`otp rate limit count failed: ${error.message}`);
-    return count ?? 0;
+    if (count === null || count === undefined) {
+      throw new Error('otp rate limit count failed: the count came back unknown.');
+    }
+    return count;
   }
 
   async record(key: string, at: number): Promise<void> {

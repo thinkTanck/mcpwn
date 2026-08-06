@@ -108,6 +108,19 @@ describe('SupabaseRunRepository (query building + mapping)', () => {
     expect(calls.filters).toContainEqual(['gte:created_at', '2026-01-01T00:00:00.000Z']);
   });
 
+  /**
+   * The allowance counts these rows, so a count read as zero grants an account
+   * its whole lifetime allowance again. A HEAD request against a table PostgREST
+   * cannot see returns status 204 with `error: null` and no count — measured
+   * against the real project — so "no error" is not the same as "no rows".
+   */
+  it('refuses to read an UNKNOWN count as zero runs', async () => {
+    const { client } = fake({});
+    await expect(
+      new SupabaseRunRepository(client).countRunsSince('u', new Date(0)),
+    ).rejects.toThrow(/count/i);
+  });
+
   it('throws a typed error when Supabase returns an error', async () => {
     const run = await sampleRun();
     const { client } = fake({ error: 'permission denied' });

@@ -8,22 +8,26 @@
  * names, and nothing else. No policy is decided here.
  *
  *   preflight        -> `checkLiveRunPreflight` (the allowance + the spend cap)
- *   tokens           -> the per-run token store
+ *   tokens           -> `getRunTokenStore()`, the durable per-run token store
+ *   sessions         -> `getLiveRunSessionStore()`, the durable open-run registry
  *   repository       -> `getRunRepository()`, RLS-scoped to the caller's session
  *   resolveDetector  -> `resolveLiveDetector()`, the LOCKED validated judge
  *
- * ── ONE HOST PER PROCESS, AND WHY THAT IS STATED RATHER THAN HIDDEN ──
+ * ── ONE HOST PER PROCESS, AND WHAT THAT DOES AND DOES NOT MEAN NOW ──
  *
- * A hosted run is a live object holding a live recorder, so it cannot be
- * serialized into Postgres and read back mid-run. The pipeline says so, and this
- * module inherits the consequence exactly: a run in progress belongs to the
- * instance that started it, and a restart loses an unfinished trace. What DOES
- * outlive the process already does — the token record, and the finished
- * `RunResult`. Sticky routing or a durable recorder is a decision no evidence has
- * been gathered for, so it is not invented here.
+ * This module used to record a real bound: a run in progress belonged to the
+ * instance that started it, because the token store and the open-run registry
+ * both lived in this process. On the platform we deploy to that is a correctness
+ * bug rather than a footnote — nothing pins an agent's second request to the
+ * instance that served its first — and the durable adapters that fix it shipped
+ * tested with no caller. This module is now that caller, so the bound is gone:
+ * both stores are picked by `src/runs/live-run-stores.factory.ts`, any instance
+ * can rebuild a run from its row, and the reaper reads the same registry the
+ * live path writes.
  *
- * The instance is cached on `globalThis` so a dev-server hot reload does not
- * strand a run behind a second, fresh registry.
+ * The host instance is still cached on `globalThis`, but only as a CACHE of the
+ * live server objects — the same thing `createLiveRunHost` keeps its `Map` for —
+ * so a dev-server hot reload does not rebuild one needlessly.
  *
  * ── THE OBSERVATION REGISTRY ──
  *
@@ -41,8 +45,9 @@ import type { RunResult } from '@/contract';
 import { resolveLiveDetector } from '@/detector/resolve';
 import { logger } from '@/lib/logger';
 import { createLiveRunHost, type LiveRunHost, type LiveRunHostDeps } from '@/runs/live-run';
+import type { LiveRunSessionStore } from '@/runs/live-run-store';
 import { checkLiveRunPreflight } from '@/runs/preflight';
-import { InMemoryRunTokenStore, type RunTokenStore } from '@/runs/run-token';
+import type { RunTokenStore } from '@/runs/run-token';
 
 /** What this instance has seen of one run's agent. Timestamps are ISO-8601. */
 export interface AgentActivity {
@@ -56,7 +61,6 @@ export interface AgentActivity {
 
 interface LiveRunRegistry {
   host?: LiveRunHost;
-  tokens?: RunTokenStore;
   activity: Map<string, AgentActivity>;
   finished: Map<string, string>;
 }
@@ -72,20 +76,55 @@ function registry(): LiveRunRegistry {
 }
 
 /**
- * Where per-run tokens live.
+ * The two durable stores, reached through a delegate that resolves the adapter on
+ * every call. Two separate things are going on here and both are deliberate.
  *
- * IN-MEMORY, and that is the honest state of it: the durable adapter for
- * `supabase/migrations/0002_run_tokens.sql` is a separate piece of work, and
- * wiring a store that does not exist would be a fiction. The bound this puts on a
- * run is the SAME bound the session registry above already puts on it — a run
- * belongs to the instance that started it — so nothing is made worse by it, and a
- * durable store drops in at this one line.
+ * ── WHY THE IMPORT IS INSIDE THE CALL ──
+ *
+ * `getRunTokenStore()` and `getLiveRunSessionStore()` reach for the SERVICE-ROLE
+ * Supabase client, which lives in a module that also imports `next/headers`, and
+ * this module has to stay importable by anything that only wants a type off it.
+ * So the factory is imported where it is used, exactly like the repository seam
+ * below. Node caches the module, so every call after the first is a lookup.
+ *
+ * Resolving per call is the same rule the run repository follows: which adapter
+ * is right is decided by the running configuration, not by whatever was true when
+ * this module happened to be imported.
+ *
+ * ── WHY SERVICE-ROLE AND NOT THE COOKIE-BOUND CLIENT ──
+ *
+ * `run_tokens`, `live_runs` and `live_run_events` have RLS enabled with ZERO
+ * policies, so no browser session reaches them under any circumstances. And at
+ * the two moments that matter there is no session to reach them with: a run token
+ * is verified for an INBOUND agent that has no cookie of ours, and the reaper runs
+ * from a scheduled request that has none either. A cookie-bound client would read
+ * nothing on both paths, which would look like "no such run" rather than an error.
+ *
+ * Bypassing RLS does not mean skipping the check. Ownership is enforced in code:
+ * `verifyRunToken` binds a token to one run AND one account, and the pipeline
+ * refuses a run that does not belong to the account asking about it.
  */
-function tokenStore(): RunTokenStore {
-  const cache = registry();
-  cache.tokens ??= new InMemoryRunTokenStore();
-  return cache.tokens;
-}
+const liveRunStores = () => import('@/runs/live-run-stores.factory');
+
+const durableTokens: RunTokenStore = {
+  save: async (record) => (await liveRunStores()).getRunTokenStore().save(record),
+  findBySelector: async (selector) =>
+    (await liveRunStores()).getRunTokenStore().findBySelector(selector),
+  endRun: async (runId, endedAt) =>
+    (await liveRunStores()).getRunTokenStore().endRun(runId, endedAt),
+};
+
+const durableSessions: LiveRunSessionStore = {
+  create: async (session) => (await liveRunStores()).getLiveRunSessionStore().create(session),
+  find: async (runId) => (await liveRunStores()).getLiveRunSessionStore().find(runId),
+  appendEvents: async (input) =>
+    (await liveRunStores()).getLiveRunSessionStore().appendEvents(input),
+  finish: async (runId, finishedAt) =>
+    (await liveRunStores()).getLiveRunSessionStore().finish(runId, finishedAt),
+  findStale: async (now, limit) =>
+    (await liveRunStores()).getLiveRunSessionStore().findStale(now, limit),
+  sweepExpired: async (now) => (await liveRunStores()).getLiveRunSessionStore().sweepExpired(now),
+};
 
 /**
  * The production ports, each pointed at the real module.
@@ -99,7 +138,8 @@ export function liveRunDeps(): LiveRunHostDeps {
   return {
     preflight: async ({ userId, now }) =>
       checkLiveRunPreflight({ userId, ...(now === undefined ? {} : { now }) }),
-    tokens: tokenStore(),
+    tokens: durableTokens,
+    sessions: durableSessions,
     repository: {
       async saveRun(userId: string, run: RunResult) {
         // Imported here, not at the top: the factory reaches for the cookie-bound
@@ -156,6 +196,9 @@ export function readRunFinishedAt(runId: string): string | null {
  * Test seam, mirroring `otpRateLimitStore.reset()`: the registry is process-wide
  * by design, so a suite that could not clear it would carry one test's runs into
  * the next. Production never calls it.
+ *
+ * It clears the host and the observation maps, and NOT the stores: those are the
+ * factory's now, and it clears them through `resetOfflineLiveRunStores()`.
  */
 export function resetLiveRunRegistry(): void {
   const holder = globalThis as unknown as RegistryHolder;
