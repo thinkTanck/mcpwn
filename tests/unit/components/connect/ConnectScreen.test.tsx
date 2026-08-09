@@ -178,6 +178,23 @@ describe('ConnectScreen · the control run', () => {
     expect(screen.queryByRole('radiogroup', { name: /run type/i })).not.toBeInTheDocument();
   });
 
+  /**
+   * The setup states tool parity and the console states what it is about to
+   * serve, in nearly the same words, on the SAME screen. The signed-in axe scan
+   * binds to the console's sentence, and a short match found both and proved
+   * neither. This holds the phrase the scan uses to exactly one element.
+   */
+  it('states the console lead exactly once on the whole screen', async () => {
+    const user = userEvent.setup();
+    render(<ConnectScreen signedIn />);
+    await goLive(user);
+    await user.click(screen.getByRole('radio', { name: /control run/i }));
+
+    expect(
+      screen.getAllByText(/We serve the same tool surface for the category you picked/i),
+    ).toHaveLength(1);
+  });
+
   it('adds no fourth numbered step to the setup sequence', async () => {
     const user = userEvent.setup();
     render(<ConnectScreen />);

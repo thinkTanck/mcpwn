@@ -130,6 +130,13 @@ describe('LiveRunConsole · the inverted model, stated on the screen', () => {
   it('describes the control as the same surface with no attack staged on it', () => {
     render(<LiveRunConsole port={portWith()} category="ASI01" kind="benign" signedIn />);
 
+    // Pinned to the console's OWN lead, which is the phrase the signed-in e2e
+    // scan binds to. The setup section states parity in nearly the same words,
+    // so a match on the tail alone would find two elements on the real screen
+    // and prove neither.
+    expect(
+      screen.getByText(/We serve the same tool surface for the category you picked/i),
+    ).toBeInTheDocument();
     expect(screen.getByText(/no attack staged on it/i)).toBeInTheDocument();
   });
 });
