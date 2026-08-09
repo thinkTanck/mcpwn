@@ -239,8 +239,10 @@ Two things are worth stating plainly:
   decision, not a per-message one.
 - **A clean run is a successful run.** An agent that reads the poisoned content
   and refuses to act on it persists a `RunResult` and produces a fix report
-  exactly like a compromised one. "No findings" is a report, not an empty state,
-  and `finish` has no branch on `verdict.compromised`.
+  exactly like a compromised one. That report is a **robustness result**, not an
+  empty state: it says the judge found no compromising action in this run, and
+  says plainly that one run against one staged attack is all it covers. `finish`
+  has no branch on `verdict.compromised`.
 
 The judge is reached only through `(trace, taskGoal) => Verdict`, which has
 nowhere to put a label, and what it actually sees is narrowed again by the

@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { render, screen } from '@testing-library/react';
 import Home from '@/app/(hud)/page';
 import { FindingsReport } from '@/components/findings';
-import { generateFixReport } from '@/fix-report';
+import { generateFixReport, toMarkdown } from '@/fix-report';
 import {
   MEASURED_CLASSIFICATION,
   MEASURED_CLASSIFICATION_PROVENANCE,
@@ -39,7 +39,15 @@ import type { RunResult } from '@/contract';
  *    re-measured, and it silently survives the next measurement run.
  *
  * 3. EITHER RESULT BEING DEMOTED. A clean run is not an absence, an error or a
- *    missing report, and a compromise is not the point of the product.
+ *    missing report, and a compromise is not the point of the product. The
+ *    screens are only half of that: the clean-run words they render come from
+ *    MODULE 6, and module 6 also writes the exported ticket, which is the
+ *    artifact an engineer actually keeps. So the generator's own strings are
+ *    guarded here too, in both directions. Absence framing is one failure
+ *    ("no findings", a missing report, an error). OVERCLAIMING SAFETY is the
+ *    other, and it is just as untrue: one clean run is one run against one
+ *    staged attack, and per ADR-0009 an agent that stopped one step short of
+ *    paying scores exactly the same as one that never engaged.
  *
  * The scan is over SOURCE rather than rendered output on purpose: a banned
  * sentence added to a screen that a unit test does not render would otherwise
@@ -161,6 +169,97 @@ describe('both results are named, and neither is the expected one', () => {
     );
     // And it is never described as a failure of the product or a missing report.
     expect(panel.textContent ?? '').not.toMatch(/failed|error|unavailable|no report/i);
+  });
+});
+
+describe('module 6 writes a clean run up as a result, in both directions', () => {
+  /**
+   * The generator, not the screen. `generateFixReport` writes the summary the
+   * findings page renders AND the Markdown the copy button puts on the
+   * clipboard, so the ticket and the screen either agree or the caveat only
+   * survives on screen. Both strings are checked against both failures.
+   */
+  const clean = generateFixReport(cleanRun());
+  const artifacts: [string, string][] = [
+    ['the generated summary', clean.summary],
+    ['the exported Markdown', toMarkdown(clean)],
+  ];
+
+  /** Framing that reads as "the report we wanted did not happen". */
+  const ABSENCE: [string, RegExp][] = [
+    ['a "no findings" lead or heading', /no findings/i],
+    [
+      'a missing-report word',
+      /\b(no report|nothing to report|not available|unavailable|none found|nothing found)\b/i,
+    ],
+    ['a failure word', /\b(failed|failure|error)\b/i],
+    ['an empty-state word', /\b(empty|blank|n\/a)\b/i],
+  ];
+
+  /**
+   * The mirror-image lie. One run against one staged attack establishes what
+   * happened in that run and nothing more, so a word that generalizes it into a
+   * property of the agent is banned even though it flatters the reader.
+   */
+  const OVERCLAIM: [string, RegExp][] = [
+    ['a safety adjective', /\b(safe|safely|secure|immune|invulnerable|bulletproof|unhackable)\b/i],
+    ['a guarantee', /\bguarantee(d|s)?\b/i],
+    ['a proof claim', /\b(proof|proves?|proved|proven|demonstrates that)\b/i],
+    [
+      'a generalization to every attack or run',
+      /\b(all|any|every) (attacks?|categor(y|ies)|runs?)\b/i,
+    ],
+    ['a claim about future runs', /\b(will|cannot|can not|won.t) (not )?be compromised\b/i],
+    ['a not-vulnerable claim', /\b(is|was|are) not vulnerable\b/i],
+    ['a resistance rate claim', /\b(always|never) (resists?|holds?|falls?|fails?)\b/i],
+  ];
+
+  for (const [where, text] of artifacts) {
+    for (const [what, pattern] of ABSENCE) {
+      it(`${where} does not use ${what}`, () => {
+        expect(pattern.test(text)).toBe(false);
+      });
+    }
+    for (const [what, pattern] of OVERCLAIM) {
+      it(`${where} does not make ${what}`, () => {
+        expect(pattern.test(text)).toBe(false);
+      });
+    }
+  }
+
+  it('the summary states what was established, and who established it', () => {
+    // The positive fact of the run, attributed. Not "we found nothing".
+    expect(clean.summary).toMatch(/not compromised in this run/i);
+    expect(clean.summary).toMatch(/judge/i);
+  });
+
+  it('the summary bounds the claim to this one run against this one attack', () => {
+    expect(clean.summary).toMatch(/\bone run\b/i);
+    expect(clean.summary).toMatch(/\bone .*attack\b/i);
+  });
+
+  it('the exported Markdown says the same thing the screen does', () => {
+    // A caveat that survives only on screen is not a caveat: the ticket carries
+    // the whole summary verbatim, bound and all.
+    expect(toMarkdown(clean)).toContain(clean.summary);
+  });
+
+  it('neither artifact quotes a measured figure: a live run is unlabeled', () => {
+    // Both published figures are measured on LABELED fixtures. A live clean run
+    // has no ground truth, so a P/R or accuracy numeral pasted beside it would
+    // read as a score for this run, which nothing measured.
+    const literals = [
+      MEASURED_COMPROMISE.precision.toFixed(4),
+      MEASURED_COMPROMISE.recall.toFixed(4),
+      MEASURED_CLASSIFICATION.accuracy.toFixed(4),
+    ];
+    for (const [, text] of artifacts) {
+      for (const literal of literals) expect(text).not.toContain(literal);
+    }
+  });
+
+  it('uses no em dashes', () => {
+    for (const [, text] of artifacts) expect(text).not.toMatch(/—/);
   });
 });
 

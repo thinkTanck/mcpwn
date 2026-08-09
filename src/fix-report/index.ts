@@ -6,8 +6,9 @@
  * title), severity, the offending step id (which must exist in the trace), the
  * detector's rationale, and category-appropriate remediation grounded in the
  * official OWASP Top 10 for Agentic Applications (genai.owasp.org). For a clean
- * run it emits a "no findings" report. `toMarkdown` / `toJSON` export it with a
- * stable shape (JSON round-trips). Pure over `RunResult`; never touches
+ * run it emits a ROBUSTNESS RESULT: the agent held the line in this run, which is
+ * a first-class outcome and not an absence. `toMarkdown` / `toJSON` export it with
+ * a stable shape (JSON round-trips). Pure over `RunResult`; never touches
  * `GroundTruth` (a live run has none — leakage separation).
  */
 import type { Category, RunResult, Severity, Step } from '@/contract';
@@ -41,6 +42,32 @@ const CATEGORY_TITLE: Record<Category, string> = {
 
 /** Citation for the official OWASP Agentic category catalogue. */
 const OWASP_REFERENCE = 'https://genai.owasp.org/ (OWASP Top 10 for Agentic Applications, 2026)';
+
+/**
+ * THE CLEAN-RUN SUMMARY. A run ends in one of two first-class results, and this
+ * is the other one: the agent was served the hostile surface and did not act on
+ * it. It used to open "No findings", which framed a result as a missing report
+ * and quietly ranked it below the compromise it renders beside.
+ *
+ * It is written to fail in NEITHER direction:
+ *
+ *  - It states what WAS established, and who established it. The locked
+ *    validated judge read the whole trace and found no compromising action. That
+ *    is a positive fact about this run, not an empty search result.
+ *  - It does NOT generalize that into a property of the agent. One clean run is
+ *    one run against one staged attack. Per ADR-0009 an agent that read the
+ *    payout redirection and stopped one step short of paying scores exactly the
+ *    same here as one that never engaged, so "your agent is safe" would be as
+ *    unsupported as the bait-taking claims the copy pass removed.
+ *
+ * It quotes no measured figure on purpose: precision, recall and category
+ * accuracy are measured on LABELED fixtures, and a live run has no ground truth
+ * to be scored against. No em dashes: this reaches both the findings screen and
+ * the exported ticket (locked UI copy rule).
+ */
+const CLEAN_RUN_SUMMARY =
+  'The agent was not compromised in this run: the locked validated judge read the whole trace and found no compromising action. ' +
+  'That is one run against one staged attack, and it says nothing about other attacks or other runs.';
 
 /**
  * Category-appropriate remediation, grounded in the OWASP Agentic categories.
@@ -164,7 +191,11 @@ export interface Finding {
   classification: Classification;
 }
 
-/** The fix report: a finding (compromised) or a clean "no findings" report. */
+/**
+ * The report for one run: a finding (compromised) or a robustness result (the
+ * agent was not compromised in this run). Both are results; neither is the
+ * failure case.
+ */
 export interface FixReport {
   runId: string;
   target: string;
@@ -235,9 +266,7 @@ export function generateFixReport(run: RunResult): FixReport {
       model,
       compromised: false,
       finding: null,
-      // No em dashes: this is authored product copy and it reaches both the
-      // findings screen and the exported ticket (locked UI copy rule).
-      summary: 'No findings: the agent was not compromised in this run.',
+      summary: CLEAN_RUN_SUMMARY,
     };
   }
 
@@ -278,14 +307,21 @@ export function generateFixReport(run: RunResult): FixReport {
 /** Render a `FixReport` as engineer-ready Markdown. */
 export function toMarkdown(report: FixReport): string {
   if (report.finding === null) {
+    // The ticket for a clean run is a RESULT, headed like one. A ticket headed
+    // "No findings" is filed and forgotten as the report that never arrived,
+    // which is the same demotion the screens were reframed to stop; the export
+    // is the artifact an engineer keeps, so it has to say what the screen says.
     return [
-      `# Fix report · \`${report.runId}\``,
+      `# Run result · \`${report.runId}\``,
       '',
       `**Target:** ${report.target} · **Model:** ${report.model}`,
+      `**Compromised:** no`,
       '',
-      '## No findings',
+      '## Robustness result',
       '',
       report.summary,
+      '',
+      'A live run is unlabeled, so this is a verdict on this run and not a score checked against a known answer. The trace is the record of what the agent actually did.',
       '',
     ].join('\n');
   }
