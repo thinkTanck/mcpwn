@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { ClientSetup } from './ClientSetup';
 import { CopyOut } from './CopyOut';
+import { RUN_TYPE_LABEL } from './run-kinds';
 import {
   notWiredLiveRunPort,
   type ConnectLiveRunPort,
@@ -15,7 +16,7 @@ import {
   type LiveRunSummaryView,
   type LiveRunTicketView,
 } from './live-run-port';
-import type { Category } from '@/contract';
+import type { Category, VariantKind } from '@/contract';
 
 /**
  * THE LIVE CONSOLE — the Connect screen under the inverted model
@@ -122,11 +123,18 @@ function phaseLine(status: LiveRunStatusView): string {
 export function LiveRunConsole({
   port = notWiredLiveRunPort,
   category,
+  kind = 'malicious',
   signedIn,
   pollIntervalMs = DEFAULT_POLL_INTERVAL_MS,
 }: {
   port?: ConnectLiveRunPort;
   category: Category;
+  /**
+   * Which framing this run serves: the attack, or its tool-parity control. The
+   * default mirrors the pipeline's own (`src/runs/live-run.ts`), so a console
+   * rendered without one behaves exactly as it did before the control existed.
+   */
+  kind?: VariantKind;
   signedIn: boolean;
   pollIntervalMs?: number;
 }) {
@@ -142,14 +150,14 @@ export function LiveRunConsole({
   const issue = useCallback(async () => {
     setIssuing(true);
     setRefusal(null);
-    const answer = await port.start({ category });
+    const answer = await port.start({ category, kind });
     setIssuing(false);
     if (answer.ok) {
       setTicket(answer.value);
       return;
     }
     setRefusal(answer.refusal);
-  }, [port, category]);
+  }, [port, category, kind]);
 
   const runId = ticket?.runId ?? null;
   const done = summary !== null || status?.phase === 'finished';
@@ -196,7 +204,7 @@ export function LiveRunConsole({
 
   if (!signedIn) return <SignInGate />;
   if (refusal !== null) return <Refusal refusal={refusal} onRetry={issue} />;
-  if (ticket === null) return <BeforeIssue onIssue={issue} issuing={issuing} />;
+  if (ticket === null) return <BeforeIssue onIssue={issue} issuing={issuing} kind={kind} />;
 
   // The one piece of motion on this screen: the issued run eases in, once,
   // because the user just asked for it. Transform and opacity only, and
@@ -246,12 +254,28 @@ function SignInGate() {
 
 // ── Before anything is issued ──
 
-function BeforeIssue({ onIssue, issuing }: { onIssue: () => void; issuing: boolean }) {
+function BeforeIssue({
+  onIssue,
+  issuing,
+  kind,
+}: {
+  onIssue: () => void;
+  issuing: boolean;
+  kind: VariantKind;
+}) {
   return (
     <div className="flex flex-col gap-4">
+      {/* WHAT THIS RUN IS, in the framing the user actually picked. The tools are
+          identical either way; what changes is whether an attack is staged on
+          them, and saying "the attack surface" for a control run would be the one
+          sentence on this panel that was not true. */}
       <p className="reading max-w-[68ch]">
-        You point your agent at an endpoint we host. We serve the attack surface for the category
-        you picked, and we record every tool call your agent chooses to make.
+        {kind === 'benign'
+          ? 'You point your agent at an endpoint we host. We serve the same tool surface for the ' +
+            'category you picked with no attack staged on it, and we record every tool call your ' +
+            'agent chooses to make.'
+          : 'You point your agent at an endpoint we host. We serve the attack surface for the ' +
+            'category you picked, and we record every tool call your agent chooses to make.'}
       </p>
       <p className="reading max-w-[68ch] text-ink-muted">
         We never ask you for an endpoint or a key, because we never call out to anything. Everything
@@ -287,12 +311,20 @@ function Endpoint({ ticket }: { ticket: LiveRunTicketView }) {
         set that up for you. It opens this one run, on this one account, and it dies when the run
         ends or when it expires.
       </p>
+      {/* WHAT THIS TICKET IS, read off the ticket the server issued rather than
+          off the picker: a user who issues several in a session has to be able to
+          tell them apart, and the framing is the one thing two tickets for the
+          same category differ by. Evidence, so it is printed as read and never
+          counted up or animated. */}
       <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
         <span className="instrument-faint">
-          EXPIRES <span className="readout">{ticket.expiresAt}</span>
+          SERVING <span className="readout">{ticket.category}</span>
         </span>
         <span className="instrument-faint">
-          SERVING <span className="readout">{ticket.category}</span>
+          RUN TYPE <span className="readout">{RUN_TYPE_LABEL[ticket.kind]}</span>
+        </span>
+        <span className="instrument-faint">
+          EXPIRES <span className="readout">{ticket.expiresAt}</span>
         </span>
       </div>
       <p className="reading max-w-[68ch] text-ink-muted">

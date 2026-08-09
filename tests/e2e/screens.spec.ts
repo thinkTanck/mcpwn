@@ -204,5 +204,29 @@ test('Connect in live mode (signed out) renders the gate and has no WCAG A/AA vi
   await expect(page.getByRole('button', { name: /issue run endpoint/i })).toHaveCount(0);
   await expect(page.locator('input')).toHaveCount(0);
 
+  // BOTH RUNS ARE REACHABLE, and the control is not hidden behind anything: it
+  // sits in the setup itself, beside the category, on the first live view a
+  // visitor gets. ADR-0003 bar 4 is the reason it exists at all, so the parity
+  // sentence is asserted with it: a reader who takes the control for a safer
+  // sandbox has misread the one thing it is for.
+  const runType = page.getByRole('radiogroup', { name: 'Run type' });
+  await expect(runType).toBeVisible();
+  await expect(runType.getByRole('radio', { name: /ATTACK RUN/ })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+  await expect(runType.getByRole('radio', { name: /CONTROL RUN/ })).toHaveAttribute(
+    'aria-checked',
+    'false',
+  );
+  await expect(page.getByText(/same tools, with the same capability/i)).toBeVisible();
+  await expect(page.getByText(/not a safer sandbox/i)).toBeVisible();
+
+  await runType.getByRole('radio', { name: /CONTROL RUN/ }).click();
+  await expect(runType.getByRole('radio', { name: /CONTROL RUN/ })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+
   await expectNoWcagViolations(page);
 });

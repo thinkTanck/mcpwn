@@ -73,6 +73,12 @@ test.describe('signed-in screens', () => {
     // so no autofill store or password manager has a control to latch onto.
     await expect(page.locator('input')).toHaveCount(0);
 
+    // BOTH FRAMINGS ARE REACHABLE FROM THE SIGNED-IN CONSOLE, and the panel
+    // describes the one that is actually about to be served: saying "the attack
+    // surface" over a control run would be the only untrue sentence on it.
+    await page.getByRole('radio', { name: /CONTROL RUN/ }).click();
+    await expect(page.getByText(/no attack staged on it/i)).toBeVisible();
+
     await expectNoWcagViolations(page);
   });
 });

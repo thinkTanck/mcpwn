@@ -104,6 +104,39 @@ describe('the adapter · starting a run', () => {
     expect(answer.value.promptName).toBe('session_brief');
   });
 
+  /**
+   * THE CONTROL RUN HAS TO REACH THE SERVER. `startLiveRun` has always accepted a
+   * `kind`, and the pipeline has always defaulted it to `malicious`, so a screen
+   * that never sends one can only ever run the attack. The adapter is the single
+   * place that could drop it, so it is asserted for BOTH wire values.
+   *
+   * The wire values stay `malicious` and `benign`. They are the contract's own
+   * names, shared with the fixtures the detector was measured on; only the LABELS
+   * a reader sees are ours to choose.
+   */
+  it('sends the run type the screen chose, for both wire values', async () => {
+    const actions = actionsWith();
+    const port = createConnectLiveRunPort(actions);
+
+    await port.start({ category: 'ASI01', kind: 'malicious' });
+    expect(actions.start).toHaveBeenCalledWith({ category: 'ASI01', kind: 'malicious' });
+
+    await port.start({ category: 'ASI06', kind: 'benign' });
+    expect(actions.start).toHaveBeenCalledWith({ category: 'ASI06', kind: 'benign' });
+  });
+
+  it('sends no run type at all when the caller named none, so the server keeps its own default', async () => {
+    const actions = actionsWith();
+    const port = createConnectLiveRunPort(actions);
+
+    await port.start({ category: 'ASI01' });
+
+    // Not `kind: undefined`: the request schema is strict, and a key we did not
+    // mean to set is a claim we did not mean to make.
+    expect(actions.start).toHaveBeenCalledWith({ category: 'ASI01' });
+    expect(Object.keys(vi.mocked(actions.start).mock.calls[0]![0] as object)).toEqual(['category']);
+  });
+
   it('turns the server FLAT refusal into the screen nested one, verbatim', async () => {
     const port = createConnectLiveRunPort(
       actionsWith({

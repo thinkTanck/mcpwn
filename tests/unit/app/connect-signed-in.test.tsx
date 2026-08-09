@@ -81,8 +81,33 @@ describe('Connect page — the live-run actions are really bound', () => {
     await user.click(screen.getByRole('radio', { name: /ASI05/ }));
     await user.click(screen.getByRole('button', { name: /issue run endpoint/i }));
 
-    await waitFor(() => expect(startLiveRun).toHaveBeenCalledWith({ category: 'ASI05' }));
+    await waitFor(() =>
+      expect(startLiveRun).toHaveBeenCalledWith({ category: 'ASI05', kind: 'malicious' }),
+    );
     expect(JSON.stringify(vi.mocked(startLiveRun).mock.calls[0])).not.toContain('userId');
+  });
+
+  /**
+   * THE CONTROL RUN REACHES THE REAL ACTION TOO. `startLiveRun` has always
+   * accepted `kind` and the pipeline has always defaulted it to `malicious`, so
+   * before the setup grew a control every run a browser could start was the
+   * attack, and nothing failed: the chain type-checked at every link while the
+   * field was simply never sent. This asserts the field on the wire, at the
+   * binding, for the value that used to be unreachable.
+   */
+  it('reaches it with the control framing when the control run is chosen', async () => {
+    vi.mocked(getUser).mockResolvedValue({ id: 'u1', email: 'a@b.com' } as never);
+    const user = userEvent.setup();
+
+    render(await ConnectPage());
+    await user.click(screen.getByRole('button', { name: /live/i }));
+    await user.click(screen.getByRole('radio', { name: /ASI05/ }));
+    await user.click(screen.getByRole('radio', { name: /control run/i }));
+    await user.click(screen.getByRole('button', { name: /issue run endpoint/i }));
+
+    await waitFor(() =>
+      expect(startLiveRun).toHaveBeenCalledWith({ category: 'ASI05', kind: 'benign' }),
+    );
   });
 
   it('states the refusal the bound action returned, and issues nothing', async () => {
