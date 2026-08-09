@@ -246,7 +246,9 @@ async function main(): Promise<void> {
     }
   }
 
-  console.log(`\n${fail === 0 ? 'All checks passed.' : `${fail} CHECK(S) FAILED`}`);
+  console.log(
+    `\n${fail === 0 ? `All ${pass} checks passed.` : `${fail} of ${pass + fail} CHECK(S) FAILED`}`,
+  );
   process.exit(fail === 0 ? 0 : 1);
 }
 
