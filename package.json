@@ -26,7 +26,8 @@
     "eval:measure": "tsx scripts/eval-measure.ts",
     "eval:measure-category": "tsx scripts/eval-measure-category.ts",
     "serve:mcp": "tsx scripts/server/serve.ts",
-    "verify:durable-stores": "tsx scripts/verify-durable-stores.ts"
+    "verify:durable-stores": "tsx scripts/verify-durable-stores.ts",
+    "verify:https-accept": "tsx --env-file=.env.local scripts/verify-https-accept.ts"
   },
   "dependencies": {
     "@base-ui-components/react": "1.0.0-rc.0",
@@ -74,6 +75,11 @@
     "fast-uri": "3.1.5",
     "postcss": "8.5.22",
     "undici": "7.29.0",
-    "ip-address": "10.4.0"
+    "ip-address": "10.4.0",
+    "nanoid": "3.3.18",
+    "js-yaml": "4.3.1",
+    "@lhci/cli": {
+      "js-yaml": "3.15.1"
+    }
   }
 }
