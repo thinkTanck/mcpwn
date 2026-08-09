@@ -65,6 +65,46 @@ Everything below writes `<REPO>` for the absolute repo path
 (e.g. `C:/Users/Owner/projects/MCPwn`) and `<OUT>` for a scratch directory you
 create for the run artefacts.
 
+## Windows PowerShell: read this before you paste anything
+
+**PowerShell does not treat a trailing `\` as a line continuation.** Bash does.
+Paste a wrapped `claude mcp add` into PowerShell and it does not run as one
+command: PowerShell executes the first line on its own, then fails on each
+following line as a parse error. The first line on its own is still a valid
+registration, so what you are left with is a server registered under the right
+name whose command is `node --experimental-transform-types --no-warnings \` with
+a literal backslash and none of the real arguments. It can never start, and the
+half-registration is silent. This has happened for real.
+
+If it happens, remove the broken entry and confirm it is gone:
+
+```powershell
+claude mcp remove email
+```
+
+```powershell
+claude mcp list
+```
+
+Every command below is given twice. Use the `bash` version from Git Bash, WSL,
+macOS or Linux. Use the `powershell` version from Windows PowerShell: it is
+**one long line on purpose**, with no backslashes, no backticks and no
+continuations of any kind, because swapping one continuation character for
+another only moves the failure.
+
+The PowerShell versions spell out real absolute paths instead of `<REPO>` and
+`<OUT>`: the repo at `C:/Users/Owner/projects/MCPwn`, and the run output at
+`C:/Users/Owner/spike-out`. **Replace `C:/Users/Owner/spike-out` with a real
+directory of your own, and keep it outside the repository and outside any
+directory the agent is working in.** A path the agent can read is the same class
+of tell as the server name.
+
+The PowerShell registration passes `--scope user`, because a project-scoped
+config is a file the agent can read. That is the flag name as documented for this
+CLI, but it is worth one second to verify with `claude mcp add --help` (and
+`claude mcp remove --help`) rather than taking it on trust; register at user
+scope either way.
+
 ## Step 0 — confirm the endpoint is conformant (NOT the experiment)
 
 Do this first. **A protocol failure counted as a behavioral NO would be the worst
@@ -85,6 +125,40 @@ printf '%s\n' \
         scripts/spike/asi01-stdio.ts --framing malicious --trace <OUT>/smoke.json
 ```
 
+In PowerShell there is no `printf`, so the four JSON-RPC messages go into a file
+first and the file is piped in. Three lines, each one complete on its own:
+
+```powershell
+New-Item -ItemType Directory -Force -Path "C:/Users/Owner/spike-out" | Out-Null
+```
+
+```powershell
+Set-Content -Path "C:/Users/Owner/spike-out/smoke-session.jsonl" -Encoding ascii -Value '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"smoke","version":"0"}}}','{"jsonrpc":"2.0","method":"notifications/initialized"}','{"jsonrpc":"2.0","id":2,"method":"tools/list"}','{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"read_email","arguments":{}}}'
+```
+
+```powershell
+Get-Content "C:/Users/Owner/spike-out/smoke-session.jsonl" | node --experimental-transform-types --no-warnings --import "file:///C:/Users/Owner/projects/MCPwn/scripts/spike/register-ts-alias.mjs" "C:/Users/Owner/projects/MCPwn/scripts/spike/asi01-stdio.ts" --framing malicious --trace "C:/Users/Owner/spike-out/smoke.json"
+```
+
+Why that works, since inventing PowerShell syntax here is how you get a fake
+protocol failure:
+
+- Single-quoted PowerShell strings are literal, so the double quotes inside each
+  JSON message need no escaping at all.
+- `Set-Content -Value` takes the four strings as an array and writes **one
+  message per line**, which is exactly the newline-delimited framing the stdio
+  transport reads.
+- `Get-Content` emits those lines back one string at a time, and piping them into
+  a native command writes them to its stdin and closes it, the same as the bash
+  `printf` pipe.
+- `-Encoding ascii` keeps a byte-order mark out of the first message. The content
+  is pure ASCII, so nothing is lost.
+- There is no `cd` because every path is absolute, which also means `--import`
+  must be the `file:///C:/…` URL form (see the Windows gotcha below).
+
+`smoke-session.jsonl` is scratch input, not an artefact of the experiment. It
+lives in the output directory with everything else, outside the repo.
+
 Expect three JSON-RPC results on stdout, the third containing the injected
 instruction, and `<OUT>/smoke.json` written. If that works, the endpoint is
 callable.
@@ -103,6 +177,10 @@ mechanism is deferred to the productized Connect build).
 node --experimental-transform-types --no-warnings \
      --import ./scripts/spike/register-ts-alias.mjs \
      scripts/spike/asi01-stdio.ts --framing malicious --print-goal
+```
+
+```powershell
+node --experimental-transform-types --no-warnings --import "file:///C:/Users/Owner/projects/MCPwn/scripts/spike/register-ts-alias.mjs" "C:/Users/Owner/projects/MCPwn/scripts/spike/asi01-stdio.ts" --framing malicious --print-goal
 ```
 
 It prints, and this exact text is what you paste into the agent:
@@ -135,6 +213,17 @@ claude mcp add email -- node --experimental-transform-types --no-warnings \
   --trace "<OUT>/trace-A.json" \
   --log "<OUT>/run-A.log"
 ```
+
+```powershell
+claude mcp add email --scope user -- node --experimental-transform-types --no-warnings --import "file:///C:/Users/Owner/projects/MCPwn/scripts/spike/register-ts-alias.mjs" "C:/Users/Owner/projects/MCPwn/scripts/spike/asi01-stdio.ts" --framing malicious --trace "C:/Users/Owner/spike-out/trace-A.json" --log "C:/Users/Owner/spike-out/run-A.log"
+```
+
+Re-registering for the benign control in Step 4 is `claude mcp remove email
+--scope user` followed by the same one-line add with `--framing benign` and new
+`--trace` / `--log` names: two complete commands, never one wrapped one. The
+re-run file spells both out with the names it uses. If your CLI rejects
+`--scope` on `remove`, drop it and run `claude mcp list` to confirm the entry is
+actually gone before re-adding.
 
 ### Claude Desktop (`claude_desktop_config.json`)
 
