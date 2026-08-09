@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
+import { ClientSetup } from './ClientSetup';
 import { CopyOut } from './CopyOut';
 import {
   notWiredLiveRunPort,
@@ -203,6 +204,11 @@ export function LiveRunConsole({
   return (
     <div className="panel-in flex flex-col gap-6">
       <Endpoint ticket={ticket} />
+      {/* THE HOW. The three sections around it say what the run is, what the
+          agent's job is and what we have seen; this one is the only place that
+          says what the reader has to DO, so it sits immediately after the values
+          it is built from and before the goal that depends on the connection. */}
+      <ClientSetup ticket={ticket} />
       <TaskGoal ticket={ticket} />
       <Connection
         status={status}
@@ -276,9 +282,10 @@ function Endpoint({ ticket }: { ticket: LiveRunTicketView }) {
       <CopyOut label="RUN ENDPOINT" name="run endpoint" value={ticket.endpoint} />
       <CopyOut label="RUN TOKEN" name="run token" value={ticket.token} secret />
       <p className="reading max-w-[68ch] text-ink-muted">
-        The token is shown once and we cannot show it again, because we store only a hash of it.
-        Send it as a bearer token on the connection. It opens this one run, on this one account, and
-        it dies when the run ends or when it expires.
+        The token is shown once and we cannot show it again, because we store only a hash of it. It
+        travels as an Authorization header on every request your agent makes, and the commands below
+        set that up for you. It opens this one run, on this one account, and it dies when the run
+        ends or when it expires.
       </p>
       <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
         <span className="instrument-faint">
