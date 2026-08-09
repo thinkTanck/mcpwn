@@ -73,6 +73,17 @@ test.describe('signed-in screens', () => {
     // so no autofill store or password manager has a control to latch onto.
     await expect(page.locator('input')).toHaveCount(0);
 
+    // BOTH FRAMINGS ARE REACHABLE FROM THE SIGNED-IN CONSOLE, and the panel
+    // describes the one that is actually about to be served: saying "the attack
+    // surface" over a control run would be the only untrue sentence on it.
+    // Bound to the CONSOLE's own sentence, not to the phrase alone: the setup
+    // section above states tool parity in nearly the same words, so a short
+    // match would find two elements and prove neither.
+    await page.getByRole('radio', { name: /CONTROL RUN/ }).click();
+    await expect(
+      page.getByText(/We serve the same tool surface for the category you picked/i),
+    ).toBeVisible();
+
     await expectNoWcagViolations(page);
   });
 });

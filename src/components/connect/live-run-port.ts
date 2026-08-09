@@ -1,4 +1,4 @@
-import type { Category } from '@/contract';
+import type { Category, VariantKind } from '@/contract';
 import type {
   LiveRunActionCode,
   LiveRunActionResult,
@@ -111,8 +111,20 @@ export type LiveRunAnswer<T> =
   | { readonly ok: false; readonly refusal: LiveRunRefusal };
 
 export interface ConnectLiveRunPort {
-  /** Issue this run's endpoint and token, or refuse. */
-  start(input: { category: Category }): Promise<LiveRunAnswer<LiveRunTicketView>>;
+  /**
+   * Issue this run's endpoint and token, or refuse.
+   *
+   * `kind` is the framing the run serves: the attack, or its tool-parity control
+   * ([ADR-0003](../../../docs/adr/0003-core-7-scope-and-measurability-bar.md)
+   * bar 4). It is OPTIONAL here because the default belongs to the server, which
+   * has always applied `malicious`, and a screen that repeats a default is a
+   * second place for it to drift. Omitting it is a real state, not a bug: it is
+   * how a caller says "whatever the server runs by default".
+   */
+  start(input: {
+    category: Category;
+    kind?: VariantKind;
+  }): Promise<LiveRunAnswer<LiveRunTicketView>>;
   /** What the server has actually observed on this run. */
   readState(input: { runId: string }): Promise<LiveRunAnswer<LiveRunStatusView>>;
   /** End it, judge it, persist it, and say where the result lives. */
@@ -220,7 +232,13 @@ export function createConnectLiveRunPort(actions: ConnectLiveRunActions): Connec
     async start(input) {
       let answer: Awaited<ReturnType<StartLiveRunAction>>;
       try {
-        answer = await actions.start({ category: input.category });
+        // Spread rather than `kind: input.kind`: `StartLiveRunRequestSchema` is
+        // strict, and a key the caller never set is a claim the caller never
+        // made. An absent `kind` leaves the server's own default in charge.
+        answer = await actions.start({
+          category: input.category,
+          ...(input.kind === undefined ? {} : { kind: input.kind }),
+        });
       } catch {
         // The thrown detail belongs in our own telemetry, not on a visitor's
         // screen: it is the one thing here that could carry an internal name.

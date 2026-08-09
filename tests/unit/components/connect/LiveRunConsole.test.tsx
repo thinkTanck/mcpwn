@@ -114,7 +114,65 @@ describe('LiveRunConsole · the inverted model, stated on the screen', () => {
 
     await issue(user);
 
-    expect(port.start).toHaveBeenCalledWith({ category: 'ASI05' });
+    expect(port.start).toHaveBeenCalledWith({ category: 'ASI05', kind: 'malicious' });
+  });
+
+  it('issues for the framing it was given, not for the attack every time', async () => {
+    const user = userEvent.setup();
+    const port = portWith();
+    render(<LiveRunConsole port={port} category="ASI05" kind="benign" signedIn />);
+
+    await issue(user);
+
+    expect(port.start).toHaveBeenCalledWith({ category: 'ASI05', kind: 'benign' });
+  });
+
+  it('describes the control as the same surface with no attack staged on it', () => {
+    render(<LiveRunConsole port={portWith()} category="ASI01" kind="benign" signedIn />);
+
+    // Pinned to the console's OWN lead, which is the phrase the signed-in e2e
+    // scan binds to. The setup section states parity in nearly the same words,
+    // so a match on the tail alone would find two elements on the real screen
+    // and prove neither.
+    expect(
+      screen.getByText(/We serve the same tool surface for the category you picked/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/no attack staged on it/i)).toBeInTheDocument();
+  });
+});
+
+/**
+ * WHICH RUN THIS TICKET IS. A user can issue several tickets in a session, and
+ * an endpoint that does not say which framing it serves is an endpoint they
+ * cannot tell apart from the last one. It is read off the TICKET the server
+ * issued, not off the picker, and it is evidence: printed as read, never
+ * animated.
+ */
+describe('LiveRunConsole · the issued ticket says which run it is serving', () => {
+  const ticketOf = (kind: LiveRunTicketView['kind']) => ({
+    start: vi.fn(async () => ({ ok: true as const, value: { ...TICKET, kind } })),
+    readState: vi.fn(async () => ({ ok: true as const, value: WAITING })),
+    finish: vi.fn(async () => ({ ok: true as const, value: SUMMARY })),
+  });
+
+  it('names an attack run beside the category it is serving', async () => {
+    const user = userEvent.setup();
+    render(<LiveRunConsole port={ticketOf('malicious')} category="ASI01" signedIn />);
+    await issue(user);
+    await screen.findByText(TICKET.endpoint);
+
+    expect(screen.getByText('ASI01')).toBeInTheDocument();
+    expect(screen.getByText('ATTACK RUN')).toBeInTheDocument();
+  });
+
+  it('names a control run, in the words the setup used, never the wire value', async () => {
+    const user = userEvent.setup();
+    render(<LiveRunConsole port={ticketOf('benign')} category="ASI01" kind="benign" signedIn />);
+    await issue(user);
+    await screen.findByText(TICKET.endpoint);
+
+    expect(screen.getByText('CONTROL RUN')).toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/\bbenign\b/i);
   });
 });
 

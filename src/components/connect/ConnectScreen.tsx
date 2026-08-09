@@ -4,6 +4,7 @@ import { useMemo, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { CORE7 } from './categories';
+import { RUN_TYPES } from './run-kinds';
 import { LiveRunConsole } from './LiveRunConsole';
 import {
   createConnectLiveRunPort,
@@ -11,7 +12,7 @@ import {
   type ConnectLiveRunActions,
   type ConnectLiveRunPort,
 } from './live-run-port';
-import type { Category } from '@/contract';
+import type { Category, VariantKind } from '@/contract';
 
 /**
  * CONNECT / RUN SETUP — the targeting console (register: PRODUCT).
@@ -89,6 +90,51 @@ function Section({ children, labelledBy }: { children: ReactNode; labelledBy: st
   );
 }
 
+/**
+ * One single-choice row: a mono code, then what it is in sans.
+ *
+ * Shared by the two choices in section 02 on purpose. They are the same kind of
+ * decision at the same level of the setup ("what does this run serve"), so they
+ * wear the same control rather than a second vocabulary, and the reader learns
+ * one interaction instead of two.
+ */
+function Choice({
+  code,
+  label,
+  checked,
+  onSelect,
+}: {
+  code: string;
+  label: string;
+  checked: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={checked}
+      onClick={onSelect}
+      className={cn(
+        'flex min-h-11 items-center gap-3 rounded-md border px-3 py-2.5 text-left transition-colors',
+        checked ? 'border-line-em bg-nominal/5' : 'border-line hover:border-line-em',
+      )}
+    >
+      <span
+        aria-hidden="true"
+        className={cn(
+          'inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border',
+          checked ? 'border-nominal text-nominal' : 'border-line text-transparent',
+        )}
+      >
+        <span className="h-2 w-2 rounded-full bg-current" />
+      </span>
+      <span className="shrink-0 font-mono text-[13px] text-ink-hi">{code}</span>
+      <span className="font-sans text-[15px] text-ink">{label}</span>
+    </button>
+  );
+}
+
 const LockIcon = () => (
   <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" className="shrink-0">
     <rect
@@ -129,6 +175,9 @@ export function ConnectScreen({
 }) {
   const [mode, setMode] = useState<Mode>('sample');
   const [category, setCategory] = useState<Category>(DEFAULT_CATEGORY);
+  // The attack, unless the user says otherwise: the same default the pipeline
+  // already applies, so the existing one-click path is unchanged.
+  const [kind, setKind] = useState<VariantKind>('malicious');
 
   // Memoized because the console polls on an effect keyed by the port: a fresh
   // object every render would tear the interval down and rebuild it every time.
@@ -205,35 +254,65 @@ export function ConnectScreen({
           role="radiogroup"
           aria-label="Attack category (OWASP Agentic Top 10)"
         >
-          {CORE7.map((c) => {
-            const checked = category === c.id;
-            return (
-              <button
-                key={c.id}
-                type="button"
-                role="radio"
-                aria-checked={checked}
-                onClick={() => setCategory(c.id)}
-                className={cn(
-                  'flex min-h-11 items-center gap-3 rounded-md border px-3 py-2.5 text-left transition-colors',
-                  checked ? 'border-line-em bg-nominal/5' : 'border-line hover:border-line-em',
-                )}
-              >
-                <span
-                  aria-hidden="true"
-                  className={cn(
-                    'inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border',
-                    checked ? 'border-nominal text-nominal' : 'border-line text-transparent',
-                  )}
-                >
-                  <span className="h-2 w-2 rounded-full bg-current" />
-                </span>
-                <span className="shrink-0 font-mono text-[13px] text-ink-hi">{c.id}</span>
-                <span className="font-sans text-[15px] text-ink">{c.title}</span>
-              </button>
-            );
-          })}
+          {CORE7.map((c) => (
+            <Choice
+              key={c.id}
+              code={c.id}
+              label={c.title}
+              checked={category === c.id}
+              onSelect={() => setCategory(c.id)}
+            />
+          ))}
         </div>
+
+        {/* THE CONTROL RUN. Live only, because every recorded sample IS an attack
+            run: offering a control the sample library cannot play would be a
+            choice that does not exist. It sits inside this section rather than
+            becoming a numbered step of its own, so the setup still reads as the
+            short sequence it is: how you are running, what we serve, then the
+            run. */}
+        {live && (
+          <div className="mt-7 border-t border-line/60 pt-6">
+            {/* The label is VISIBLE and it is also the group's accessible name.
+                An `aria-label` here would have been a second string saying the
+                same thing, free to drift from the one on screen, and a screen
+                reader user sitting beside a sighted one would hear a different
+                word. The seven-item group above keeps its `aria-label` because
+                it has no visible label to point at. */}
+            <p id="connect-run-type" className="micro-label mb-3">
+              RUN TYPE
+            </p>
+            <div
+              className="grid gap-2.5 md:grid-cols-2"
+              role="radiogroup"
+              aria-labelledby="connect-run-type"
+            >
+              {RUN_TYPES.map((option) => (
+                <Choice
+                  key={option.kind}
+                  code={option.label}
+                  label={option.gloss}
+                  checked={kind === option.kind}
+                  onSelect={() => setKind(option.kind)}
+                />
+              ))}
+            </div>
+            <p className="reading mt-4 max-w-[68ch]">
+              Both runs serve the same tools, with the same capability. The control run is not a
+              safer sandbox and not a weaker attack: it is the same surface with no attack staged on
+              it.
+            </p>
+            <p className="reading mt-2 max-w-[68ch]">
+              Run the control to see how your agent behaves there when nothing is trying to hijack
+              it, which is the only way to tell an agent that refuses everything apart from one
+              using judgment.
+            </p>
+            <p className="reading mt-2 max-w-[68ch] text-ink-muted">
+              In our own docs and in the measured results these two are the malicious realization
+              and the benign control.
+            </p>
+          </div>
+        )}
       </Section>
 
       {/* Detector — a stated fact, never a control, and never a numbered step */}
@@ -273,7 +352,7 @@ export function ConnectScreen({
           label={live ? 'YOUR RUN ENDPOINT' : 'RECORDED PLAYBACK'}
         />
         {live ? (
-          <LiveRunConsole port={port} category={category} signedIn={signedIn} />
+          <LiveRunConsole port={port} category={category} kind={kind} signedIn={signedIn} />
         ) : (
           <div className="flex flex-col gap-4">
             <p className="reading max-w-[68ch]">
