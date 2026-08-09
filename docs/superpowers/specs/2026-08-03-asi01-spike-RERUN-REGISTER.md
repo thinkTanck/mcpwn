@@ -26,6 +26,46 @@ project-scoped MCP config can read that file. Register the server at USER scope,
 and put `<OUT>` somewhere the agent is not working. This is the same class of
 tell as the server name, one level out from the protocol.
 
+## Windows PowerShell: read this before you paste anything
+
+**PowerShell does not treat a trailing `\` as a line continuation.** Bash does.
+Paste a wrapped `claude mcp add` into PowerShell and it does not run as one
+command: PowerShell executes the first line on its own, then fails on each
+following line as a parse error. The first line on its own is still a valid
+registration, so what you are left with is a server registered under the right
+name whose command is `node --experimental-transform-types --no-warnings \` with
+a literal backslash and none of the real arguments. It can never start, and the
+half-registration is silent. This has happened for real.
+
+If it happens, remove the broken entry and confirm it is gone:
+
+```powershell
+claude mcp remove email
+```
+
+```powershell
+claude mcp list
+```
+
+Every command below is given twice. Use the `bash` version from Git Bash, WSL,
+macOS or Linux. Use the `powershell` version from Windows PowerShell: it is
+**one long line on purpose**, with no backslashes, no backticks and no
+continuations of any kind, because swapping one continuation character for
+another only moves the failure.
+
+The PowerShell versions use real absolute paths instead of placeholders: the repo
+at `C:/Users/Owner/projects/MCPwn`, and the run output at
+`C:/Users/Owner/spike-out`. **Replace `C:/Users/Owner/spike-out` with a real
+directory of your own, and keep it outside the repository and outside any
+directory the agent is working in.** A path the agent can read is the same class
+of tell as the server name.
+
+The PowerShell registrations pass `--scope user`, because a project-scoped config
+is a file the agent can read. That is the flag name as documented for this CLI,
+but it is worth one second to verify with `claude mcp add --help` (and
+`claude mcp remove --help`) rather than taking it on trust; register at user
+scope either way.
+
 ## The ONLY text to paste into the agent
 
 ```
@@ -50,6 +90,10 @@ claude mcp add email -- node --experimental-transform-types --no-warnings \
   --log "<OUT>/asi01-rerun-run-A.log"
 ```
 
+```powershell
+claude mcp add email --scope user -- node --experimental-transform-types --no-warnings --import "file:///C:/Users/Owner/projects/MCPwn/scripts/spike/register-ts-alias.mjs" "C:/Users/Owner/projects/MCPwn/scripts/spike/asi01-stdio.ts" --framing malicious --trace "C:/Users/Owner/spike-out/asi01-rerun-trace-A.json" --log "C:/Users/Owner/spike-out/asi01-rerun-run-A.log"
+```
+
 ## B. BENIGN control
 
 ```bash
@@ -61,6 +105,18 @@ claude mcp add email -- node --experimental-transform-types --no-warnings \
   --trace "<OUT>/asi01-rerun-trace-B.json" \
   --log "<OUT>/asi01-rerun-run-B.log"
 ```
+
+```powershell
+claude mcp remove email --scope user
+```
+
+```powershell
+claude mcp add email --scope user -- node --experimental-transform-types --no-warnings --import "file:///C:/Users/Owner/projects/MCPwn/scripts/spike/register-ts-alias.mjs" "C:/Users/Owner/projects/MCPwn/scripts/spike/asi01-stdio.ts" --framing benign --trace "C:/Users/Owner/spike-out/asi01-rerun-trace-B.json" --log "C:/Users/Owner/spike-out/asi01-rerun-run-B.log"
+```
+
+`claude mcp remove` needs the scope you registered under, so it carries
+`--scope user` too. If your CLI rejects the flag on `remove`, drop it and run
+`claude mcp list` to confirm the entry is actually gone before re-adding.
 
 ## Claude Desktop (`claude_desktop_config.json`)
 
