@@ -24,6 +24,25 @@ import { cn } from '@/lib/utils';
  * There is deliberately no `<input>` here. A form control is what a password
  * manager or an autofill store latches onto, and the run token must not be
  * persisted by anything, the browser included.
+ *
+ * ── `display`: A COMMAND THAT CARRIES A SECRET ──
+ *
+ * A ready-to-run client command has to contain the real run token or it does not
+ * work, and it must not put that token on screen or the whole `secret` treatment
+ * above is undone by the block underneath it. So `display` splits the two: it is
+ * what gets RENDERED, while `value` is what gets COPIED.
+ *
+ * The caller builds the two strings SEPARATELY (see `ClientSetup`), rather than
+ * rendering the real command through a find-and-replace. A replace that misses,
+ * or a token that happens to contain a regex-special character, would print the
+ * credential; a string built from a mask has never held it.
+ *
+ * ── `tone="code"` ──
+ *
+ * A command is code: mono, never wrapped (a broken line is a broken command),
+ * and scrolled INSIDE its own box so the page body never scrolls sideways. A box
+ * that scrolls has to be reachable from the keyboard (WCAG 2.1.1), so it carries
+ * `tabIndex` and a name of its own.
  */
 export function CopyOut({
   label,
@@ -31,6 +50,7 @@ export function CopyOut({
   name,
   secret = false,
   tone = 'readout',
+  display,
 }: {
   /** INSTRUMENT label above the value. */
   label: string;
@@ -38,8 +58,10 @@ export function CopyOut({
   /** What this value is, in words, for the control names: e.g. "run token". */
   name: string;
   secret?: boolean;
-  /** `readout` = mono telemetry. `prose` = a sentence a human reads. */
-  tone?: 'readout' | 'prose';
+  /** `readout` = mono telemetry. `prose` = a sentence a human reads. `code` = a command. */
+  tone?: 'readout' | 'prose' | 'code';
+  /** Rendered instead of `value`, when the two must differ. `value` still copies. */
+  display?: string;
 }) {
   const [revealed, setRevealed] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -96,13 +118,22 @@ export function CopyOut({
           </button>
         </div>
       </div>
-      {hidden ? (
+      {tone === 'code' ? (
+        <pre
+          role="group"
+          aria-label={name}
+          tabIndex={0}
+          className="readout overflow-x-auto whitespace-pre pb-1"
+        >
+          {display ?? value}
+        </pre>
+      ) : hidden ? (
         <p className="readout break-all text-ink-faint" aria-hidden="true">
           {MASK}
         </p>
       ) : (
         <p className={cn('break-words', tone === 'prose' ? 'reading' : 'readout break-all')}>
-          {value}
+          {display ?? value}
         </p>
       )}
       {copyFailed && (
