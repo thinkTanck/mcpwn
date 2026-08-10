@@ -1,0 +1,235 @@
+{
+  "schema_version": 1,
+  "diagram_type": "dataflow",
+  "meta": {
+    "title": "The Leakage Barrier",
+    "subtitle": "the Trace is the feature, the GroundTruth is the label, and the label never crosses",
+    "output": "leakage-barrier.html",
+    "viewBox": [1200, 800]
+  },
+  "stages": [
+    {
+      "label": "The two halves"
+    },
+    {
+      "label": "The judge boundary"
+    },
+    {
+      "label": "Prediction"
+    },
+    {
+      "label": "Outcome"
+    },
+    {
+      "label": "Measurement"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "trace",
+      "type": "messagebus",
+      "label": "Trace",
+      "sublabel": "the 5 observable fields",
+      "tag": "OBSERVABLE",
+      "stage": 0,
+      "row": 1,
+      "width": 150,
+      "height": 62
+    },
+    {
+      "id": "goal",
+      "type": "messagebus",
+      "label": "taskGoal",
+      "sublabel": "from the Scenario",
+      "stage": 1,
+      "row": 0,
+      "width": 150,
+      "height": 62
+    },
+    {
+      "id": "gate",
+      "type": "cloud",
+      "label": "judgeableTrace()",
+      "sublabel": "ALLOW-LIST: target, model, steps",
+      "tag": "category + runId dropped",
+      "stage": 1,
+      "row": 1,
+      "width": 150,
+      "height": 62
+    },
+    {
+      "id": "detector",
+      "type": "backend",
+      "label": "Detector",
+      "sublabel": "blind LLM alignment auditor",
+      "stage": 2,
+      "row": 1,
+      "width": 150,
+      "height": 62
+    },
+    {
+      "id": "verdict",
+      "type": "messagebus",
+      "label": "Verdict",
+      "sublabel": "compromised, severity, stepId",
+      "stage": 3,
+      "row": 0,
+      "width": 150,
+      "height": 62
+    },
+    {
+      "id": "runresult",
+      "type": "messagebus",
+      "label": "RunResult",
+      "sublabel": "trace + verdict, NO groundTruth",
+      "stage": 3,
+      "row": 1,
+      "width": 150,
+      "height": 62
+    },
+    {
+      "id": "ui",
+      "type": "frontend",
+      "label": "UI",
+      "sublabel": "replay, leaderboard, findings",
+      "stage": 3,
+      "row": 2,
+      "width": 150,
+      "height": 62
+    },
+    {
+      "id": "barrier",
+      "type": "security",
+      "label": "THE LEAKAGE BARRIER",
+      "sublabel": "the held-out label never crosses: not to the detector, not to the RunResult, not to the UI",
+      "tag": "ADR-0005 - executable, CI-blocking",
+      "stage": 2,
+      "row": 3,
+      "width": 1012,
+      "height": 56
+    },
+    {
+      "id": "gt",
+      "type": "security",
+      "label": "GroundTruth",
+      "sublabel": "compromised, stepId?, category",
+      "tag": "HELD OUT",
+      "stage": 0,
+      "row": 4,
+      "width": 150,
+      "height": 62
+    },
+    {
+      "id": "score",
+      "type": "backend",
+      "label": "Eval scorer",
+      "sublabel": "precision / recall, fixtures ONLY",
+      "stage": 4,
+      "row": 4,
+      "width": 150,
+      "height": 62
+    }
+  ],
+  "flows": [
+    {
+      "from": "trace",
+      "to": "gate",
+      "label": "every field",
+      "variant": "emphasis"
+    },
+    {
+      "from": "goal",
+      "to": "detector",
+      "label": "what the agent was authorized to do"
+    },
+    {
+      "from": "gate",
+      "to": "detector",
+      "label": "target + model + steps ONLY",
+      "variant": "emphasis",
+      "labelAt": [423, 226]
+    },
+    {
+      "from": "detector",
+      "to": "verdict",
+      "label": "the prediction",
+      "variant": "emphasis"
+    },
+    {
+      "from": "verdict",
+      "to": "runresult",
+      "label": "assembled with the trace",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "from": "runresult",
+      "to": "ui",
+      "label": "observable data only",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "from": "gt",
+      "to": "score",
+      "label": "the label",
+      "variant": "security",
+      "classification": "never leaves this side"
+    },
+    {
+      "from": "verdict",
+      "to": "score",
+      "label": "the prediction, scored",
+      "variant": "dashed",
+      "fromSide": "right",
+      "toSide": "right",
+      "via": [
+        [1120, 159],
+        [1120, 615]
+      ],
+      "labelSegment": 1,
+      "labelAt": [1100, 400]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "One call, two halves, separated from the first instant",
+      "items": [
+        "Attack.build(variant) yields { trace, groundTruth } together, and they part company immediately.",
+        "The Trace above is the feature; the GroundTruth below is the label.",
+        "A live run has no bottom row at all: live runs are UNLABELED, which is exactly why the detector exists."
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Barrier 1 - the Trace boundary",
+      "items": [
+        "A Trace exposes exactly runId, target, model, category, steps: a new field is how a label would arrive.",
+        "No label token anywhere in the serialized trace, and no realization id, slug or kind.",
+        "Step ids are positional (s1..sN), so the offending step is not marked.",
+        "Malicious and benign siblings share identical metadata, and no metadata value predicts the label."
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Barrier 2 - the judge boundary",
+      "items": [
+        "Trace.category IS observable by contract: the operator picked which attack to launch, so the UI may show it.",
+        "But the judge is ASKED to classify the category, so handing it the answer measures nothing.",
+        "judgeableTrace() is an allow-list, so a field added to Trace later is withheld by default.",
+        "runId is withheld too: the builders name it after the scenario, which spells the category out in prose."
+      ]
+    },
+    {
+      "dot": "slate",
+      "title": "The counterweight, and how it stays true",
+      "items": [
+        "Every rule above is satisfiable by sending the judge nothing, which would destroy the evidence.",
+        "So a matching law asserts the judge still receives the task goal and every step, each anchorable by id.",
+        "The laws quantify over every registered attack and every realization; a violation fails CI.",
+        "Both directions are verified by mutation, not by a green run (ADR-0005)."
+      ]
+    }
+  ]
+}

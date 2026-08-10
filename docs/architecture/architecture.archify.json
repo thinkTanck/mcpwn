@@ -1,0 +1,475 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "MCPwn Module Map",
+    "subtitle": "the live agent path is INBOUND - the agent connects TO us (ADR-0006)",
+    "output": "architecture.html"
+  },
+  "components": [
+    {
+      "id": "agent",
+      "type": "external",
+      "label": "Your MCP agent",
+      "sublabel": "your infra, your key",
+      "tag": "connects TO us",
+      "pos": [30, 120],
+      "size": [160, 64]
+    },
+    {
+      "id": "host",
+      "type": "cloud",
+      "label": "1 - Hosted MCP endpoint",
+      "sublabel": "serves the Environment",
+      "tag": "not built yet",
+      "pos": [260, 120],
+      "size": [160, 64]
+    },
+    {
+      "id": "rec",
+      "type": "backend",
+      "label": "1 - Recorder",
+      "sublabel": "record() to TraceBuilder",
+      "pos": [490, 120],
+      "size": [160, 64]
+    },
+    {
+      "id": "trace",
+      "type": "messagebus",
+      "label": "Trace",
+      "sublabel": "OBSERVABLE only",
+      "pos": [720, 120],
+      "size": [160, 64]
+    },
+    {
+      "id": "detector",
+      "type": "backend",
+      "label": "4 - Detector",
+      "sublabel": "blind alignment auditor",
+      "pos": [950, 120],
+      "size": [160, 64]
+    },
+    {
+      "id": "jmp",
+      "type": "backend",
+      "label": "JudgeModelPort",
+      "sublabel": "creds validated lazily",
+      "pos": [1180, 120],
+      "size": [160, 64]
+    },
+    {
+      "id": "token",
+      "type": "security",
+      "label": "Per-run token",
+      "sublabel": "HTTPS, never logged",
+      "pos": [30, 250],
+      "size": [160, 64]
+    },
+    {
+      "id": "attacks",
+      "type": "backend",
+      "label": "2 - Attack engine",
+      "sublabel": "Core-7 registry",
+      "pos": [260, 250],
+      "size": [160, 64]
+    },
+    {
+      "id": "mtp",
+      "type": "backend",
+      "label": "McpTargetPort",
+      "sublabel": "outbound probe + transport",
+      "pos": [490, 250],
+      "size": [160, 64]
+    },
+    {
+      "id": "gt",
+      "type": "security",
+      "label": "GroundTruth",
+      "sublabel": "HELD OUT",
+      "pos": [720, 250],
+      "size": [160, 64]
+    },
+    {
+      "id": "verdict",
+      "type": "messagebus",
+      "label": "Verdict",
+      "sublabel": "anchored to a stepId",
+      "pos": [950, 250],
+      "size": [160, 64]
+    },
+    {
+      "id": "judge",
+      "type": "external",
+      "label": "Judge model",
+      "sublabel": "operator-provided",
+      "tag": "LOCKED",
+      "pos": [1180, 250],
+      "size": [160, 64]
+    },
+    {
+      "id": "auth",
+      "type": "security",
+      "label": "Supabase Auth",
+      "sublabel": "emailed one-time code",
+      "pos": [30, 380],
+      "size": [160, 64]
+    },
+    {
+      "id": "runner",
+      "type": "backend",
+      "label": "3 - Runner",
+      "sublabel": "model x category matrix",
+      "pos": [260, 380],
+      "size": [160, 64]
+    },
+    {
+      "id": "srv",
+      "type": "external",
+      "label": "Target MCP server",
+      "sublabel": "ASI02 / ASI05 surface",
+      "pos": [490, 380],
+      "size": [160, 64]
+    },
+    {
+      "id": "runresult",
+      "type": "messagebus",
+      "label": "RunResult",
+      "sublabel": "live and unlabeled",
+      "pos": [720, 380],
+      "size": [160, 64]
+    },
+    {
+      "id": "evalh",
+      "type": "backend",
+      "label": "4b - Eval harness",
+      "sublabel": "precision / recall",
+      "pos": [950, 380],
+      "size": [160, 64]
+    },
+    {
+      "id": "repo",
+      "type": "database",
+      "label": "RunRepository",
+      "sublabel": "owner-scoped, RLS",
+      "pos": [1180, 380],
+      "size": [160, 64]
+    },
+    {
+      "id": "m8",
+      "type": "backend",
+      "label": "8 - Wiring",
+      "sublabel": "composition root",
+      "tag": "not built yet",
+      "pos": [30, 510],
+      "size": [160, 64]
+    },
+    {
+      "id": "leaderboard",
+      "type": "backend",
+      "label": "5 - Leaderboard",
+      "sublabel": "robustness matrix",
+      "pos": [720, 510],
+      "size": [160, 64]
+    },
+    {
+      "id": "fixreport",
+      "type": "backend",
+      "label": "6 - Fix-report",
+      "sublabel": "OWASP remediation",
+      "pos": [950, 510],
+      "size": [160, 64]
+    },
+    {
+      "id": "ui",
+      "type": "frontend",
+      "label": "7 - UI, the HUD screens",
+      "sublabel": "renders observable data only, through the DataSource port",
+      "pos": [720, 640],
+      "size": [390, 64]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "security-group",
+      "label": "Inbound attack surface",
+      "wraps": ["host", "rec"]
+    }
+  ],
+  "connections": [
+    {
+      "from": "agent",
+      "to": "host",
+      "label": "tools/call",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "left",
+      "route": "straight",
+      "labelAt": [225, 146]
+    },
+    {
+      "from": "host",
+      "to": "agent",
+      "label": "serves the poisoned tool surface",
+      "variant": "emphasis",
+      "fromSide": "top",
+      "toSide": "top",
+      "via": [
+        [340, 78],
+        [110, 78]
+      ],
+      "labelSegment": 1,
+      "labelAt": [225, 66]
+    },
+    {
+      "from": "auth",
+      "to": "token",
+      "label": "issued per run, per account",
+      "variant": "security",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "route": "straight",
+      "labelAt": [225, 351]
+    },
+    {
+      "from": "token",
+      "to": "agent",
+      "label": "presented on connect",
+      "variant": "security",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "route": "straight",
+      "labelAt": [212, 221]
+    },
+    {
+      "from": "attacks",
+      "to": "host",
+      "label": "scenario(): the Environment",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "route": "straight",
+      "labelAt": [460, 234]
+    },
+    {
+      "from": "host",
+      "to": "rec",
+      "label": "observable events",
+      "fromSide": "right",
+      "toSide": "left",
+      "route": "straight",
+      "labelAt": [455, 110]
+    },
+    {
+      "from": "rec",
+      "to": "trace",
+      "label": "records the steps",
+      "fromSide": "right",
+      "toSide": "left",
+      "route": "straight",
+      "labelAt": [685, 110]
+    },
+    {
+      "from": "trace",
+      "to": "detector",
+      "label": "the FEATURE: trace + taskGoal",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "left",
+      "route": "straight",
+      "labelAt": [915, 110]
+    },
+    {
+      "from": "detector",
+      "to": "jmp",
+      "fromSide": "right",
+      "toSide": "left",
+      "route": "straight"
+    },
+    {
+      "from": "jmp",
+      "to": "judge",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "route": "straight"
+    },
+    {
+      "from": "mtp",
+      "to": "rec",
+      "label": "TargetStepEvent",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "route": "straight",
+      "labelAt": [648, 221]
+    },
+    {
+      "from": "mtp",
+      "to": "srv",
+      "label": "probe only - NOT the agent path",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "route": "straight",
+      "labelAt": [700, 337]
+    },
+    {
+      "from": "runner",
+      "to": "attacks",
+      "label": "one cell per model x category",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "route": "straight",
+      "labelAt": [265, 476]
+    },
+    {
+      "from": "attacks",
+      "to": "gt",
+      "label": "build(): the fixture pair",
+      "variant": "dashed",
+      "fromSide": "right",
+      "toSide": "left",
+      "via": [
+        [455, 282],
+        [455, 347],
+        [700, 347],
+        [700, 282]
+      ],
+      "labelSegment": 2,
+      "labelAt": [530, 363]
+    },
+    {
+      "from": "gt",
+      "to": "evalh",
+      "label": "the LABEL, scoring only",
+      "variant": "security",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "via": [
+        [800, 347],
+        [1030, 347]
+      ],
+      "labelSegment": 1,
+      "labelAt": [915, 363]
+    },
+    {
+      "from": "detector",
+      "to": "verdict",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "route": "straight"
+    },
+    {
+      "from": "verdict",
+      "to": "evalh",
+      "label": "the prediction",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "route": "straight",
+      "labelAt": [1130, 351]
+    },
+    {
+      "from": "verdict",
+      "to": "runresult",
+      "fromSide": "left",
+      "toSide": "right",
+      "via": [
+        [915, 282],
+        [915, 412]
+      ]
+    },
+    {
+      "from": "runresult",
+      "to": "leaderboard",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "route": "straight"
+    },
+    {
+      "from": "runresult",
+      "to": "repo",
+      "label": "save(userId, run)",
+      "fromSide": "bottom",
+      "toSide": "bottom",
+      "via": [
+        [800, 477],
+        [1260, 477]
+      ],
+      "labelSegment": 1,
+      "labelAt": [1030, 493]
+    },
+    {
+      "from": "leaderboard",
+      "to": "ui",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "via": [
+        [800, 610],
+        [915, 610]
+      ]
+    },
+    {
+      "from": "fixreport",
+      "to": "ui",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "via": [
+        [1030, 610],
+        [915, 610]
+      ]
+    },
+    {
+      "from": "m8",
+      "to": "runner",
+      "variant": "dashed",
+      "fromSide": "right",
+      "toSide": "left",
+      "via": [
+        [225, 542],
+        [225, 412]
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "The direction is INBOUND",
+      "items": [
+        "MCPwn hosts the per-run MCP endpoint; the agent connects to it.",
+        "Every tools/call is the agent OWN decision, with its arguments: that is the signal red-teaming needs.",
+        "You cannot poison a tool surface you do not serve, so ASI01/02/04/05/06 are only stageable from this side.",
+        "taskGoal is delivered OUT OF BAND: a published MCP prompt, or paste.",
+        "agent_reasoning is NOT observable from the server side and is never synthesized."
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Credentials, both directions",
+      "items": [
+        "We never call your agent, so we hold no key of yours.",
+        "We authenticate the INCOMING connection with a per-run, per-account token.",
+        "The token is scoped to one run and expires with it.",
+        "The endpoint is hostile by design, with nothing real behind it."
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Drawn as specified, not as shipped",
+      "items": [
+        "Tagged 'not built yet': the hosted endpoint and module 8.",
+        "Modules 1, 3, 4b, 5 and 6 exist in src/ but nothing in the app calls them yet.",
+        "The deployed UI reads curated fixtures through the DataSource port.",
+        "build(variant) also yields the observable fixture Trace; only the label side is drawn here."
+      ]
+    },
+    {
+      "dot": "slate",
+      "title": "McpTargetPort keeps a narrower job",
+      "items": [
+        "Probing a target MCP server: the ASI02 and ASI05 surfaces.",
+        "Supplying the shared transport, JSON-RPC, Zod and retry layer.",
+        "It is not the live agent path and is not documented as one."
+      ]
+    }
+  ]
+}

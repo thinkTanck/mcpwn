@@ -1,0 +1,110 @@
+flowchart TB
+%% MCPwn — module map. CANONICAL SOURCE for docs/architecture/architecture.svg.
+%%
+%% THE LIVE AGENT PATH IS INBOUND (ADR-0006): MCPwn hosts the MCP endpoint and
+%% the user's agent connects TO it. We never call their agent, so we hold no
+%% credential of theirs; we authenticate the INCOMING connection instead.
+%% `McpTargetPort` survives with the NARROWER job of probing a target MCP
+%% *server* (the ASI02 / ASI05 surfaces) and supplying the shared transport.
+%%
+%% SHIPPED vs SPECIFIED is drawn, not asserted:
+%%   solid stroke  = code exists in src/ on this branch
+%%   dashed stroke = specified in an ADR, not built yet
+%% Every claim was checked against src/; the audit is in docs/architecture/README.md.
+
+    %% ── Outside the trust boundary ────────────────────────────────────────
+    subgraph EXT["Outside the trust boundary"]
+        direction LR
+        AGENT["Your MCP agent<br/>your infra, your inference, your key"]
+        SRV["A target MCP server<br/>ASI02 / ASI05 probe surface"]
+        JUDGE["Judge model<br/>operator-provided, LOCKED"]
+    end
+
+    %% ── 1. MCP harness ───────────────────────────────────────────────────
+    subgraph M1["1 - MCP harness"]
+        direction TB
+        HOST["Hosted per-run MCP endpoint<br/>serves the Environment: tools, seeded memory, prompts"]
+        TOK(["Per-run, per-account token<br/>HTTPS, server-side, never logged"])
+        REC["record(port, scenario, meta)<br/>TargetStepEvent stream into TraceBuilder"]
+        MTP(["McpTargetPort<br/>outbound probe + shared transport"])
+    end
+
+    %% ── 2..6 domain modules ──────────────────────────────────────────────
+    M2["2 - Attack engine<br/>Core-7 registry, build() / scenario()"]
+    M3["3 - Runner<br/>runMatrix over model x category"]
+    M4["4 - Detector<br/>detect(), blind alignment auditor"]
+    JMP(["JudgeModelPort"])
+    M4B["4b - Eval harness<br/>precision / recall on fixtures"]
+    M5["5 - Leaderboard<br/>buildLeaderboard, robustness matrix"]
+    M6["6 - Fix-report generator<br/>OWASP remediation, markdown + JSON"]
+
+    %% ── Data-contract artifacts ──────────────────────────────────────────
+    SCEN{{"Scenario<br/>taskGoal + Environment"}}
+    TRACE{{"Trace<br/>OBSERVABLE only, no label"}}
+    GT{{"GroundTruth<br/>HELD-OUT label"}}
+    VERD{{"Verdict<br/>compromised, severity, stepId"}}
+    RES{{"RunResult<br/>live and unlabeled"}}
+
+    %% ── 7. UI + 8. wiring ────────────────────────────────────────────────
+    subgraph APP["7 - UI (Next.js App Router, deployed)"]
+        direction TB
+        DS["DataSource port<br/>in-memory adapter today"]
+        SCREENS["HUD screens<br/>home, connect, replay, leaderboard, findings, threats"]
+    end
+    M8["8 - Wiring + run report<br/>composition root"]
+
+    %% ── Platform ─────────────────────────────────────────────────────────
+    subgraph PLAT["Platform"]
+        direction LR
+        AUTH["Supabase Auth<br/>emailed one-time code, gates live runs"]
+        REPO["RunRepository<br/>owner-scoped, in-memory + Supabase RLS"]
+        PORT["RunRepositoryPort<br/>memory + postgres adapters"]
+    end
+
+    %% ── THE LIVE RUN, INBOUND ────────────────────────────────────────────
+    M2 -- "scenario(variant)" --> SCEN
+    SCEN -- "the Environment to serve" --> HOST
+    HOST == "serves the poisoned tool surface" ==> AGENT
+    AGENT == "tools/call, the agent's OWN decision, with args" ==> HOST
+    SCEN -. "taskGoal OUT OF BAND: published MCP prompt, or paste" .-> AGENT
+    AUTH -- "issued per run, per account" --> TOK
+    TOK -- "presented on connect" --> AGENT
+    HOST -- "observable events" --> REC
+    REC -- "TraceBuilder.build()" --> TRACE
+
+    %% ── OUTBOUND PROBING, NOT the agent path ─────────────────────────────
+    MTP <-- "JSON-RPC over Streamable HTTP" --> SRV
+    MTP -. "TargetStepEvent" .-> REC
+
+    %% ── Fixture construction (detector validation) ───────────────────────
+    M2 -. "build(variant): the observable half" .-> TRACE
+    M2 -. "build(variant): the labeled half" .-> GT
+
+    %% ── Detection ────────────────────────────────────────────────────────
+    TRACE -- "the FEATURE: trace + taskGoal" --> M4
+    M4 <--> JMP
+    JMP <--> JUDGE
+    M4 --> VERD
+    GT -- "the LABEL, scoring only" --> M4B
+    VERD -. "the prediction" .-> M4B
+
+    %% ── Assembly and consumption ─────────────────────────────────────────
+    M3 -. "drives each cell" .-> REC
+    M3 -. "detect(trace, taskGoal)" .-> M4
+    TRACE --> RES
+    VERD --> RES
+    RES --> M5
+    RES --> M6
+    RES -- "save(userId, run)" --> REPO
+    REPO --- PORT
+    RES --> DS
+    M5 --> DS
+    M6 --> DS
+    DS --> SCREENS
+    AUTH -- "session gate" --> SCREENS
+    M8 --- M3
+    M8 --- APP
+
+    %% ── Specified, not built yet (ADR-0006 / ADR-0007) ───────────────────
+    classDef planned stroke-dasharray: 6 4
+    class HOST,TOK,M8 planned

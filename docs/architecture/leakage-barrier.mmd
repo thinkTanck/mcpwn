@@ -1,0 +1,81 @@
+flowchart LR
+%% MCPwn — the leakage barrier. CANONICAL SOURCE for docs/architecture/leakage-barrier.svg.
+%%
+%% THE CORE INVARIANT, and the only reason any accuracy number here means
+%% anything: the observable `Trace` is the FEATURE, the held-out `GroundTruth`
+%% is the LABEL, and the detector and the UI see ONLY the Trace.
+%%
+%% There are TWO barriers, not one, and the second is the subtle one:
+%%
+%%   BARRIER 1 - the Trace boundary. `GroundTruth` never travels with the
+%%   Trace, and nothing in the Trace covaries with it: no extra field, no
+%%   label token, positional step ids, sibling-identical metadata.
+%%
+%%   BARRIER 2 - the judge boundary. `Trace.category` IS observable by
+%%   contract (the operator picked which attack to launch, so the UI may show
+%%   it), but the judge is ASKED to classify the category, so handing it the
+%%   answer measures nothing. `judgeableTrace()` is an ALLOW-LIST (target,
+%%   model, steps): `category` and `runId` are withheld, and a field added to
+%%   `Trace` later is withheld by default rather than leaked by default.
+%%
+%% Both directions are executable, not reviewed. tests/unit/attacks/
+%% leakage.property.test.ts quantifies over every registered attack and every
+%% realization, and a violation fails CI (ADR-0005).
+%%
+%% An `--x` link is a flow that is BLOCKED, not a flow that happens.
+
+    %% ── One call, two outputs, separated from the first instant ──────────
+    BUILD["Attack.build(variant)<br/>module 2, Core-7 registry"]
+
+    %% ══ HELD OUT - the label side ════════════════════════════════════════
+    subgraph LABEL["HELD OUT - the label side"]
+        direction TB
+        GT["GroundTruth<br/>compromised, stepId?, category"]
+        SCORE["Eval scorer<br/>precision / recall, fixtures ONLY"]
+    end
+
+    %% ══ OBSERVABLE - the feature side ════════════════════════════════════
+    subgraph FEATURE["OBSERVABLE - the feature side"]
+        direction TB
+        TRACE["Trace<br/>runId, target, model, category, steps[]"]
+        GOAL["taskGoal<br/>from the Scenario"]
+        GATE["judgeableTrace() ALLOW-LIST<br/>target + model + steps ONLY"]
+        DET["Detector<br/>blind LLM alignment auditor"]
+        VERD["Verdict<br/>compromised, score, severity, category, stepId?"]
+        RES["RunResult<br/>trace + verdict, NO groundTruth"]
+        UI["UI<br/>replay, leaderboard, findings"]
+    end
+
+    BUILD -->|"the observable half"| TRACE
+    BUILD -->|"the labeled half"| GT
+
+    %% ── BARRIER 1 - the label never crosses to the feature side ──────────
+    GT --x|"BARRIER 1: never reaches the detector, the RunResult, or the UI"| DET
+
+    %% ── BARRIER 2 - observable by contract, still withheld from the judge ─
+    TRACE -->|"every field"| GATE
+    GATE --x|"BARRIER 2: category + runId dropped, because the judge is ASKED to classify the category"| DET
+    GATE -->|"the evidence: every step, anchorable by its positional id"| DET
+    GOAL -->|"what the agent was authorized to do"| DET
+
+    %% ── The feature path, straight through ───────────────────────────────
+    DET -->|"the prediction"| VERD
+    TRACE --> RES
+    VERD --> RES
+    RES --> UI
+    TRACE -->|"category IS observable by contract, the UI may show it"| UI
+
+    %% ── Scoring closes the loop, on the label side only ──────────────────
+    GT -->|"the label"| SCORE
+    VERD -.->|"the prediction, copied across to be scored"| SCORE
+    SCORE -->|"measured P/R, fixtures only"| LIVE
+
+    LIVE["Live runs are UNLABELED<br/>which is exactly why the detector exists"]
+
+    %% ── What keeps it true ───────────────────────────────────────────────
+    LAWS["Executable laws - ADR-0005<br/>contract-exact shape - no label token - positional step ids<br/>sibling-identical metadata - no metadata predicts the label<br/>deterministic builds - judge never sees the category<br/>judge still receives ALL the evidence"]
+    LAWS -.->|"enforced over EVERY attack and realization; a violation fails CI"| BUILD
+    LAWS -.-> DET
+
+    classDef barrier stroke-width:3px
+    class LABEL,FEATURE barrier

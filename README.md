@@ -111,76 +111,14 @@ module 1 hosts the per-run MCP server and the user's agent connects to it, so we
 serve the poisoned tool surface the attacks are staged through. `McpTargetPort`
 remains for OUTBOUND probing of a target MCP _server_, which is a different job.
 
-![MCPwn module map](docs/diagrams/architecture.svg)
+![MCPwn module map](docs/architecture/architecture.svg)
 
-<sub>Polished render — **archify**, themeable for dark/light. The Mermaid source below stays the canonical, diffable diagram. **The SVG predates [ADR-0006](docs/adr/0006-mcpwn-is-the-mcp-server.md) and still draws the retired outbound agent path; regenerating it is tracked work. Trust the Mermaid below.**</sub>
-
-```mermaid
-flowchart TD
-    %% ---- External systems (outside the app boundary) ----
-    subgraph EXT["External systems"]
-        AGENT["The user's MCP agent (connects TO us)"]
-        SRV["A target MCP server (probing only)"]
-        JUDGE["Judge / auditor model"]
-    end
-
-    %% ---- Domain ports (boundary adapters; creds validated lazily) ----
-    MTP(["McpTargetPort"])
-    JMP(["JudgeModelPort"])
-
-    %% ---- Modules 1..8 ----
-    M2["2. Attack engine (Core-7)"]
-    M1["1. MCP harness — hosts our per-run MCP server"]
-    M3["3. Runner"]
-    M4["4. Detector"]
-    M5["5. Leaderboard"]
-    M6["6. Fix-report generator"]
-    M7["7. UI"]
-    M8["8. Wiring + run report"]
-
-    %% ---- Data-contract artifacts ----
-    TRACE["Trace (observable only)"]
-    GT["GroundTruth (held-out label)"]
-    VERDICT["Verdict"]
-    RESULT["RunResult (live, unlabeled)"]
-    EVAL["P/R eval harness (fixtures)"]
-
-    %% ---- Attack construction ----
-    M2 -- "build(variant)" --> TRACE
-    M2 -. "produced at construction" .-> GT
-    M2 -- "scenario(variant)" --> M3
-
-    %% ---- Live run path (INBOUND: the agent connects to US — ADR-0006) ----
-    M3 -- "scenario Environment" --> M1
-    M1 == "serves poisoned tools / results / seeded memory / prompts" ==> AGENT
-    AGENT == "tools/call — the agent's OWN decision" ==> M1
-    M1 -- "records observable steps" --> TRACE
-
-    %% ---- Outbound probing only (NOT the agent path) ----
-    M1 <--> MTP
-    MTP <--> SRV
-
-    %% ---- Detection (leakage separation) ----
-    TRACE -- "feature" --> M4
-    M4 <--> JMP
-    JMP <--> JUDGE
-    M4 --> VERDICT
-    GT -. "label — withheld from detector and UI; fixtures only" .-> EVAL
-    VERDICT -. "compared to label" .-> EVAL
-
-    %% ---- Outputs ----
-    TRACE --> RESULT
-    VERDICT --> RESULT
-    VERDICT --> M5
-    VERDICT --> M6
-    RESULT --> M7
-    M5 --> M7
-    M6 --> M7
-
-    %% ---- Wiring ----
-    M8 --- M3
-    M8 --- M7
-```
+<sub>Polished render — **archify**, themeable for dark/light. The canonical,
+diffable source is [`docs/architecture/architecture.mmd`](docs/architecture/architecture.mmd);
+the render input is [`architecture.archify.json`](docs/architecture/architecture.archify.json).
+[`docs/architecture/`](docs/architecture/) carries the full read-out, including
+which parts are drawn as _specified_ rather than _shipped_, and every place the
+code and the docs still disagree.</sub>
 
 ### Data contract (single source of truth)
 
@@ -216,7 +154,17 @@ of the features. Here the observable `Trace` is the **feature** and the held-out
 comparing detector verdicts against the held-out ground truth on constructed
 fixtures only. Live runs are unlabeled — which is exactly why the detector exists.
 
-![Leakage separation — the detector is blind (Trace + goal only); the held-out GroundTruth flows only to the eval / scorer, never to the detector, RunResult, or UI](docs/diagrams/leakage-dataflow.svg)
+There are in fact **two** barriers. The second is the subtle one: `Trace.category`
+is observable by contract (the operator chose which attack to launch), but the
+judge is _asked to classify the category_, so `judgeableTrace()` withholds it — as
+an allow-list, so a field added to `Trace` later is withheld by default. Both
+directions are executable laws over every registered attack, and a violation
+fails CI ([ADR-0005](docs/adr/0005-leakage-invariant-is-executable.md)).
+
+![Leakage separation — the detector is blind (Trace + goal only); the held-out GroundTruth flows only to the eval / scorer, never to the detector, RunResult, or UI](docs/architecture/leakage-barrier.svg)
+
+<sub>Canonical source:
+[`docs/architecture/leakage-barrier.mmd`](docs/architecture/leakage-barrier.mmd).</sub>
 
 ### The live-run pipeline
 
@@ -348,6 +296,9 @@ and every pull request to `main`**:
 - [`CLAUDE.md`](CLAUDE.md) — full architecture, stack, data contract, module map,
   and the Definition of Done.
 - [`plan.md`](plan.md) — the phased build order and current rebuild status.
+- [`docs/architecture/`](docs/architecture/) — the module map and the
+  leakage-barrier data-flow: canonical Mermaid sources, polished `archify`
+  renders, and the audit of every claim against the code.
 - [`docs/adr/`](docs/adr/) — Architecture Decision Records (Nygard format):
   [ADR-0001](docs/adr/0001-record-architecture-decisions.md) (using ADRs),
   [ADR-0002](docs/adr/0002-lighthouse-devtools-throttling.md) (Lighthouse CI
