@@ -2,16 +2,16 @@
  * RED spec for the ASI red-team run-matrix spike (`scripts/spike/run-matrix.ts`).
  *
  * The module under test does NOT exist yet. This file is authored first, and its
- * failure to load `../run-matrix` is the expected RED state (TDD Red -> Green).
+ * failure to load `scripts/spike/run-matrix` is the expected RED state
+ * (TDD Red -> Green).
  *
  * WHY THE IMPORT IS DYNAMIC. `tsconfig.json` type-checks every .ts file in the
- * repo, and both the pre-push hook and CI run `tsc --noEmit`. A static
- * `import '../run-matrix'` on a
+ * repo, and both the pre-push hook and CI run `tsc --noEmit`. A static import of a
  * missing module is a TS2307 hard error, which surfaces as a broken BUILD, not a
  * failing test. Loading the module through a runtime dynamic import keeps the
  * typecheck gate honest while the RED shows up where TDD wants it: as a failing
- * TEST that resolves the moment `run-matrix.ts` is written. The import still comes
- * from `../run-matrix`, and it still fails until the module exists.
+ * TEST that resolves the moment `run-matrix.ts` is written. The import still
+ * targets `scripts/spike/run-matrix`, and it still fails until the module exists.
  *
  * NOTHING IS HARDCODED. The allowance gate is the REAL `checkLiveRunAllowance`
  * (mocked here so the run path DELEGATES to it rather than growing its own
@@ -71,7 +71,7 @@ interface RunMatrixInput {
 
 // A variable-typed specifier keeps `tsc` from resolving the module at build time,
 // so the failure lands at run time, inside each test, as a failing test.
-const RUN_MATRIX_MODULE: string = '../run-matrix';
+const RUN_MATRIX_MODULE: string = '../../../scripts/spike/run-matrix';
 async function loadRunMatrix(): Promise<RunMatrixModule> {
   return (await import(RUN_MATRIX_MODULE)) as RunMatrixModule;
 }
@@ -132,7 +132,7 @@ beforeEach(() => {
   process.env.SPIKE_MODEL = 'model-under-test';
 });
 
-describe('run-matrix spike (RED: ../run-matrix does not exist yet)', () => {
+describe('run-matrix spike (RED: scripts/spike/run-matrix does not exist yet)', () => {
   it('generateMatrix spans every (category, framing, rep) cell exactly once', async () => {
     const { generateMatrix } = await loadRunMatrix();
     const categories = readList('SPIKE_CATEGORIES');
