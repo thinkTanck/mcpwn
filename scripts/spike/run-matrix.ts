@@ -22,17 +22,19 @@ import {
   type LiveRunAllowanceQuery,
   type RunCounter,
 } from '@/runs/allowance';
+import { buildMcpConfig, MCP_SERVER_NAME, type McpConfig } from '@/lib/mcp/config';
+
+// The MCP config shape and its builder now live in one shared module. Run-matrix
+// re-exports them under the same names so its own callers and tests keep
+// resolving them here.
+export { buildMcpConfig };
+export type { McpConfig };
 
 /** One cell of the sweep: a single (category, framing, repetition) triple. */
 export interface Cell {
   category: string;
   framing: string;
   rep: number;
-}
-
-/** An MCP client config naming exactly the one server the agent connects to. */
-export interface McpConfig {
-  mcpServers: Record<string, { url: string; headers: { Authorization: string } }>;
 }
 
 /** Whether a run's trace shows the agent took the bait or held the line. */
@@ -83,15 +85,6 @@ export function generateMatrix(categories: string[], framings: string[], reps: n
   return cells;
 }
 
-/** One server, at `endpoint`, carrying `token` as a bearer credential. */
-export function buildMcpConfig(endpoint: string, token: string): McpConfig {
-  return {
-    mcpServers: {
-      mcpwn: { url: endpoint, headers: { Authorization: `Bearer ${token}` } },
-    },
-  };
-}
-
 /** The observable tool-call fields we read off an untrusted trace. */
 interface TraceStep {
   type: unknown;
@@ -126,7 +119,7 @@ export function classifyTrace(trace: unknown, category: string): Classification 
  */
 export async function runMatrix(input: RunMatrixInput): Promise<CellResult[]> {
   const matrix = generateMatrix(input.categories, input.framings, input.reps);
-  const config = buildMcpConfig(input.endpoint, input.token);
+  const config = buildMcpConfig(input.endpoint, input.token, MCP_SERVER_NAME);
 
   const query: LiveRunAllowanceQuery & { plannedRuns: number } = {
     repository: input.allowance.repository,

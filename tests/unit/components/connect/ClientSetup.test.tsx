@@ -1,7 +1,7 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { LiveRunConsole } from '@/components/connect/LiveRunConsole';
-import { NEUTRAL_SERVER_NAME } from '@/components/connect/ClientSetup';
+import { MCP_SERVER_NAME } from '@/lib/mcp/config';
 import type { ConnectLiveRunPort, LiveRunTicketView } from '@/components/connect/live-run-port';
 
 /**
@@ -107,7 +107,7 @@ describe('ClientSetup · there is a real command, per client', () => {
     const command = within(setup()).getByRole('group', { name: /Claude Code add-json command/i });
     expect(command).toHaveTextContent('claude mcp add-json');
     expect(command).toHaveTextContent(TICKET.endpoint);
-    expect(command).toHaveTextContent(NEUTRAL_SERVER_NAME);
+    expect(command).toHaveTextContent(MCP_SERVER_NAME);
   });
 
   it('gives the older Claude Code form as well, rather than asserting one universal command', async () => {
@@ -154,11 +154,11 @@ describe('ClientSetup · there is a real command, per client', () => {
     await issued(user);
 
     // A project-naming id would be read by the agent at connect time.
-    expect(NEUTRAL_SERVER_NAME).not.toMatch(/mcpwn|red.?team|attack|test/i);
+    expect(MCP_SERVER_NAME).not.toMatch(/mcpwn|red.?team|attack|test/i);
     expect(within(setup()).getByText(/namespaces/i)).toBeInTheDocument();
     expect(
       within(setup()).getByRole('group', { name: /Claude Code add-json command/i }),
-    ).toHaveTextContent(NEUTRAL_SERVER_NAME);
+    ).toHaveTextContent(MCP_SERVER_NAME);
   });
 });
 
@@ -204,8 +204,9 @@ describe('ClientSetup · the token is copyable and never in plain sight', () => 
     const copied = writeText.mock.calls.at(-1)?.[0] ?? '';
     expect(JSON.parse(copied)).toEqual({
       mcpServers: {
-        [NEUTRAL_SERVER_NAME]: {
+        [MCP_SERVER_NAME]: {
           url: TICKET.endpoint,
+          type: 'http',
           headers: { Authorization: `Bearer ${TICKET.token}` },
         },
       },
@@ -254,7 +255,7 @@ describe('ClientSetup · the reader can tell it worked', () => {
 
     const text = setup().textContent ?? '';
     expect(text).toContain('claude mcp list');
-    expect(text).toContain(`claude mcp get ${NEUTRAL_SERVER_NAME}`);
+    expect(text).toContain(`claude mcp get ${MCP_SERVER_NAME}`);
   });
 
   it('ties the check to the connection panel already on this screen', async () => {

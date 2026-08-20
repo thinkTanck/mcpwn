@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
+import { MCP_SERVER_NAME, addJsonCommand, desktopConfig } from '@/lib/mcp/config';
 import { CopyOut } from './CopyOut';
 import type { LiveRunTicketView } from './live-run-port';
 
@@ -48,51 +49,22 @@ import type { LiveRunTicketView } from './live-run-port';
  */
 
 /**
- * The server id every snippet uses.
- *
- * NEUTRAL ON PURPOSE. The client namespaces the tools it registers with this id,
- * and the agent reads the namespaced names when it connects, so an id like
- * `mcpwn` or `red-team` hands the agent the answer before the run starts.
- */
-export const NEUTRAL_SERVER_NAME = 'workspace';
-
-/**
  * A constant stand-in for the credential inside a rendered snippet. Derived from
  * nothing, so it discloses nothing, not even the token's length.
  */
 const TOKEN_MASK = '•'.repeat(16);
 
-/** `claude mcp add-json` — the newer Claude Code form. */
-export function addJsonCommand(endpoint: string, token: string): string {
-  const config = JSON.stringify({
-    type: 'http',
-    url: endpoint,
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  return `claude mcp add-json ${NEUTRAL_SERVER_NAME} '${config}'`;
-}
-
-/** `claude mcp add --transport http` — the older Claude Code form. */
+/**
+ * `claude mcp add --transport http` — the older Claude Code form. The `add-json`
+ * command and the Claude Desktop entry are built by the shared config module
+ * (`@/lib/mcp/config`), which owns the server name and the config shape; this form
+ * builds no server config of its own, so it stays here, named from the same
+ * shared constant.
+ */
 export function addTransportCommand(endpoint: string, token: string): string {
   return (
-    `claude mcp add --transport http ${NEUTRAL_SERVER_NAME} ${endpoint} ` +
+    `claude mcp add --transport http ${MCP_SERVER_NAME} ${endpoint} ` +
     `--header "Authorization: Bearer ${token}"`
-  );
-}
-
-/** The `claude_desktop_config.json` entry. Remote HTTP is native; no bridge. */
-export function desktopConfig(endpoint: string, token: string): string {
-  return JSON.stringify(
-    {
-      mcpServers: {
-        [NEUTRAL_SERVER_NAME]: {
-          url: endpoint,
-          headers: { Authorization: `Bearer ${token}` },
-        },
-      },
-    },
-    null,
-    2,
   );
 }
 
@@ -187,7 +159,7 @@ export function ClientSetup({ ticket }: { ticket: LiveRunTicketView }) {
 
       <p className="reading max-w-[68ch]">
         Each snippet below is built from the run you just issued and names the server{' '}
-        <span className="readout">{NEUTRAL_SERVER_NAME}</span>. Keep that name neutral: your client
+        <span className="readout">{MCP_SERVER_NAME}</span>. Keep that name neutral: your client
         namespaces the tools with it and your agent reads the name when it connects, so an id like
         mcpwn or red-team tells the agent it is being tested.
       </p>
@@ -318,9 +290,8 @@ function Verify() {
       <p className="micro-label">CHECK IT TOOK</p>
       <p className="reading mt-2 max-w-[68ch]">
         In Claude Code, <span className="readout">claude mcp list</span> should show{' '}
-        <span className="readout">{NEUTRAL_SERVER_NAME}</span> as connected. When it does not,{' '}
-        <span className="readout">claude mcp get {NEUTRAL_SERVER_NAME}</span> prints the reason it
-        gave.
+        <span className="readout">{MCP_SERVER_NAME}</span> as connected. When it does not,{' '}
+        <span className="readout">claude mcp get {MCP_SERVER_NAME}</span> prints the reason it gave.
       </p>
       <p className="reading mt-2 max-w-[68ch] text-ink-muted">
         In any client, the reading that settles it is the connection panel below. It stays on
