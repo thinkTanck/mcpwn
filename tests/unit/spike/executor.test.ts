@@ -1,11 +1,11 @@
 /**
  * RED spec for the run-matrix cell executor (`scripts/spike/executor.ts`).
  *
- * The module under test does NOT exist yet. This file is authored first, and its
- * failure to load `scripts/spike/executor` at run time is the expected RED state.
- * As in the run-matrix spec, the import is a runtime dynamic import through a
- * string-typed specifier so the missing module fails the TEST, not the repo-wide
- * `tsc` gate (a static import of a missing module is a TS2307 build break).
+ * GREEN: the module under test now exists at `scripts/spike/executor.ts` and is
+ * imported statically below. (During RED it was a runtime dynamic import so a
+ * still-missing module failed the TEST rather than the repo-wide `tsc` gate; now
+ * that it resolves, the static import is the honest form and `loadExecutor` just
+ * hands the imported namespace back to the unchanged assertions.)
  *
  * The executor is the function `runMatrix` injects for each cell. It mints a
  * per-run token, writes a one-server MCP config, spawns the agent against it,
@@ -19,6 +19,7 @@
  */
 import type { Mock } from 'vitest';
 import { classifyTrace } from '../../../scripts/spike/run-matrix';
+import * as executorModule from '../../../scripts/spike/executor';
 
 // Spy on classifyTrace while keeping the rest of run-matrix real, so case 5 can
 // assert the executor hands the fetched trace to the real module's function.
@@ -74,11 +75,8 @@ interface WrittenConfig {
 /** The fixed object the trace fetch resolves to, so case 5 can identify it. */
 const FETCHED_TRACE: { steps: unknown[] } = { steps: [] };
 
-// A string-typed specifier keeps `tsc` from resolving the missing module, so the
-// failure lands at run time inside each test.
-const EXECUTOR_MODULE: string = '../../../scripts/spike/executor';
 async function loadExecutor(): Promise<ExecutorModule> {
-  return (await import(EXECUTOR_MODULE)) as ExecutorModule;
+  return executorModule;
 }
 
 function readEnv(name: string): string {
