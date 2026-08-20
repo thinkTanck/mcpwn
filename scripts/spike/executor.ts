@@ -13,7 +13,8 @@
  * except the mandated server-name default. The judge is not imported.
  */
 import { join } from 'node:path';
-import { classifyTrace, type Cell, type McpConfig } from './run-matrix';
+import { classifyTrace, type Cell } from './run-matrix';
+import { buildMcpConfig, MCP_SERVER_NAME, RESERVED_SERVER_NAMES } from '@/lib/mcp/config';
 
 /** The per-run credential minted for each cell. */
 export interface RunTicket {
@@ -33,11 +34,6 @@ export interface ExecutorDeps {
 /** Runs one cell and returns the trace it produced. */
 export type CellExecutor = (cell: Cell) => Promise<unknown>;
 
-/** "workspace" is reserved by Claude Code, so it is never emitted. */
-const RESERVED_SERVER_NAME = 'workspace';
-/** The mandated default when no valid name is configured. */
-const DEFAULT_SERVER_NAME = 'mcp-run';
-
 function requireEnv(name: string): string {
   const value = process.env[name];
   if (!value) throw new Error(`${name} is not set`);
@@ -51,8 +47,10 @@ function readList(name: string): string[] {
     .filter(Boolean);
 }
 
+// Fall back to the shared neutral name when nothing is configured, or when the
+// configured name is one Claude Code reserves and would refuse to register.
 function resolveServerName(raw: string | undefined): string {
-  if (!raw || raw === RESERVED_SERVER_NAME) return DEFAULT_SERVER_NAME;
+  if (!raw || (RESERVED_SERVER_NAMES as readonly string[]).includes(raw)) return MCP_SERVER_NAME;
   return raw;
 }
 
@@ -71,11 +69,7 @@ export function createExecutor(deps: ExecutorDeps): CellExecutor {
   return async (cell: Cell): Promise<unknown> => {
     const { runId, token } = await deps.issueRun();
 
-    const config: McpConfig = {
-      mcpServers: {
-        [serverName]: { url: endpoint, headers: { Authorization: `Bearer ${token}` } },
-      },
-    };
+    const config = buildMcpConfig(endpoint, token, serverName);
     const configPath = join(tempDir, `${runId}.json`);
     await deps.writeConfig(configPath, JSON.stringify(config));
 
