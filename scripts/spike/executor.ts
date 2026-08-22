@@ -1,25 +1,32 @@
 /**
  * The run-matrix cell executor.
  *
- * This is the function `runMatrix` injects for each cell. It mints a per-run
- * token, writes a one-server MCP config, spawns the agent against that config,
- * fetches the resulting trace, hands it to `classifyTrace`, and deletes the temp
- * config. Its side effects (filesystem, process spawn, token mint, trace fetch)
- * are all injected, so a test can run it without launching or requesting anything
- * real, and a caller wires in the real ones.
+ * This is the function `runMatrix` injects for each cell. For each cell it MINTS
+ * ITS OWN RUN and takes that run's endpoint and goal from the mint ticket, writes
+ * a one-server MCP config, spawns the agent against that config, fetches the
+ * resulting trace, hands it to `classifyTrace`, and deletes the temp config.
+ *
+ * The per-cell endpoint and goal come from the ticket, never a static env var, so
+ * each cell points the agent at its own run. Its side effects (filesystem, process
+ * spawn, mint, trace fetch) are all injected, so a test runs it without launching
+ * or requesting anything real, and a caller wires in the real ones.
  *
  * Minimal on purpose: no retries, no logging, no progress, no results table, no
- * CLI, no concurrency. Config comes from the environment; nothing is hardcoded
- * except the mandated server-name default. The judge is not imported.
+ * concurrency. Config comes from the environment; nothing is hardcoded except the
+ * mandated server-name default. The judge is not imported.
  */
 import { join } from 'node:path';
 import { classifyTrace, type Cell } from './run-matrix';
 import { buildMcpConfig, MCP_SERVER_NAME, RESERVED_SERVER_NAMES } from '@/lib/mcp/config';
 
-/** The per-run credential minted for each cell. */
+/** What one cell's mint hands back: the per-run endpoint, goal and credential. */
 export interface RunTicket {
   runId: string;
   token: string;
+  /** The per-run MCP endpoint the agent connects to. */
+  endpoint: string;
+  /** The out-of-band goal delivered for this run. */
+  taskGoal: string;
 }
 
 /** Everything the executor touches that is not pure, injected for testability. */
@@ -28,7 +35,8 @@ export interface ExecutorDeps {
   removeConfig: (path: string) => Promise<void>;
   spawnAgent: (command: string, args: readonly string[]) => Promise<void>;
   fetchTrace: (runId: string) => Promise<unknown>;
-  issueRun: () => Promise<RunTicket>;
+  /** Mint a run for THIS cell: the mint serves the cell's category and framing. */
+  issueRun: (cell: Cell) => Promise<RunTicket>;
 }
 
 /** Runs one cell and returns the trace it produced. */
@@ -55,19 +63,18 @@ function resolveServerName(raw: string | undefined): string {
 }
 
 /**
- * Build a cell executor over the given side-effect dependencies. All static run
- * config is read from the environment once, here; the per-run token is minted per
- * cell inside the returned function.
+ * Build a cell executor over the given side-effect dependencies. Static run config
+ * is read from the environment once, here; the per-run endpoint, goal and token
+ * are minted per cell inside the returned function.
  */
 export function createExecutor(deps: ExecutorDeps): CellExecutor {
-  const endpoint = requireEnv('SPIKE_MCP_ENDPOINT');
-  const goal = requireEnv('SPIKE_TASK_GOAL');
   const allowedTools = readList('SPIKE_ALLOWED_TOOLS');
   const tempDir = requireEnv('SPIKE_TEMP_DIR');
+  const model = requireEnv('SPIKE_SUBJECT_MODEL');
   const serverName = resolveServerName(process.env.SPIKE_MCP_SERVER_NAME);
 
   return async (cell: Cell): Promise<unknown> => {
-    const { runId, token } = await deps.issueRun();
+    const { runId, token, endpoint, taskGoal } = await deps.issueRun(cell);
 
     const config = buildMcpConfig(endpoint, token, serverName);
     const configPath = join(tempDir, `${runId}.json`);
@@ -75,12 +82,15 @@ export function createExecutor(deps: ExecutorDeps): CellExecutor {
 
     try {
       await deps.spawnAgent('claude', [
+        '-p',
+        taskGoal,
         '--strict-mcp-config',
         '--mcp-config',
         configPath,
         '--allowedTools',
         allowedTools.join(','),
-        goal,
+        '--model',
+        model,
       ]);
     } finally {
       await deps.removeConfig(configPath);

@@ -27,7 +27,9 @@
     "eval:measure-category": "tsx scripts/eval-measure-category.ts",
     "serve:mcp": "tsx scripts/server/serve.ts",
     "verify:durable-stores": "tsx scripts/verify-durable-stores.ts",
-    "verify:https-accept": "tsx --env-file=.env.local scripts/verify-https-accept.ts"
+    "verify:https-accept": "tsx --env-file=.env.local scripts/verify-https-accept.ts",
+    "spike:cell": "tsx --env-file=.env.local scripts/spike/run.ts cell",
+    "spike:matrix": "tsx --env-file=.env.local scripts/spike/run.ts matrix"
   },
   "dependencies": {
     "@base-ui-components/react": "1.0.0-rc.0",

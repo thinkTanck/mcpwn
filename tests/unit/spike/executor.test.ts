@@ -1,21 +1,16 @@
 /**
- * RED spec for the run-matrix cell executor (`scripts/spike/executor.ts`).
+ * Spec for the run-matrix cell executor (`scripts/spike/executor.ts`).
  *
- * GREEN: the module under test now exists at `scripts/spike/executor.ts` and is
- * imported statically below. (During RED it was a runtime dynamic import so a
- * still-missing module failed the TEST rather than the repo-wide `tsc` gate; now
- * that it resolves, the static import is the honest form and `loadExecutor` just
- * hands the imported namespace back to the unchanged assertions.)
+ * The executor is the function `runMatrix` injects for each cell. For each cell it
+ * MINTS ITS OWN RUN and takes that run's endpoint and goal from the mint ticket,
+ * writes a one-server MCP config, spawns the agent against it, fetches the
+ * resulting trace, hands it to `classifyTrace`, and deletes the config. Nothing
+ * real is launched or requested here: the filesystem, the spawn, the trace fetch
+ * and the mint are all injected mocks.
  *
- * The executor is the function `runMatrix` injects for each cell. It mints a
- * per-run token, writes a one-server MCP config, spawns the agent against it,
- * fetches the resulting trace, hands it to `classifyTrace` from run-matrix, and
- * cleans up. Nothing real is launched or requested here: the filesystem, the
- * spawn, the trace fetch and the token mint are all injected mocks.
- *
- * NOTHING IS HARDCODED. Endpoint, task goal, allowed-tools list, temp dir and
- * server name are read from the environment, set below the way a run would
- * receive them.
+ * Per-cell endpoint and goal come from the ticket, never a static env var. The
+ * allowed-tools list, temp dir, server name and subject model are still read from
+ * the environment, set below the way a run would receive them. Nothing hardcoded.
  */
 import type { Mock } from 'vitest';
 import { classifyTrace } from '../../../scripts/spike/run-matrix';
@@ -35,10 +30,12 @@ interface Cell {
   rep: number;
 }
 
-/** The per-run credential the executor mints for each cell. */
+/** What one cell's mint hands back: the per-run endpoint, goal and credential. */
 interface RunTicket {
   runId: string;
   token: string;
+  endpoint: string;
+  taskGoal: string;
 }
 
 /** The dependencies the executor takes, all injected so nothing real happens. */
@@ -47,7 +44,7 @@ interface ExecutorDeps {
   removeConfig: (path: string) => Promise<void>;
   spawnAgent: (command: string, args: readonly string[]) => Promise<void>;
   fetchTrace: (runId: string) => Promise<unknown>;
-  issueRun: () => Promise<RunTicket>;
+  issueRun: (cell: Cell) => Promise<RunTicket>;
 }
 
 /** The one export this spike must provide. */
@@ -61,11 +58,12 @@ interface DepMocks {
   removeConfig: Mock<(path: string) => Promise<void>>;
   spawnAgent: Mock<(command: string, args: readonly string[]) => Promise<void>>;
   fetchTrace: Mock<(runId: string) => Promise<unknown>>;
-  issueRun: Mock<() => Promise<RunTicket>>;
+  issueRun: Mock<(cell: Cell) => Promise<RunTicket>>;
 }
 
 interface WrittenServer {
   url: string;
+  type: string;
   headers: { Authorization: string };
 }
 interface WrittenConfig {
@@ -99,10 +97,13 @@ function makeHarness(): { mocks: DepMocks; tickets: RunTicket[] } {
     removeConfig: vi.fn<(path: string) => Promise<void>>(async () => {}),
     spawnAgent: vi.fn<(command: string, args: readonly string[]) => Promise<void>>(async () => {}),
     fetchTrace: vi.fn<(runId: string) => Promise<unknown>>(async () => FETCHED_TRACE),
-    issueRun: vi.fn<() => Promise<RunTicket>>(async () => {
+    issueRun: vi.fn<(cell: Cell) => Promise<RunTicket>>(async () => {
+      const n = tickets.length + 1;
       const ticket: RunTicket = {
-        runId: `run-${tickets.length + 1}`,
-        token: `token-${tickets.length + 1}`,
+        runId: `run-${n}`,
+        token: `token-${n}`,
+        endpoint: `https://local.test/api/mcp/run-${n}`,
+        taskGoal: `goal-${n}`,
       };
       tickets.push(ticket);
       return ticket;
@@ -129,23 +130,23 @@ function serverNameWritten(mocks: DepMocks): string {
   return only;
 }
 
-const CELL: Cell = { category: 'ASI02', framing: 'direct', rep: 0 };
+const CELL: Cell = { category: 'ASI02', framing: 'malicious', rep: 0 };
 
 beforeEach(() => {
   vi.clearAllMocks();
-  // Config a run would receive from its environment, in one place.
-  process.env.SPIKE_MCP_ENDPOINT = 'https://mcpwn.dev/api/mcp/run/spike';
-  process.env.SPIKE_TASK_GOAL = 'Refund order 4211 using only the tools provided.';
+  // Static config a run receives from its environment; endpoint and goal do NOT
+  // live here, they come from each cell's mint ticket.
   process.env.SPIKE_ALLOWED_TOOLS = 'approve_refund,send_email,read_wiki';
   process.env.SPIKE_TEMP_DIR = '/tmp/mcpwn-spike';
+  process.env.SPIKE_SUBJECT_MODEL = 'claude-fable-5';
   // Left unset so the default server name applies unless a case sets it.
   delete process.env.SPIKE_MCP_SERVER_NAME;
 });
 
-describe('executor spike (RED: scripts/spike/executor does not exist yet)', () => {
-  it('writes an mcp config with exactly one server, at the cell endpoint', async () => {
+describe('executor spike', () => {
+  it('writes an mcp config with exactly one server, at the cell minted endpoint', async () => {
     const { createExecutor } = await loadExecutor();
-    const { mocks } = makeHarness();
+    const { mocks, tickets } = makeHarness();
 
     await createExecutor(mocks)(CELL);
 
@@ -153,10 +154,10 @@ describe('executor spike (RED: scripts/spike/executor does not exist yet)', () =
     const servers = parseConfig(contents).mcpServers;
     expect(Object.keys(servers)).toHaveLength(1);
     const only = Object.values(servers)[0];
-    expect(only?.url).toBe(readEnv('SPIKE_MCP_ENDPOINT'));
+    expect(only?.url).toBe(tickets[0]?.endpoint);
   });
 
-  it('spawns with --strict-mcp-config and --mcp-config pointing at the file just written', async () => {
+  it('spawns with --strict-mcp-config, --mcp-config at the written file, and the subject --model', async () => {
     const { createExecutor } = await loadExecutor();
     const { mocks } = makeHarness();
 
@@ -165,19 +166,24 @@ describe('executor spike (RED: scripts/spike/executor does not exist yet)', () =
     const [writtenPath] = firstCall(mocks.writeConfig);
     const [, args] = firstCall(mocks.spawnAgent);
     expect(args).toContain('--strict-mcp-config');
-    const flagIndex = args.indexOf('--mcp-config');
-    expect(flagIndex).toBeGreaterThanOrEqual(0);
-    expect(args[flagIndex + 1]).toBe(writtenPath);
+    const cfgIndex = args.indexOf('--mcp-config');
+    expect(cfgIndex).toBeGreaterThanOrEqual(0);
+    expect(args[cfgIndex + 1]).toBe(writtenPath);
+    const modelIndex = args.indexOf('--model');
+    expect(modelIndex).toBeGreaterThanOrEqual(0);
+    expect(args[modelIndex + 1]).toBe(readEnv('SPIKE_SUBJECT_MODEL'));
   });
 
-  it('passes the goal text as the prompt, with nothing prepended or appended', async () => {
+  it('passes the cell goal as the -p prompt, with nothing prepended or appended', async () => {
     const { createExecutor } = await loadExecutor();
-    const { mocks } = makeHarness();
+    const { mocks, tickets } = makeHarness();
 
     await createExecutor(mocks)(CELL);
 
     const [, args] = firstCall(mocks.spawnAgent);
-    expect(args[args.length - 1]).toBe(readEnv('SPIKE_TASK_GOAL'));
+    const pIndex = args.indexOf('-p');
+    expect(pIndex).toBeGreaterThanOrEqual(0);
+    expect(args[pIndex + 1]).toBe(tickets[0]?.taskGoal);
   });
 
   it('deletes the temp config after the cell, including when the spawn throws', async () => {
@@ -203,14 +209,14 @@ describe('executor spike (RED: scripts/spike/executor does not exist yet)', () =
     expect(vi.mocked(classifyTrace)).toHaveBeenCalledWith(FETCHED_TRACE, CELL.category);
   });
 
-  it('mints a fresh token for every cell and reuses none', async () => {
+  it('mints a fresh run for every cell and reuses no token', async () => {
     const { createExecutor } = await loadExecutor();
     const { mocks } = makeHarness();
     const executor = createExecutor(mocks);
     const cells: Cell[] = [
-      { category: 'ASI01', framing: 'direct', rep: 0 },
-      { category: 'ASI02', framing: 'roleplay', rep: 1 },
-      { category: 'ASI03', framing: 'direct', rep: 2 },
+      { category: 'ASI01', framing: 'malicious', rep: 0 },
+      { category: 'ASI02', framing: 'benign', rep: 1 },
+      { category: 'ASI03', framing: 'malicious', rep: 2 },
     ];
 
     for (const cell of cells) await executor(cell);
@@ -221,6 +227,15 @@ describe('executor spike (RED: scripts/spike/executor does not exist yet)', () =
       return only?.headers.Authorization;
     });
     expect(new Set(tokens).size).toBe(cells.length);
+  });
+
+  it('passes the cell category to the mint, so each run serves the right surface', async () => {
+    const { createExecutor } = await loadExecutor();
+    const { mocks } = makeHarness();
+
+    await createExecutor(mocks)(CELL);
+
+    expect(mocks.issueRun).toHaveBeenCalledWith(CELL);
   });
 
   it('spawns with a non-empty --allowedTools sourced from config', async () => {
