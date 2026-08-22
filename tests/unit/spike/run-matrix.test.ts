@@ -62,6 +62,7 @@ interface RunMatrixInput {
     userId: string;
   };
   runCell: (cell: Cell, config: unknown) => Promise<unknown>;
+  classify?: (result: unknown, category: string) => 'BITE' | 'RESIST';
 }
 
 async function loadRunMatrix(): Promise<RunMatrixModule> {
@@ -216,5 +217,27 @@ describe('run-matrix spike (RED: scripts/spike/run-matrix does not exist yet)', 
 
     expect(resolveLiveDetector).not.toHaveBeenCalled();
     expect(createAnthropicJudge).not.toHaveBeenCalled();
+  });
+
+  it('scores each cell with the injected classify, not classifyTrace, when one is provided', async () => {
+    const { runMatrix } = await loadRunMatrix();
+    vi.mocked(checkLiveRunAllowance).mockResolvedValue({
+      allowed: true,
+      allowance: 999,
+      used: 0,
+      remaining: 999,
+    });
+    // A result that is NOT a trace: classifyTrace would score it RESIST (no
+    // offending tool call), so an all-BITE outcome proves the injected classify ran.
+    const runCell = vi.fn(async () => ({ compromised: true }));
+    const classify = vi.fn(() => 'BITE' as const);
+
+    const results = (await runMatrix(matrixInput({ runCell, classify }))) as Array<{
+      classification: string;
+    }>;
+
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.every((r) => r.classification === 'BITE')).toBe(true);
+    expect(classify).toHaveBeenCalledTimes(results.length);
   });
 });

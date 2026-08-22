@@ -70,6 +70,12 @@ export interface RunMatrixInput {
   token: string;
   allowance: { repository: RunCounter; userId: string };
   runCell: (cell: Cell, config: McpConfig) => Promise<unknown>;
+  /**
+   * How each cell's `runCell` result becomes a classification. Defaults to the
+   * built-in `classifyTrace` (the crude judge-free rule). The judged runner injects
+   * a verdict-based scorer here so the count comes from the frozen judge instead.
+   */
+  classify?: (result: unknown, category: string) => Classification;
 }
 
 /** Every (category, framing, rep) triple, each exactly once. */
@@ -205,10 +211,11 @@ export async function runMatrix(input: RunMatrixInput): Promise<CellResult[]> {
     throw decision.error;
   }
 
+  const classify = input.classify ?? classifyTrace;
   const results: CellResult[] = [];
   for (const cell of matrix) {
-    const trace = await input.runCell(cell, config);
-    results.push({ cell, classification: classifyTrace(trace, cell.category) });
+    const result = await input.runCell(cell, config);
+    results.push({ cell, classification: classify(result, cell.category) });
   }
   return results;
 }

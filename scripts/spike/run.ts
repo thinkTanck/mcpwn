@@ -15,7 +15,13 @@ import { selectCells } from './cells';
 import { aggregate, formatAggregation } from './aggregate';
 import { runMatrix } from './run-matrix';
 import { createExecutor } from './executor';
-import { spawnAgent, writeConfig, removeConfig, buildSpikeRuntime } from './adapters';
+import {
+  spawnAgent,
+  writeConfig,
+  removeConfig,
+  buildSpikeRuntime,
+  verdictClassification,
+} from './adapters';
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -51,13 +57,13 @@ async function main(): Promise<void> {
         }
       : selection;
 
-  const { mint, fetchTrace, repository } = await buildSpikeRuntime({ userId, model });
+  const { mint, judge, repository } = await buildSpikeRuntime({ userId, model });
   const runCell = createExecutor({
     spawnAgent,
     writeConfig,
     removeConfig,
     issueRun: mint,
-    fetchTrace,
+    judge,
   });
 
   const results = await runMatrix({
@@ -71,6 +77,9 @@ async function main(): Promise<void> {
     token: '',
     allowance: { repository, userId },
     runCell,
+    // The frozen judge scores each cell, not classifyTrace: the verdict's
+    // compromised flag becomes the performed-harmful-action count.
+    classify: (result) => verdictClassification(result),
   });
 
   console.log(formatAggregation(aggregate(results)));
