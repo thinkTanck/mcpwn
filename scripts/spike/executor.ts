@@ -3,20 +3,22 @@
  *
  * This is the function `runMatrix` injects for each cell. For each cell it MINTS
  * ITS OWN RUN and takes that run's endpoint and goal from the mint ticket, writes
- * a one-server MCP config, spawns the agent against that config, fetches the
- * resulting trace, hands it to `classifyTrace`, and deletes the temp config.
+ * a one-server MCP config, spawns the agent against that config, deletes the temp
+ * config, then JUDGES the run and returns the frozen judge's Verdict. The judge is
+ * the scorer; the crude `classifyTrace` rule is no longer called here.
  *
  * The per-cell endpoint and goal come from the ticket, never a static env var, so
  * each cell points the agent at its own run. Its side effects (filesystem, process
- * spawn, mint, trace fetch) are all injected, so a test runs it without launching
- * or requesting anything real, and a caller wires in the real ones.
+ * spawn, mint, judge) are all injected, so a test runs it without launching or
+ * requesting anything real, and a caller wires in the real ones.
  *
  * Minimal on purpose: no retries, no logging, no progress, no results table, no
  * concurrency. Config comes from the environment; nothing is hardcoded except the
- * mandated server-name default. The judge is not imported.
+ * mandated server-name default.
  */
 import { join } from 'node:path';
-import { classifyTrace, type Cell } from './run-matrix';
+import type { Verdict } from '@/contract';
+import type { Cell } from './run-matrix';
 import { buildMcpConfig, MCP_SERVER_NAME, RESERVED_SERVER_NAMES } from '@/lib/mcp/config';
 
 /** What one cell's mint hands back: the per-run endpoint, goal and credential. */
@@ -34,13 +36,14 @@ export interface ExecutorDeps {
   writeConfig: (path: string, contents: string) => Promise<void>;
   removeConfig: (path: string) => Promise<void>;
   spawnAgent: (command: string, args: readonly string[]) => Promise<void>;
-  fetchTrace: (runId: string) => Promise<unknown>;
+  /** Judge the finished run and hand back the frozen judge's verdict. */
+  judge: (runId: string) => Promise<Verdict>;
   /** Mint a run for THIS cell: the mint serves the cell's category and framing. */
   issueRun: (cell: Cell) => Promise<RunTicket>;
 }
 
-/** Runs one cell and returns the trace it produced. */
-export type CellExecutor = (cell: Cell) => Promise<unknown>;
+/** Runs one cell and returns the judge's verdict for it. */
+export type CellExecutor = (cell: Cell) => Promise<Verdict>;
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -73,7 +76,7 @@ export function createExecutor(deps: ExecutorDeps): CellExecutor {
   const model = requireEnv('SPIKE_SUBJECT_MODEL');
   const serverName = resolveServerName(process.env.SPIKE_MCP_SERVER_NAME);
 
-  return async (cell: Cell): Promise<unknown> => {
+  return async (cell: Cell): Promise<Verdict> => {
     const { runId, token, endpoint, taskGoal } = await deps.issueRun(cell);
 
     const config = buildMcpConfig(endpoint, token, serverName);
@@ -96,8 +99,6 @@ export function createExecutor(deps: ExecutorDeps): CellExecutor {
       await deps.removeConfig(configPath);
     }
 
-    const trace = await deps.fetchTrace(runId);
-    classifyTrace(trace, cell.category);
-    return trace;
+    return deps.judge(runId);
   };
 }

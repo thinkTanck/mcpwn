@@ -2,22 +2,22 @@
  * Spec for the run-matrix cell executor (`scripts/spike/executor.ts`).
  *
  * The executor is the function `runMatrix` injects for each cell. For each cell it
- * MINTS ITS OWN RUN and takes that run's endpoint and goal from the mint ticket,
- * writes a one-server MCP config, spawns the agent against it, fetches the
- * resulting trace, hands it to `classifyTrace`, and deletes the config. Nothing
- * real is launched or requested here: the filesystem, the spawn, the trace fetch
- * and the mint are all injected mocks.
+ * MINTS ITS OWN RUN, spawns the agent against a one-server MCP config, then JUDGES
+ * the run and returns the frozen judge's Verdict. It no longer reads a raw trace or
+ * calls `classifyTrace`: the judge is the scorer now. Nothing real is launched or
+ * requested here: the filesystem, the spawn, the mint and the judge are all
+ * injected mocks.
  *
  * Per-cell endpoint and goal come from the ticket, never a static env var. The
- * allowed-tools list, temp dir, server name and subject model are still read from
- * the environment, set below the way a run would receive them. Nothing hardcoded.
+ * allowed-tools list, temp dir, server name and subject model are read from the
+ * environment. Nothing hardcoded.
  */
 import type { Mock } from 'vitest';
 import { classifyTrace } from '../../../scripts/spike/run-matrix';
 import * as executorModule from '../../../scripts/spike/executor';
 
-// Spy on classifyTrace while keeping the rest of run-matrix real, so case 5 can
-// assert the executor hands the fetched trace to the real module's function.
+// classifyTrace stays importable (other categories still use it), but the executor
+// must not call it any more; keep the spy so we can assert it never fires.
 vi.mock('../../../scripts/spike/run-matrix', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../scripts/spike/run-matrix')>();
   return { ...actual, classifyTrace: vi.fn(() => 'RESIST' as const) };
@@ -38,12 +38,19 @@ interface RunTicket {
   taskGoal: string;
 }
 
+/** The frozen judge's verdict (the fields the runner reads). */
+interface VerdictLike {
+  runId: string;
+  compromised: boolean;
+  category: string;
+}
+
 /** The dependencies the executor takes, all injected so nothing real happens. */
 interface ExecutorDeps {
   writeConfig: (path: string, contents: string) => Promise<void>;
   removeConfig: (path: string) => Promise<void>;
   spawnAgent: (command: string, args: readonly string[]) => Promise<void>;
-  fetchTrace: (runId: string) => Promise<unknown>;
+  judge: (runId: string) => Promise<VerdictLike>;
   issueRun: (cell: Cell) => Promise<RunTicket>;
 }
 
@@ -57,7 +64,7 @@ interface DepMocks {
   writeConfig: Mock<(path: string, contents: string) => Promise<void>>;
   removeConfig: Mock<(path: string) => Promise<void>>;
   spawnAgent: Mock<(command: string, args: readonly string[]) => Promise<void>>;
-  fetchTrace: Mock<(runId: string) => Promise<unknown>>;
+  judge: Mock<(runId: string) => Promise<VerdictLike>>;
   issueRun: Mock<(cell: Cell) => Promise<RunTicket>>;
 }
 
@@ -70,11 +77,11 @@ interface WrittenConfig {
   mcpServers: Record<string, WrittenServer>;
 }
 
-/** The fixed object the trace fetch resolves to, so case 5 can identify it. */
-const FETCHED_TRACE: { steps: unknown[] } = { steps: [] };
+/** The fixed verdict the judge resolves to, so the return can be identified. */
+const VERDICT: VerdictLike = { runId: 'judged', compromised: true, category: 'ASI02' };
 
 async function loadExecutor(): Promise<ExecutorModule> {
-  return executorModule;
+  return executorModule as unknown as ExecutorModule;
 }
 
 function readEnv(name: string): string {
@@ -96,7 +103,7 @@ function makeHarness(): { mocks: DepMocks; tickets: RunTicket[] } {
     writeConfig: vi.fn<(path: string, contents: string) => Promise<void>>(async () => {}),
     removeConfig: vi.fn<(path: string) => Promise<void>>(async () => {}),
     spawnAgent: vi.fn<(command: string, args: readonly string[]) => Promise<void>>(async () => {}),
-    fetchTrace: vi.fn<(runId: string) => Promise<unknown>>(async () => FETCHED_TRACE),
+    judge: vi.fn<(runId: string) => Promise<VerdictLike>>(async () => VERDICT),
     issueRun: vi.fn<(cell: Cell) => Promise<RunTicket>>(async () => {
       const n = tickets.length + 1;
       const ticket: RunTicket = {
@@ -134,12 +141,9 @@ const CELL: Cell = { category: 'ASI02', framing: 'malicious', rep: 0 };
 
 beforeEach(() => {
   vi.clearAllMocks();
-  // Static config a run receives from its environment; endpoint and goal do NOT
-  // live here, they come from each cell's mint ticket.
   process.env.SPIKE_ALLOWED_TOOLS = 'approve_refund,send_email,read_wiki';
   process.env.SPIKE_TEMP_DIR = '/tmp/mcpwn-spike';
   process.env.SPIKE_SUBJECT_MODEL = 'claude-fable-5';
-  // Left unset so the default server name applies unless a case sets it.
   delete process.env.SPIKE_MCP_SERVER_NAME;
 });
 
@@ -197,16 +201,17 @@ describe('executor spike', () => {
     expect(mocks.removeConfig).toHaveBeenCalledWith(writtenPath);
   });
 
-  it('fetches the trace for the run id it issued and hands it to classifyTrace', async () => {
+  it('judges the run it issued and returns the verdict, without calling classifyTrace', async () => {
     const { createExecutor } = await loadExecutor();
     const { mocks, tickets } = makeHarness();
 
-    await createExecutor(mocks)(CELL);
+    const result = await createExecutor(mocks)(CELL);
 
     const issued = tickets[0];
     expect(issued).toBeDefined();
-    expect(mocks.fetchTrace).toHaveBeenCalledWith(issued?.runId);
-    expect(vi.mocked(classifyTrace)).toHaveBeenCalledWith(FETCHED_TRACE, CELL.category);
+    expect(mocks.judge).toHaveBeenCalledWith(issued?.runId);
+    expect(result).toBe(VERDICT);
+    expect(vi.mocked(classifyTrace)).not.toHaveBeenCalled();
   });
 
   it('mints a fresh run for every cell and reuses no token', async () => {

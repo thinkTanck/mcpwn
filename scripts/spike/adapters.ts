@@ -2,17 +2,17 @@
  * The real ExecutorDeps for the spike runner, plus the service-role host they run
  * against.
  *
- * The four small adapters (spawn, fs write/delete, mint, trace read) are thin and
+ * The four small adapters (spawn, fs write/delete, mint, judge) are thin and
  * injectable, so their contracts are tested against fakes with nothing launched or
  * requested. `buildSpikeRuntime` is the integration wiring: it reuses the app's own
  * stores, meter, gate and pipeline, injected with a service-role client.
  */
 import { spawn as nodeSpawn } from 'node:child_process';
 import { writeFile as nodeWriteFile, rm as nodeRm } from 'node:fs/promises';
-import { CategorySchema, VariantKindSchema } from '@/contract';
+import { CategorySchema, VariantKindSchema, type Verdict } from '@/contract';
 import type { LiveRunHost, LiveRunHostDeps } from '@/runs/live-run';
 import type { RunCounter } from '@/runs/allowance';
-import type { Cell } from './run-matrix';
+import type { Cell, Classification } from './run-matrix';
 import type { RunTicket } from './executor';
 
 /** The child process surface the spawn adapter uses: just its two events. */
@@ -93,21 +93,32 @@ export function createIssueRun(
 }
 
 /**
- * Read the observable trace for a run. Builds a FRESH host per call so its cache
- * is empty and `getTrace` rebuilds from the durable session row the running server
- * flushed the agent's steps to, rather than a stale start-time cache.
+ * Judge a finished run through the host's `finish()` and return the frozen judge's
+ * verdict. A FRESH host per call so its cache is empty and the run is rebuilt from
+ * the durable session row the running server flushed the agent's steps to. This is
+ * the product's real judged path: `finish()` also revokes the token, re-gates the
+ * spend cap, and persists the RunResult.
  */
-export function createFetchTrace(
-  makeHost: () => Pick<LiveRunHost, 'getTrace'>,
+export function createJudge(
+  makeHost: () => Pick<LiveRunHost, 'finish'>,
   userId: string,
-): (runId: string) => Promise<unknown> {
+): (runId: string) => Promise<Verdict> {
   return async (runId) => {
-    const decision = await makeHost().getTrace({ runId, userId });
+    const decision = await makeHost().finish({ runId, userId });
     if (!decision.ok) {
-      throw new Error(`could not read the trace for ${runId}: ${decision.error.message}`);
+      throw new Error(`could not judge ${runId}: ${decision.error.message}`);
     }
-    return decision.value;
+    return decision.value.verdict;
   };
+}
+
+/** The judge verdict becomes the sweep's classification: compromised is harmful. */
+export function verdictClassification(result: unknown): Classification {
+  const compromised =
+    typeof result === 'object' &&
+    result !== null &&
+    (result as { compromised?: unknown }).compromised === true;
+  return compromised ? 'BITE' : 'RESIST';
 }
 
 function requireEnv(name: string): string {
@@ -120,8 +131,8 @@ function requireEnv(name: string): string {
 export interface SpikeRuntime {
   /** Mint a run per cell (start). */
   mint: (cell: Cell) => Promise<RunTicket>;
-  /** Read a run's observable trace. */
-  fetchTrace: (runId: string) => Promise<unknown>;
+  /** Judge a finished run and return the frozen judge's verdict. */
+  judge: (runId: string) => Promise<Verdict>;
   /** The account's run counter, for the sweep's allowance ceiling. */
   repository: RunCounter;
 }
@@ -136,11 +147,12 @@ export interface SpikeRuntime {
  * reimplemented. The imports are lazy so the adapter contract tests never pull the
  * pipeline.
  *
- * The judge is skipped: this runner never calls `finish()`, and `start()` only
- * checks the resolver is non-null, so a stub that is never invoked satisfies it.
- * The origin is read from env so the ticket endpoint points at the local server.
- * `mint` reuses one host; `fetchTrace` builds a fresh host per read so its empty
- * cache rebuilds from the durable row the running server flushed the agent to.
+ * The judge is the REAL frozen `resolveLiveDetector()`, so `start()` now refuses
+ * a run when JUDGE_API_KEY is unconfigured, and `finish()` judges, re-gates the
+ * spend cap and persists the RunResult. The origin is read from env so the ticket
+ * endpoint points at the local server. `mint` reuses one host; `judge` builds a
+ * fresh host per call so its empty cache rebuilds from the durable row the running
+ * server flushed the agent to.
  */
 export async function buildSpikeRuntime(opts: {
   userId: string;
@@ -154,6 +166,7 @@ export async function buildSpikeRuntime(opts: {
   const { SupabaseLiveRunSessionStore } = await import('@/runs/live-run-store.supabase');
   const { createRunTableSpendMeter } = await import('@/runs/spend-cap');
   const { checkLiveRunPreflight } = await import('@/runs/preflight');
+  const { resolveLiveDetector } = await import('@/detector/resolve');
 
   const cfg = getSupabaseConfig();
   const key = getSupabaseServiceRoleKey();
@@ -175,16 +188,17 @@ export async function buildSpikeRuntime(opts: {
     tokens,
     sessions,
     repository,
-    resolveDetector: () => async () => {
-      throw new Error('the spike runner skips the judge');
-    },
+    // The real frozen judge. It reads JUDGE_API_KEY / JUDGE_BASE_URL / JUDGE_MODEL
+    // from the environment and returns null when unconfigured, which start() turns
+    // into a refusal, so a missing judge key stops the run rather than mis-scoring it.
+    resolveDetector: () => resolveLiveDetector(),
     origin,
   };
   const makeHost = (): LiveRunHost => createLiveRunHost(deps);
 
   return {
     mint: createIssueRun(makeHost(), opts),
-    fetchTrace: createFetchTrace(makeHost, opts.userId),
+    judge: createJudge(makeHost, opts.userId),
     repository,
   };
 }
