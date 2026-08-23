@@ -8,8 +8,8 @@
  * stores, meter, gate and pipeline, injected with a service-role client.
  */
 import { spawn as nodeSpawn } from 'node:child_process';
-import { writeFile as nodeWriteFile, rm as nodeRm } from 'node:fs/promises';
-import { join } from 'node:path';
+import { writeFile as nodeWriteFile, rm as nodeRm, mkdir as nodeMkdir } from 'node:fs/promises';
+import { join, dirname } from 'node:path';
 import { CategorySchema, VariantKindSchema, type Verdict } from '@/contract';
 import type { LiveRunHost, LiveRunHostDeps } from '@/runs/live-run';
 import type { RunCounter } from '@/runs/allowance';
@@ -30,10 +30,13 @@ export type SpawnFn = (
 /** How the temp config is written / removed. Defaults to `node:fs/promises`. */
 export type WriteFn = (path: string, data: string) => Promise<void>;
 export type RemoveFn = (path: string, options: { force: true }) => Promise<void>;
+/** How a directory is created (recursively). Defaults to `node:fs/promises` mkdir. */
+export type MkdirFn = (path: string, options: { recursive: true }) => Promise<string | undefined>;
 
 const DEFAULT_SPAWN = nodeSpawn as unknown as SpawnFn;
 const DEFAULT_WRITE: WriteFn = (path, data) => nodeWriteFile(path, data);
 const DEFAULT_REMOVE: RemoveFn = (path, options) => nodeRm(path, options);
+const DEFAULT_MKDIR: MkdirFn = (path, options) => nodeMkdir(path, options);
 
 /** Run `command args`, inheriting stdio; resolve on exit 0, reject otherwise. */
 export function spawnAgent(
@@ -135,6 +138,7 @@ export function createExportTrace(
   userId: string,
   exportDir: string,
   write: WriteFn = DEFAULT_WRITE,
+  mkdir: MkdirFn = DEFAULT_MKDIR,
 ): ExportTrace {
   return async (runId, category, framing, verdict) => {
     const decision = await makeHost().getTrace({ runId, userId });
@@ -154,6 +158,9 @@ export function createExportTrace(
       },
     };
     const path = join(exportDir, `${category}_${framing}_${runId}.json`);
+    // Ensure the export dir exists first: a first run against a fresh export dir
+    // would otherwise ENOENT and lose the trace it was meant to preserve.
+    await mkdir(dirname(path), { recursive: true });
     await write(path, JSON.stringify(record, null, 2));
   };
 }
