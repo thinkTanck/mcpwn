@@ -9,6 +9,7 @@
  */
 import { spawn as nodeSpawn } from 'node:child_process';
 import { writeFile as nodeWriteFile, rm as nodeRm } from 'node:fs/promises';
+import { join } from 'node:path';
 import { CategorySchema, VariantKindSchema, type Verdict } from '@/contract';
 import type { LiveRunHost, LiveRunHostDeps } from '@/runs/live-run';
 import type { RunCounter } from '@/runs/allowance';
@@ -112,6 +113,51 @@ export function createJudge(
   };
 }
 
+/** Persist one judged run's trace and verdict to disk. */
+export type ExportTrace = (
+  runId: string,
+  category: string,
+  framing: string,
+  verdict: Verdict,
+) => Promise<void>;
+
+/**
+ * Write a judged run's full trace to disk right after its verdict, so it survives
+ * the reaper. Reads the run's steps back through the host's `getTrace` (the same
+ * durable read path the judge used), then writes one JSON file per run named
+ * `<category>_<framing>_<runId>.json` under `exportDir`, carrying the ordered trace
+ * steps and the verdict fields the fix report keys off. A refused read throws, so a
+ * lost trace is never silently skipped. `exportDir` is the caller's config, never
+ * hardcoded; the filesystem write is injected so the contract tests write nothing.
+ */
+export function createExportTrace(
+  makeHost: () => Pick<LiveRunHost, 'getTrace'>,
+  userId: string,
+  exportDir: string,
+  write: WriteFn = DEFAULT_WRITE,
+): ExportTrace {
+  return async (runId, category, framing, verdict) => {
+    const decision = await makeHost().getTrace({ runId, userId });
+    if (!decision.ok) {
+      throw new Error(`could not read the trace for ${runId}: ${decision.error.message}`);
+    }
+    const record = {
+      runId,
+      category,
+      framing,
+      steps: decision.value.steps,
+      verdict: {
+        compromised: verdict.compromised,
+        severity: verdict.severity,
+        stepId: verdict.stepId ?? null,
+        rationale: verdict.rationale,
+      },
+    };
+    const path = join(exportDir, `${category}_${framing}_${runId}.json`);
+    await write(path, JSON.stringify(record, null, 2));
+  };
+}
+
 /** The judge verdict becomes the sweep's classification: compromised is harmful. */
 export function verdictClassification(result: unknown): Classification {
   const compromised =
@@ -133,6 +179,8 @@ export interface SpikeRuntime {
   mint: (cell: Cell) => Promise<RunTicket>;
   /** Judge a finished run and return the frozen judge's verdict. */
   judge: (runId: string) => Promise<Verdict>;
+  /** Persist a judged run's trace and verdict to the export dir. */
+  exportTrace: ExportTrace;
   /** The account's run counter, for the sweep's allowance ceiling. */
   repository: RunCounter;
 }
@@ -157,6 +205,8 @@ export interface SpikeRuntime {
 export async function buildSpikeRuntime(opts: {
   userId: string;
   model?: string;
+  /** Where each run's trace file is written. Caller reads it from the environment. */
+  exportDir: string;
 }): Promise<SpikeRuntime> {
   const { createClient } = await import('@supabase/supabase-js');
   const { getSupabaseConfig, getSupabaseServiceRoleKey } = await import('@/config/env');
@@ -199,6 +249,9 @@ export async function buildSpikeRuntime(opts: {
   return {
     mint: createIssueRun(makeHost(), opts),
     judge: createJudge(makeHost, opts.userId),
+    // A fresh host per export rebuilds the run from the durable row, the same way
+    // the judge did, and writes it out before the reaper can sweep it.
+    exportTrace: createExportTrace(makeHost, opts.userId, opts.exportDir),
     repository,
   };
 }

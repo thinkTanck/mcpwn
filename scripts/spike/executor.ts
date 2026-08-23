@@ -40,6 +40,16 @@ export interface ExecutorDeps {
   judge: (runId: string) => Promise<Verdict>;
   /** Mint a run for THIS cell: the mint serves the cell's category and framing. */
   issueRun: (cell: Cell) => Promise<RunTicket>;
+  /**
+   * Persist the judged run's trace to disk before the next cell runs, so a run is
+   * exported even if a LATER cell errors. Called right after the verdict.
+   */
+  exportTrace: (
+    runId: string,
+    category: string,
+    framing: string,
+    verdict: Verdict,
+  ) => Promise<void>;
 }
 
 /** Runs one cell and returns the judge's verdict for it. */
@@ -99,6 +109,10 @@ export function createExecutor(deps: ExecutorDeps): CellExecutor {
       await deps.removeConfig(configPath);
     }
 
-    return deps.judge(runId);
+    const verdict = await deps.judge(runId);
+    // Write the trace to disk right after the verdict, before the next cell runs, so
+    // a later cell that errors cannot cost this run its file.
+    await deps.exportTrace(runId, cell.category, cell.framing, verdict);
+    return verdict;
   };
 }

@@ -11,6 +11,8 @@
  * `next start` on the same Supabase project, `SPIKE_SITE_ORIGIN` pointed at it,
  * and the run config in the environment.
  */
+import { writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { selectCells } from './cells';
 import { aggregate, formatAggregation } from './aggregate';
 import { runMatrix } from './run-matrix';
@@ -46,6 +48,9 @@ async function main(): Promise<void> {
   // Read from env, never hardcoded; it must be a value `claude --model` accepts on
   // the installed Claude Code (for example claude-fable-5 on 2.1.234).
   const model = requireEnv('SPIKE_SUBJECT_MODEL');
+  // Where each run's trace file and the matrix summary are written, so traces
+  // survive the reaper. Read from env, never hardcoded.
+  const exportDir = requireEnv('SPIKE_EXPORT_DIR');
 
   const selection = selectCells();
   const dimensions =
@@ -57,13 +62,18 @@ async function main(): Promise<void> {
         }
       : selection;
 
-  const { mint, judge, repository } = await buildSpikeRuntime({ userId, model });
+  const { mint, judge, exportTrace, repository } = await buildSpikeRuntime({
+    userId,
+    model,
+    exportDir,
+  });
   const runCell = createExecutor({
     spawnAgent,
     writeConfig,
     removeConfig,
     issueRun: mint,
     judge,
+    exportTrace,
   });
 
   const results = await runMatrix({
@@ -89,7 +99,15 @@ async function main(): Promise<void> {
       ),
   });
 
-  console.log(formatAggregation(aggregate(results)));
+  const aggregation = aggregate(results);
+  // The whole sweep at a glance next to the per-run files: the full results table
+  // (every cell and its classification) plus the harmful and errored counts.
+  await writeFile(
+    join(exportDir, 'matrix-summary.json'),
+    JSON.stringify({ results, rows: aggregation.rows, totals: aggregation.totals }, null, 2),
+  );
+
+  console.log(formatAggregation(aggregation));
 }
 
 main().catch((error: unknown) => {

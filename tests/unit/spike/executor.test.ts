@@ -52,6 +52,13 @@ interface ExecutorDeps {
   spawnAgent: (command: string, args: readonly string[]) => Promise<void>;
   judge: (runId: string) => Promise<VerdictLike>;
   issueRun: (cell: Cell) => Promise<RunTicket>;
+  /** Persist the judged run's trace to disk, so it survives the reaper. */
+  exportTrace: (
+    runId: string,
+    category: string,
+    framing: string,
+    verdict: VerdictLike,
+  ) => Promise<void>;
 }
 
 /** The one export this spike must provide. */
@@ -66,6 +73,9 @@ interface DepMocks {
   spawnAgent: Mock<(command: string, args: readonly string[]) => Promise<void>>;
   judge: Mock<(runId: string) => Promise<VerdictLike>>;
   issueRun: Mock<(cell: Cell) => Promise<RunTicket>>;
+  exportTrace: Mock<
+    (runId: string, category: string, framing: string, verdict: VerdictLike) => Promise<void>
+  >;
 }
 
 interface WrittenServer {
@@ -104,6 +114,9 @@ function makeHarness(): { mocks: DepMocks; tickets: RunTicket[] } {
     removeConfig: vi.fn<(path: string) => Promise<void>>(async () => {}),
     spawnAgent: vi.fn<(command: string, args: readonly string[]) => Promise<void>>(async () => {}),
     judge: vi.fn<(runId: string) => Promise<VerdictLike>>(async () => VERDICT),
+    exportTrace: vi.fn<
+      (runId: string, category: string, framing: string, verdict: VerdictLike) => Promise<void>
+    >(async () => {}),
     issueRun: vi.fn<(cell: Cell) => Promise<RunTicket>>(async () => {
       const n = tickets.length + 1;
       const ticket: RunTicket = {
@@ -212,6 +225,29 @@ describe('executor spike', () => {
     expect(mocks.judge).toHaveBeenCalledWith(issued?.runId);
     expect(result).toBe(VERDICT);
     expect(vi.mocked(classifyTrace)).not.toHaveBeenCalled();
+  });
+
+  it('exports the judged run trace with its verdict before returning, so it survives the reaper', async () => {
+    const { createExecutor } = await loadExecutor();
+    const { mocks, tickets } = makeHarness();
+
+    const result = await createExecutor(mocks)(CELL);
+
+    const issued = tickets[0];
+    expect(issued).toBeDefined();
+    // The export carries this cell's identity and the frozen judge's verdict, and
+    // the verdict it exports is exactly the one the executor returns.
+    expect(mocks.exportTrace).toHaveBeenCalledWith(
+      issued?.runId,
+      CELL.category,
+      CELL.framing,
+      VERDICT,
+    );
+    expect(result).toBe(VERDICT);
+    // Judged first, then exported: the verdict cannot be exported before it exists.
+    const judgedAt = mocks.judge.mock.invocationCallOrder[0];
+    const exportedAt = mocks.exportTrace.mock.invocationCallOrder[0];
+    expect(judgedAt).toBeLessThan(exportedAt ?? 0);
   });
 
   it('mints a fresh run for every cell and reuses no token', async () => {
