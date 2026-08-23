@@ -11,7 +11,7 @@
  * `next start` on the same Supabase project, `SPIKE_SITE_ORIGIN` pointed at it,
  * and the run config in the environment.
  */
-import { writeFile } from 'node:fs/promises';
+import { writeFile, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { selectCells } from './cells';
 import { aggregate, formatAggregation } from './aggregate';
@@ -101,7 +101,9 @@ async function main(): Promise<void> {
 
   const aggregation = aggregate(results);
   // The whole sweep at a glance next to the per-run files: the full results table
-  // (every cell and its classification) plus the harmful and errored counts.
+  // (every cell and its classification) plus the harmful and errored counts. Create
+  // the export dir first, so the summary is not lost to an ENOENT on a fresh dir.
+  await mkdir(exportDir, { recursive: true });
   await writeFile(
     join(exportDir, 'matrix-summary.json'),
     JSON.stringify({ results, rows: aggregation.rows, totals: aggregation.totals }, null, 2),

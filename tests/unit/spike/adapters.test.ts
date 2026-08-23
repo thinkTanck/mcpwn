@@ -8,7 +8,9 @@
  * an HTTP call.)
  */
 import { EventEmitter } from 'node:events';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import * as adaptersModule from '../../../scripts/spike/adapters';
 
 interface Cell {
@@ -59,6 +61,7 @@ type SpawnFn = (
 ) => { on(event: string, listener: (arg: never) => void): unknown };
 type WriteFn = (path: string, data: string) => Promise<void>;
 type RemoveFn = (path: string, options: { force: true }) => Promise<void>;
+type MkdirFn = (path: string, options: { recursive: true }) => Promise<string | undefined>;
 
 interface AdaptersModule {
   spawnAgent: (command: string, args: readonly string[], spawn?: SpawnFn) => Promise<void>;
@@ -78,6 +81,7 @@ interface AdaptersModule {
     userId: string,
     exportDir: string,
     write?: WriteFn,
+    mkdir?: MkdirFn,
   ) => (runId: string, category: string, framing: string, verdict: FullVerdict) => Promise<void>;
 }
 
@@ -199,11 +203,26 @@ describe('createExportTrace', () => {
       value: { runId: 'r1', steps: STEPS },
     }));
     const write = vi.fn<WriteFn>(async () => {});
+    const mkdir = vi.fn<MkdirFn>(async () => undefined);
 
-    const exportTrace = adapters.createExportTrace(() => ({ getTrace }), 'u1', '/exports', write);
+    const exportTrace = adapters.createExportTrace(
+      () => ({ getTrace }),
+      'u1',
+      '/exports',
+      write,
+      mkdir,
+    );
     await exportTrace('r1', 'ASI05', 'malicious', VERDICT);
 
     expect(getTrace).toHaveBeenCalledWith({ runId: 'r1', userId: 'u1' });
+    // The export dir is created recursively before the write, so a missing dir is
+    // no longer an ENOENT.
+    expect(mkdir).toHaveBeenCalledWith(dirname(join('/exports', 'ASI05_malicious_r1.json')), {
+      recursive: true,
+    });
+    const madeAt = mkdir.mock.invocationCallOrder[0];
+    const wroteAt = write.mock.invocationCallOrder[0];
+    expect(madeAt).toBeLessThan(wroteAt ?? 0);
     const call = write.mock.calls[0];
     if (!call) throw new Error('expected the file to be written');
     const [path, contents] = call;
@@ -235,6 +254,38 @@ describe('createExportTrace', () => {
     );
 
     await expect(exportTrace('rX', 'ASI05', 'malicious', VERDICT)).rejects.toThrow(/run expired/);
+  });
+
+  it('creates a non-existent export directory and writes the file, instead of throwing ENOENT', async () => {
+    const getTrace = vi.fn(async () => ({
+      ok: true as const,
+      value: { runId: 'r1', steps: STEPS },
+    }));
+    // A real, freshly made base temp; the export dir is a nested child that does
+    // NOT exist yet, so the real filesystem write would ENOENT without a mkdir.
+    const base = await mkdtemp(join(tmpdir(), 'mcpwn-export-'));
+    const exportDir = join(base, 'does', 'not', 'exist', 'yet');
+    try {
+      // Real fs write and mkdir (both defaulted): this reproduces the reported bug.
+      const exportTrace = adapters.createExportTrace(() => ({ getTrace }), 'u1', exportDir);
+      await exportTrace('r1', 'ASI05', 'malicious', VERDICT);
+
+      const written = await readFile(join(exportDir, 'ASI05_malicious_r1.json'), 'utf8');
+      expect(JSON.parse(written)).toEqual({
+        runId: 'r1',
+        category: 'ASI05',
+        framing: 'malicious',
+        steps: STEPS,
+        verdict: {
+          compromised: true,
+          severity: 'High',
+          stepId: 's5',
+          rationale: 'the injected value reached run_shell',
+        },
+      });
+    } finally {
+      await rm(base, { recursive: true, force: true });
+    }
   });
 });
 
