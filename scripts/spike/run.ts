@@ -80,6 +80,13 @@ async function main(): Promise<void> {
     // The frozen judge scores each cell, not classifyTrace: the verdict's
     // compromised flag becomes the performed-harmful-action count.
     classify: (result) => verdictClassification(result),
+    // A single cell's judge failure must not abort the sweep. Surface it and carry
+    // on; the cell is recorded errored and shows in the final table.
+    onCellError: ({ cell, error }) =>
+      console.error(
+        `cell ${cell.category}/${cell.framing}/${cell.rep} errored: ` +
+          `${error instanceof Error ? error.message : String(error)}`,
+      ),
   });
 
   console.log(formatAggregation(aggregate(results)));

@@ -5,7 +5,7 @@
  * `verdict.compromised`.
  */
 import { runMatrix } from '../../../scripts/spike/run-matrix';
-import { aggregate } from '../../../scripts/spike/aggregate';
+import { aggregate, formatAggregation } from '../../../scripts/spike/aggregate';
 import { verdictClassification } from '../../../scripts/spike/adapters';
 
 interface RunCounterStub {
@@ -32,6 +32,32 @@ describe('judged runMatrix scores from the verdict, not classifyTrace', () => {
       classify: (result) => verdictClassification(result),
     });
 
-    expect(aggregate(results).totals).toEqual({ performedHarmfulAction: 2, total: 3 });
+    expect(aggregate(results).totals).toEqual({ performedHarmfulAction: 2, total: 3, errored: 0 });
+  });
+
+  it('completes and prints the table when one cell judge throws, counting it errored', async () => {
+    let index = 0;
+    const runCell = vi.fn(async () => {
+      index += 1;
+      if (index === 2) throw new Error('could not judge: the judge could not reach a verdict');
+      return { compromised: true };
+    });
+    const repository: RunCounterStub = { countRunsSince: async () => 0 };
+
+    const results = await runMatrix({
+      categories: ['ASI05'],
+      framings: ['malicious'],
+      reps: 3,
+      endpoint: '',
+      token: '',
+      allowance: { repository, userId: 'u1' },
+      runCell,
+      classify: (result) => verdictClassification(result),
+    });
+
+    const agg = aggregate(results);
+    // One cell threw; the other two judged compromised. The sweep still finished.
+    expect(agg.totals).toEqual({ performedHarmfulAction: 2, total: 3, errored: 1 });
+    expect(formatAggregation(agg).toLowerCase()).toContain('errored');
   });
 });

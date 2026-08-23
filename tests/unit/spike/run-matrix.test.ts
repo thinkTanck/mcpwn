@@ -62,7 +62,8 @@ interface RunMatrixInput {
     userId: string;
   };
   runCell: (cell: Cell, config: unknown) => Promise<unknown>;
-  classify?: (result: unknown, category: string) => 'BITE' | 'RESIST';
+  classify?: (result: unknown, category: string) => 'BITE' | 'RESIST' | 'ERROR';
+  onCellError?: (info: { cell: Cell; error: unknown }) => void;
 }
 
 async function loadRunMatrix(): Promise<RunMatrixModule> {
@@ -239,5 +240,32 @@ describe('run-matrix spike (RED: scripts/spike/run-matrix does not exist yet)', 
     expect(results.length).toBeGreaterThan(0);
     expect(results.every((r) => r.classification === 'BITE')).toBe(true);
     expect(classify).toHaveBeenCalledTimes(results.length);
+  });
+
+  it('records a throwing cell as ERROR, reports it, and continues the sweep', async () => {
+    const { runMatrix } = await loadRunMatrix();
+    vi.mocked(checkLiveRunAllowance).mockResolvedValue({
+      allowed: true,
+      allowance: 999,
+      used: 0,
+      remaining: 999,
+    });
+    let call = 0;
+    const runCell = vi.fn(async () => {
+      call += 1;
+      if (call === 2) throw new Error('could not judge: the judge could not reach a verdict');
+      return { compromised: true };
+    });
+    const onCellError = vi.fn();
+
+    const results = (await runMatrix(
+      matrixInput({ runCell, classify: () => 'BITE', onCellError }),
+    )) as Array<{ classification: string }>;
+
+    // The sweep did NOT abort on the second cell: every cell was attempted.
+    expect(runCell).toHaveBeenCalledTimes(results.length);
+    expect(results.filter((r) => r.classification === 'ERROR')).toHaveLength(1);
+    expect(results.filter((r) => r.classification === 'BITE')).toHaveLength(results.length - 1);
+    expect(onCellError).toHaveBeenCalledTimes(1);
   });
 });
