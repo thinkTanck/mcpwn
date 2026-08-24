@@ -62,7 +62,10 @@ describe('Home — landmarks & pitch', () => {
     // loses any part of its provenance fails here, and so does provenance with
     // no number.
     const chip = screen.getByText(/^measured ·/);
-    expect(chip.textContent).toMatch(/N=44 labeled realizations/);
+    // Shape, not a pinned count: the exact denominator is coupled to the real
+    // fixture count in tests/unit/eval/measured.test.ts, so it moves when fixtures
+    // are added and re-measured. Here we only demand the claim is fully provenanced.
+    expect(chip.textContent).toMatch(/N=\d+ labeled realizations/);
     expect(chip.textContent).toMatch(/5 passes/);
     expect(chip.textContent).toMatch(/\d{4}-\d{2}-\d{2}/);
     expect(chip.textContent).toMatch(/judge claude-haiku-4-5/);

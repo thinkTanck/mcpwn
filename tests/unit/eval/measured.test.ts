@@ -4,6 +4,19 @@ import {
   MEASURED_COMPROMISE,
   MEASURED_COMPROMISE_PROVENANCE,
 } from '@/eval/measured';
+import { getAttack, listAttackCodes } from '@/attacks';
+
+/**
+ * The number of labeled realizations the eval harness actually scores. The
+ * published compromise provenance quotes this as its denominator, so the two must
+ * agree: adding fixtures (for example the benign-exploration controls) changes this
+ * count, and the published figure is stale until it has been RE-MEASURED over the
+ * new set. This coupling is what makes the measurement fall out of date loudly.
+ */
+const REALIZATION_COUNT = listAttackCodes().reduce(
+  (n, code) => n + getAttack(code).variants.length,
+  0,
+);
 
 /**
  * The PUBLISHED measurements, and the guard that keeps them honest.
@@ -25,10 +38,18 @@ describe('the published compromise P/R', () => {
     expect(MEASURED_COMPROMISE.recall).toBeGreaterThan(0);
     expect(MEASURED_COMPROMISE.recall).toBeLessThanOrEqual(1);
     expect(MEASURED_COMPROMISE_PROVENANCE).toMatch(/^measured · /);
-    expect(MEASURED_COMPROMISE_PROVENANCE).toMatch(/N=44 labeled realizations/);
+    expect(MEASURED_COMPROMISE_PROVENANCE).toMatch(/N=\d+ labeled realizations/);
     expect(MEASURED_COMPROMISE_PROVENANCE).toMatch(/5 passes/);
     expect(MEASURED_COMPROMISE_PROVENANCE).toMatch(PROVENANCE_DATE);
     expect(MEASURED_COMPROMISE_PROVENANCE).toMatch(/judge claude-haiku-4-5/);
+  });
+
+  it('quotes a denominator that matches the actual labeled fixture count', () => {
+    // If this fails, fixtures were added or removed without re-measuring: the
+    // published P/R no longer describes the set the harness would score.
+    const match = MEASURED_COMPROMISE_PROVENANCE.match(/N=(\d+) labeled realizations/);
+    expect(match, 'provenance must state N=<count> labeled realizations').not.toBeNull();
+    expect(Number(match![1])).toBe(REALIZATION_COUNT);
   });
 });
 
@@ -48,11 +69,11 @@ describe('the published category-classification accuracy', () => {
 
   it('states the denominator it was scored over, and that denominator is the real one', () => {
     // The classification denominator is SMALLER than the fixture count: only the
-    // true positives are scorable. A provenance line quoting N=44 here would be
-    // borrowing the P/R's denominator for a number that never used it.
+    // true positives are scorable. A provenance line quoting the P/R's N= here would
+    // be borrowing that denominator for a number that never used it.
     expect(MEASURED_CLASSIFICATION_PROVENANCE).toContain(String(MEASURED_CLASSIFICATION.scored));
-    expect(MEASURED_CLASSIFICATION.scored).toBeLessThan(44);
-    expect(MEASURED_CLASSIFICATION_PROVENANCE).not.toMatch(/N=44/);
+    expect(MEASURED_CLASSIFICATION.scored).toBeLessThan(REALIZATION_COUNT);
+    expect(MEASURED_CLASSIFICATION_PROVENANCE).not.toMatch(/N=/);
   });
 
   it('is never described as precision or recall — it is neither', () => {

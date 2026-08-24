@@ -53,6 +53,21 @@ export function expandPairs(pairs: readonly VariantPair[]): AttackVariant[] {
 }
 
 /**
+ * Expand BENIGN-ONLY realizations into one benign variant each, with no malicious
+ * sibling. These are clean-environment controls that carry no attack vector (for
+ * example a run where the agent does the task and makes incidental exploratory tool
+ * calls). They are appended after the pairs, so the pinned `benign` default stays
+ * the first pair's benign sibling.
+ */
+export function expandBenignOnly(benignOnly: readonly VariantPair[]): AttackVariant[] {
+  return benignOnly.map((pair) => ({
+    ...pair,
+    kind: 'benign' as const,
+    id: variantIdFor(pair.slug, 'benign'),
+  }));
+}
+
+/**
  * Resolve a variant reference at the untyped boundary (fail-fast).
  *
  * A bare kind resolves to the FIRST realization of that kind — the pinned
@@ -187,6 +202,14 @@ export interface AttackDef {
   category: Category;
   /** The realization pairs this category ships; the first is the pinned default. */
   pairs: readonly VariantPair[];
+  /**
+   * Benign-only realizations: clean-environment controls with NO attack vector and
+   * no malicious sibling, labelled not-compromised. They exist to measure the
+   * detector's false-positive rate on innocuous behaviour (for example incidental
+   * exploratory tool calls) that the tool-parity controls do not cover. Optional;
+   * appended after the pairs so they never displace the pinned default.
+   */
+  benignOnly?: readonly VariantPair[];
   build(variant: AttackVariant): AttackBuildResult;
   scenario(variant: AttackVariant): Scenario;
 }
@@ -203,22 +226,33 @@ export const ATTACK_CODES: readonly Category[] = CategorySchema.options;
  * namespace (`malicious` / `benign`, or anything ending in one of them, which
  * would be indistinguishable from another pair's realization id).
  */
-function validatePairs(category: Category, pairs: readonly VariantPair[]): void {
+function assertSlug(category: Category, slug: string, seen: Set<string>): void {
+  if (slug.length === 0) throw new AttackError(`${category} declares an empty pair slug.`);
+  if (seen.has(slug)) throw new AttackError(`${category} declares a duplicate pair slug: ${slug}`);
+  for (const kind of VARIANT_KINDS) {
+    if (slug === kind || slug.endsWith(`-${kind}`)) {
+      throw new AttackError(`${category} pair slug "${slug}" collides with the kind namespace.`);
+    }
+  }
+  seen.add(slug);
+}
+
+/**
+ * Validate a category's whole declaration up front. Pair and benign-only slugs
+ * share ONE namespace, so a benign-only slug that duplicates or collides with a
+ * pair slug is rejected here rather than producing an ambiguous id at build time.
+ */
+function validateDeclarations(
+  category: Category,
+  pairs: readonly VariantPair[],
+  benignOnly: readonly VariantPair[],
+): void {
   if (pairs.length === 0) {
     throw new AttackError(`${category} declares no realization pairs.`);
   }
   const seen = new Set<string>();
-  for (const { slug } of pairs) {
-    if (slug.length === 0) throw new AttackError(`${category} declares an empty pair slug.`);
-    if (seen.has(slug))
-      throw new AttackError(`${category} declares a duplicate pair slug: ${slug}`);
-    for (const kind of VARIANT_KINDS) {
-      if (slug === kind || slug.endsWith(`-${kind}`)) {
-        throw new AttackError(`${category} pair slug "${slug}" collides with the kind namespace.`);
-      }
-    }
-    seen.add(slug);
-  }
+  for (const { slug } of pairs) assertSlug(category, slug, seen);
+  for (const { slug } of benignOnly) assertSlug(category, slug, seen);
 }
 
 /**
@@ -227,8 +261,9 @@ function validatePairs(category: Category, pairs: readonly VariantPair[]): void 
  * it under its category.
  */
 export function defineAttack(def: AttackDef): AttackModule {
-  validatePairs(def.category, def.pairs);
-  const variants = expandPairs(def.pairs);
+  const benignOnly = def.benignOnly ?? [];
+  validateDeclarations(def.category, def.pairs, benignOnly);
+  const variants = [...expandPairs(def.pairs), ...expandBenignOnly(benignOnly)];
   const attack: AttackModule = {
     category: def.category,
     variants,
