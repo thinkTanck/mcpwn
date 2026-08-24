@@ -158,8 +158,15 @@ describe('leakage invariant: the observable Trace never encodes the held-out Gro
 
   /**
    * The same law stated globally, which is the form that generalizes: if any
-   * metadata value occurred with only one kind, that value WOULD BE the label.
-   * Every realization has a sibling, so every honest value must be seen with both.
+   * metadata value occurred ONLY with malicious, that value WOULD BE the label.
+   *
+   * SHARED metadata (target, model, category) is not per-realization, so it must be
+   * seen with BOTH kinds. `runId` IS per-realization: paired siblings share one (so
+   * it covaries with nothing), and a benign-only exploration control legitimately
+   * stands alone with a benign-only run id. That is not a leak - a benign-only run
+   * id predicts nothing a malicious-only one would, and the judge never receives the
+   * run id anyway (it is stripped from the payload; see the detector boundary
+   * below). The bug this catches is a MALICIOUS-only value, which is the ASI10 leak.
    */
   it('has no metadata value that predicts the label', () => {
     for (const field of METADATA_FIELDS) {
@@ -171,10 +178,17 @@ describe('leakage invariant: the observable Trace never encodes the held-out Gro
         kindsByValue.get(value)!.add(variant.kind);
       }
       for (const [value, kinds] of kindsByValue) {
-        expect(
-          [...kinds].sort(),
-          `"${field}" value ${JSON.stringify(value)} occurs only as ${[...kinds]} - it IS the label`,
-        ).toEqual(['benign', 'malicious']);
+        if (field === 'runId') {
+          expect(
+            kinds.has('malicious') && !kinds.has('benign'),
+            `runId ${JSON.stringify(value)} occurs only as malicious - it IS the label`,
+          ).toBe(false);
+        } else {
+          expect(
+            [...kinds].sort(),
+            `"${field}" value ${JSON.stringify(value)} occurs only as ${[...kinds]} - it IS the label`,
+          ).toEqual(['benign', 'malicious']);
+        }
       }
     }
   });

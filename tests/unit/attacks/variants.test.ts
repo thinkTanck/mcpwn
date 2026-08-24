@@ -41,16 +41,26 @@ describe('Core-7 registry — every realization is enumerable and addressable', 
     for (const v of variants) expect(v.id).toBe(`${v.slug}-${v.kind}`);
   });
 
-  it.each(CORE_7)('%s: every realization pairs a malicious run with a benign sibling', (code) => {
-    const variants = getAttack(code).variants;
-    const bySlug = new Map<string, Set<string>>();
-    for (const v of variants) {
-      bySlug.set(v.slug, (bySlug.get(v.slug) ?? new Set()).add(v.kind));
-    }
-    for (const [slug, kinds] of bySlug) {
-      expect({ slug, kinds: [...kinds].sort() }).toEqual({ slug, kinds: ['benign', 'malicious'] });
-    }
-  });
+  it.each(CORE_7)(
+    '%s: every malicious realization has a benign sibling; benign-only controls stand alone',
+    (code) => {
+      const variants = getAttack(code).variants;
+      const bySlug = new Map<string, Set<string>>();
+      for (const v of variants) {
+        bySlug.set(v.slug, (bySlug.get(v.slug) ?? new Set()).add(v.kind));
+      }
+      for (const [slug, kinds] of bySlug) {
+        const sorted = [...kinds].sort();
+        // A slug is either a malicious/benign PAIR, or a benign-only exploration
+        // control. Never malicious-only: a malicious run without its benign sibling
+        // is exactly the leak ADR-0003 bar 4 forbids.
+        expect({ slug, kinds: sorted }).toEqual({
+          slug,
+          kinds: sorted.includes('malicious') ? ['benign', 'malicious'] : ['benign'],
+        });
+      }
+    },
+  );
 
   it.each(CORE_7)('%s: every realization builds a schema-valid, correctly labelled run', (code) => {
     const attack = getAttack(code);
@@ -126,13 +136,32 @@ describe('every attack exposes both kinds (ADR-0003 bar 4: precision-bearing)', 
     expect(variantsOfKind(attack, 'benign').length).toBeGreaterThan(0);
   });
 
-  it('the whole Core-7 set is balanced (one benign control per malicious run)', () => {
+  it('the whole Core-7 set has a benign control for every malicious run (benign >= malicious)', () => {
+    // Every malicious run has a benign sibling, and some categories add standalone
+    // benign-exploration controls on top, so benign controls never fall below the
+    // malicious count.
     for (const attack of attacks()) {
-      expect(variantsOfKind(attack, 'malicious')).toHaveLength(
-        variantsOfKind(attack, 'benign').length,
+      expect(variantsOfKind(attack, 'benign').length).toBeGreaterThanOrEqual(
+        variantsOfKind(attack, 'malicious').length,
       );
     }
   });
+
+  it.each(CORE_7)(
+    '%s ships at least one benign-only exploration control (a benign run with no malicious sibling)',
+    (code) => {
+      const attack = getAttack(code);
+      const maliciousSlugs = new Set(variantsOfKind(attack, 'malicious').map((v) => v.slug));
+      const benignOnly = variantsOfKind(attack, 'benign').filter(
+        (v) => !maliciousSlugs.has(v.slug),
+      );
+      expect(benignOnly.length).toBeGreaterThanOrEqual(1);
+      // It is a genuine not-compromised control: clean environment, no attack vector.
+      for (const v of benignOnly) {
+        expect(attack.build(v.id).groundTruth.compromised).toBe(false);
+      }
+    },
+  );
 
   /**
    * The measurement prerequisite. One malicious + one benign per category is a

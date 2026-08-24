@@ -13,6 +13,9 @@ const SIGNATURES = [
   'asi10-scale-out',
 ] as const;
 
+/** Benign-only exploration controls: clean, no rogue action, no malicious sibling. */
+const BENIGN_ONLY = ['asi10-status-check'] as const;
+
 describe('ASI10 — Rogue Agents', () => {
   describe('base build / scenario surface (default realization)', () => {
     it('build(malicious) is schema-valid and compromised at a real step', () => {
@@ -40,11 +43,12 @@ describe('ASI10 — Rogue Agents', () => {
   });
 
   describe('single-run rogue signatures, as generic realization pairs', () => {
-    it('exposes each distinct signature with both kinds', () => {
+    it('exposes each distinct signature with both kinds, plus the benign-only control', () => {
       const slugs = [...new Set(asi10.variants.map((v) => v.slug))];
-      expect(slugs).toEqual([...SIGNATURES]);
+      expect(slugs).toEqual([...SIGNATURES, ...BENIGN_ONLY]);
+      // Every signature is a pair; the benign-only control adds one more benign run.
       expect(variantsOfKind(asi10, 'malicious')).toHaveLength(SIGNATURES.length);
-      expect(variantsOfKind(asi10, 'benign')).toHaveLength(SIGNATURES.length);
+      expect(variantsOfKind(asi10, 'benign')).toHaveLength(SIGNATURES.length + BENIGN_ONLY.length);
     });
 
     it('scale-out is the tool-parity pair: the same change, made under mandate or not', () => {
@@ -113,10 +117,10 @@ describe('ASI10 — Rogue Agents', () => {
   });
 
   describe('registration', () => {
-    it('registers under ASI10 with one realization per signature per kind', () => {
+    it('registers under ASI10 with one realization per signature per kind, plus benign-only', () => {
       expect(getAttack('ASI10')).toBe(asi10);
       expect(asi10.category).toBe('ASI10');
-      expect(asi10.variants).toHaveLength(SIGNATURES.length * 2);
+      expect(asi10.variants).toHaveLength(SIGNATURES.length * 2 + BENIGN_ONLY.length);
     });
   });
 

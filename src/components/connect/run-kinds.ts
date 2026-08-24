@@ -6,7 +6,7 @@ import type { VariantKind } from '@/contract';
  * ── THE WIRE VALUES STAY, THE LABELS DO NOT ──
  *
  * `VariantKind` is `'malicious' | 'benign'`, and it stays that on the wire: those
- * are the contract's own names, shared with the 44 labeled realizations the
+ * are the contract's own names, shared with the labeled realizations the
  * detector's precision and recall were measured on, and renaming them would
  * decouple the screen from the measurement.
  *

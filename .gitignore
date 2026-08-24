@@ -16,6 +16,11 @@ next-env.d.ts
 # stale number outlive the config that produced it.
 /artifacts
 
+# spike runner trace export (SPIKE_EXPORT_DIR). Per-run traces and the matrix
+# summary, written at runtime; they carry live per-run tokens and recorded runs
+# and must never be committed.
+/spike-traces
+
 # testing
 /coverage
 /test-results

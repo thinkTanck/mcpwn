@@ -6,6 +6,8 @@ import {
   notCompromised,
   parseVariant,
   variantsOfKind,
+  expandPairs,
+  expandBenignOnly,
   getAttack,
   listAttackCodes,
   ATTACK_CODES,
@@ -225,6 +227,65 @@ describe('defineAttack — declaration is validated (fail fast, not at build tim
     'rejects the kind-colliding slug %s (it would make ids ambiguous)',
     (slug) => {
       expect(def([{ slug, toolParity: false }])).toThrow(AttackError);
+    },
+  );
+});
+
+// ── benign-only realizations ─────────────────────────────────────────────────
+// A category may also declare BENIGN-ONLY realizations: clean-environment controls
+// that carry NO attack vector and have no malicious sibling. They can only ever add
+// precision-bearing negatives, never an unmeasured positive, so they are consistent
+// with ADR-0003 bar 4 (which forbids the reverse: a malicious run with no control).
+
+describe('expandBenignOnly: clean controls with no malicious sibling', () => {
+  it('emits exactly one benign-kind variant per slug, id `${slug}-benign`', () => {
+    expect(expandBenignOnly([{ slug: 'exploration', toolParity: false }])).toEqual([
+      { slug: 'exploration', toolParity: false, kind: 'benign', id: 'exploration-benign' },
+    ]);
+  });
+
+  it('an attack appends its benign-only realizations AFTER the pairs, benign kind only', () => {
+    const variants = [
+      ...expandPairs([{ slug: 'paired', toolParity: true }]),
+      ...expandBenignOnly([{ slug: 'exploration', toolParity: false }]),
+    ];
+    expect(variants.map((v) => v.id)).toEqual([
+      'paired-malicious',
+      'paired-benign',
+      'exploration-benign',
+    ]);
+    // The first benign is still the paired default, so a bare `benign` stays pinned.
+    expect(variants.filter((v) => v.kind === 'benign').map((v) => v.slug)).toEqual([
+      'paired',
+      'exploration',
+    ]);
+    expect(variants.filter((v) => v.kind === 'malicious').map((v) => v.slug)).toEqual(['paired']);
+  });
+
+  it('rejects a benign-only slug that duplicates a pair slug (throws before registering)', () => {
+    expect(() =>
+      defineAttack({
+        category: 'ASI02',
+        pairs: [{ slug: 'dup', toolParity: true }],
+        benignOnly: [{ slug: 'dup', toolParity: false }],
+        build: syntheticBuild,
+        scenario: () => ({ taskGoal: 'g', environment: { tools: ['t'] } }),
+      }),
+    ).toThrow(AttackError);
+  });
+
+  it.each(['malicious', 'benign', 'x-benign'])(
+    'rejects a kind-colliding benign-only slug %s',
+    (slug) => {
+      expect(() =>
+        defineAttack({
+          category: 'ASI02',
+          pairs: [{ slug: 'ok', toolParity: true }],
+          benignOnly: [{ slug, toolParity: false }],
+          build: syntheticBuild,
+          scenario: () => ({ taskGoal: 'g', environment: { tools: ['t'] } }),
+        }),
+      ).toThrow(AttackError);
     },
   );
 });
