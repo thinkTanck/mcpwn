@@ -60,16 +60,22 @@ target architecture:**
 - **No live run can complete.** MCPwn does not yet host the MCP server an agent
   would connect to, so there is no live trace to judge. The judge itself is now
   wired (`resolveLiveDetector()`), and refuses cleanly when no key is configured.
-- **The detector's accuracy IS measured**, as of 2026-08-03: precision 0.9565,
-  recall 1.0000 over N=44 labeled realizations, five passes in full agreement,
-  judge `claude-haiku-4-5` at temperature 0. The hero figures carry that
-  provenance. The number holds only for that frozen judge configuration
+- **The detector's accuracy IS measured**, as of 2026-08-24: precision 0.9565,
+  recall 1.0000 over N=51 labeled realizations, five passes, modal answer per
+  realization, judge `claude-haiku-4-5` at temperature 0. The hero figures carry
+  that provenance. The number holds only for that frozen judge configuration
   ([ADR-0009](docs/adr/0009-compromise-vs-exposure.md)).
 - **Every OTHER statistic on the site is still fixture data**, labelled as such
   in the UI — the per-model robustness leaderboard and the sample-run verdicts
   are placeholders until real runs produce them.
 - **The MCP target layer is built against fakes**, never against a real MCP
   agent.
+
+The first live red-team results, Fable 5 run across the Core-7 through the spike
+harness and scored by the frozen detector, are written up in
+[`RESULTS.md`](RESULTS.md): the one verified compromise (ASI02, out-of-scope file
+access), every other category resisting, the detector provenance, and the stated
+limitations.
 
 `plan.md` carries the honest remaining-work map, including what is blocked and on
 what. Where this README describes the target rather than the present, it says so.
