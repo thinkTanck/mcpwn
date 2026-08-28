@@ -132,10 +132,10 @@ describe('DataSource — sample runs served from the real attack builders', () =
   });
 
   it('getRun resolves by canonical id and the "sample" alias, null otherwise', async () => {
-    const asi06 = sampleRun('ASI06');
-    expect(SAMPLE_RUN_ID).toBe(asi06.runId);
-    expect(await ds.getRun(SAMPLE_RUN_ID)).toEqual(asi06);
-    expect(await ds.getRun('sample')).toEqual(asi06);
+    const featured = sampleRun('ASI02');
+    expect(SAMPLE_RUN_ID).toBe(featured.runId);
+    expect(await ds.getRun(SAMPLE_RUN_ID)).toEqual(featured);
+    expect(await ds.getRun('sample')).toEqual(featured);
     expect(await ds.getRun('nope')).toBeNull();
   });
 
@@ -166,7 +166,7 @@ describe('DataSource — sample runs served from the real attack builders', () =
   });
 
   it('getFixReport resolves the "sample" alias to the canonical sample run', async () => {
-    expect(await ds.getFixReport('sample')).toEqual(generateFixReport(sampleRun('ASI06')));
+    expect(await ds.getFixReport('sample')).toEqual(generateFixReport(sampleRun('ASI02')));
   });
 
   it('getVerdictProvenance labels a sample verdict and returns null for an unknown run', async () => {

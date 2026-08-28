@@ -115,8 +115,8 @@ function sampleRuns(): RunResult[] {
   return CategorySchema.options.map(sampleRun);
 }
 
-/** The canonical sample run: ASI06 Memory & Context Poisoning (the hero demo). */
-export const SAMPLE_CATEGORY: Category = 'ASI06';
+/** The canonical sample run: ASI02 Tool Misuse and Exploitation (the hero demo). */
+export const SAMPLE_CATEGORY: Category = 'ASI02';
 export const SAMPLE_RUN_ID = sampleRun(SAMPLE_CATEGORY).runId;
 
 const resolveId = (id: string) => (id === 'sample' ? SAMPLE_RUN_ID : id);

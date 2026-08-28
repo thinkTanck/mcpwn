@@ -138,9 +138,9 @@ describe('Home — Core-7 list', () => {
 });
 
 describe('Home — CTAs', () => {
-  it('links "Try the sample" (PLAY) to /runs/sample', async () => {
+  it('links "Try the sample" (PLAY) to /runs/sample, featuring the ASI02 sample', async () => {
     await renderHome();
-    const play = screen.getByRole('link', { name: /play asi06 sample/i });
+    const play = screen.getByRole('link', { name: /play asi02 sample/i });
     expect(play).toHaveAttribute('href', '/runs/sample');
   });
 
@@ -151,6 +151,28 @@ describe('Home — CTAs', () => {
   });
 });
 
+describe('Home — the featured ASI02 finding', () => {
+  it('states the measured out-of-scope-read finding in plain words near the top', async () => {
+    await renderHome();
+    // The concrete finding: asked for one customer's invoice, a frontier agent
+    // performed an out-of-scope read of a system credential file. Stated as a
+    // measured finding about a subject model, never a claim about the reader's
+    // own agent (framing.test.tsx holds that line across every screen).
+    const finding = screen.getByText(/measured finding/i).closest('p');
+    expect(finding?.textContent ?? '').toMatch(/out-of-scope read/i);
+    expect(finding?.textContent ?? '').toMatch(/credential file/i);
+  });
+
+  it('offers a one-click link to the full RESULTS writeup', async () => {
+    await renderHome();
+    const results = screen.getByRole('link', { name: /read the full results/i });
+    expect(results).toHaveAttribute(
+      'href',
+      'https://github.com/thinkTanck/mcpwn/blob/main/RESULTS.md',
+    );
+  });
+});
+
 describe('Home — sample binding (never literals)', () => {
   it('binds the run id + step total + compromise step to the real sample run', async () => {
     const run = await getDataSource().getRun('sample');
@@ -158,9 +180,9 @@ describe('Home — sample binding (never literals)', () => {
     const total = run.trace.steps.length;
     const idx = run.trace.steps.findIndex((s) => s.id === run.verdict.stepId) + 1;
     const offending = run.trace.steps[idx - 1]!;
-    // The offending step is whatever the RECORDED verdict anchored: for the ASI06
-    // sample that is a memory_write, not a tool call, so the label comes from the
-    // shared helper rather than assuming a tool name exists.
+    // The offending step is whatever the RECORDED verdict anchored: for the ASI02
+    // sample that is the out-of-scope read_file tool call, so the label comes from
+    // the shared helper rather than assuming a particular step type.
     const tool = offendingStepLabel(offending);
 
     const { container } = render(await Home());

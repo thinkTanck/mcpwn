@@ -68,9 +68,9 @@ const SCREENS: Screen[] = [
     path: '/runs/sample',
     shell: true,
     content: async (page) => {
-      // The sample run is ASI06 Memory & Context Poisoning; assert the heading
+      // The sample run is ASI02 Tool Misuse and Exploitation; assert the heading
       // binds from the run rather than pinning the whole string.
-      await expect(page.getByRole('heading', { level: 1 })).toContainText('ASI06');
+      await expect(page.getByRole('heading', { level: 1 })).toContainText('ASI02');
       // Transport, verdict rail and step detail are what make it a replay.
       await expect(page.getByRole('button', { name: 'Play' })).toBeVisible();
       await expect(page.getByRole('slider', { name: 'Scrub to step' })).toBeVisible();

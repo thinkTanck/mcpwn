@@ -93,7 +93,7 @@ describe('backward compatibility — a bare kind resolves to a PINNED default re
 
   /**
    * The sample-playback screens serve `build(category, 'malicious')`, and the
-   * findings fixture + nav link hard-code the ASI06 run id and its offending step.
+   * findings fixture + nav link hard-code the featured ASI02 run id and its offending step.
    * Pinning the default run id and offending tool per category is what proves the
    * variant expansion did not move the sample runs out from under the UI.
    */
@@ -115,10 +115,10 @@ describe('backward compatibility — a bare kind resolves to a PINNED default re
     expect(offending).toMatchObject({ tool: expected.tool });
   });
 
-  it('the ASI06 hero sample keeps the run id and offending step the UI links to', () => {
-    const { trace, groundTruth } = getAttack('ASI06').build('malicious');
-    expect(trace.runId).toBe('asi06-run');
-    expect(groundTruth.stepId).toBe('s11');
+  it('the ASI02 hero sample keeps the run id and offending step the UI links to', () => {
+    const { trace, groundTruth } = getAttack('ASI02').build('malicious');
+    expect(trace.runId).toBe('asi02-run');
+    expect(groundTruth.stepId).toBe('s6');
   });
 
   it('the benign default shares its run id with its malicious sibling', () => {

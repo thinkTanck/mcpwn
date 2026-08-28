@@ -76,8 +76,8 @@ describe('AppShell run context', () => {
     render(await AppShell({ children: <p>screen content</p> }));
     const banner = screen.getByRole('banner');
     expect(within(banner).getByText('SAMPLE')).toBeInTheDocument();
-    expect(within(banner).getAllByText('ASI06', { exact: false }).length).toBeGreaterThan(0);
-    expect(within(banner).getByText('asi06-run')).toBeInTheDocument();
+    expect(within(banner).getAllByText('ASI02', { exact: false }).length).toBeGreaterThan(0);
+    expect(within(banner).getByText('asi02-run')).toBeInTheDocument();
   });
 
   it('labels a persisted live run LIVE and shows THAT run telemetry', async () => {

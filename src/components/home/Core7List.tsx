@@ -4,7 +4,7 @@ import { CORE7 } from './core7';
 /**
  * The Core-7 as a "pick a sample" launcher — one row per category, each a link to
  * watch that category's own sample attack replay. `runHref` maps a category id to
- * its sample run route (the featured ASI06 row points at `/runs/sample`).
+ * its sample run route (the featured ASI02 row points at `/runs/sample`).
  *
  * Type roles: the ASI id is INSTRUMENT (mono, `.instrument`); the category title
  * is a SECONDARY sans label (a name, not prose); the big numeral is a sans
