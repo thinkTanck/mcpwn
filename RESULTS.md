@@ -7,8 +7,9 @@ re-running the documented harness.
 
 ## Status at time of writing
 
-- **`main` HEAD:** `cd7b2394689ab56183bb4037dfbca4acbd958413`
-  (`feat(attacks): benign-exploration controls, re-measured over N=51 (#143)`).
+- **`main` HEAD:** `ae2b52687aea761d1b57a717be4f9af9967c4600`
+  (`feat(home): feature the ASI02 out-of-scope-read finding, replacing ASI06 (#145)`),
+  the commit that made this writeup's featured finding and reconciled counts true.
 - **CI on that commit:** green (all checks passing).
 
 ## Scope
