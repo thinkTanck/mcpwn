@@ -81,10 +81,10 @@ describe('ConnectScreen · one Core-7 category per run', () => {
     const user = userEvent.setup();
     render(<ConnectScreen />);
 
-    expect(screen.getByRole('radio', { name: /ASI06/ })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('radio', { name: /ASI02/ })).toHaveAttribute('aria-checked', 'true');
     await user.click(screen.getByRole('radio', { name: /ASI01/ }));
     expect(screen.getByRole('radio', { name: /ASI01/ })).toHaveAttribute('aria-checked', 'true');
-    expect(screen.getByRole('radio', { name: /ASI06/ })).toHaveAttribute('aria-checked', 'false');
+    expect(screen.getByRole('radio', { name: /ASI02/ })).toHaveAttribute('aria-checked', 'false');
   });
 });
 
@@ -251,7 +251,7 @@ describe('ConnectScreen · the chosen run type reaches the server action', () =>
 
     await issueLive(user);
 
-    expect(live.start).toHaveBeenCalledWith({ category: 'ASI06', kind: 'malicious' });
+    expect(live.start).toHaveBeenCalledWith({ category: 'ASI02', kind: 'malicious' });
   });
 
   it('sends the control framing when the control run is chosen', async () => {
@@ -263,7 +263,7 @@ describe('ConnectScreen · the chosen run type reaches the server action', () =>
     await user.click(screen.getByRole('radio', { name: /control run/i }));
     await user.click(screen.getByRole('button', { name: /issue run endpoint/i }));
 
-    expect(live.start).toHaveBeenCalledWith({ category: 'ASI06', kind: 'benign' });
+    expect(live.start).toHaveBeenCalledWith({ category: 'ASI02', kind: 'benign' });
   });
 
   it('sends the category and the framing together, so the two choices cannot drift apart', async () => {
@@ -283,11 +283,11 @@ describe('ConnectScreen · the chosen run type reaches the server action', () =>
 describe('ConnectScreen · sample mode', () => {
   it('plays the recorded run for the chosen category', async () => {
     const user = userEvent.setup();
-    render(<ConnectScreen sampleRunIds={{ ASI06: 'sample-asi06', ASI01: 'sample-asi01' }} />);
+    render(<ConnectScreen sampleRunIds={{ ASI02: 'sample-asi02', ASI01: 'sample-asi01' }} />);
 
     expect(screen.getByRole('link', { name: /play sample run/i })).toHaveAttribute(
       'href',
-      '/runs/sample-asi06',
+      '/runs/sample-asi02',
     );
     await user.click(screen.getByRole('radio', { name: /ASI01/ }));
     expect(screen.getByRole('link', { name: /play sample run/i })).toHaveAttribute(

@@ -84,7 +84,7 @@ describe('resolveRun — the sample library', () => {
   it('serves the sample run under its alias, labelled with the RECORDED provenance', async () => {
     const view = await resolveRun('sample');
     expect(view?.origin).toBe('sample');
-    expect(view?.run).toEqual(sampleRun('ASI06'));
+    expect(view?.run).toEqual(sampleRun('ASI02'));
     expect(view?.provenance).toBe(SAMPLE_VERDICT_PROVENANCE);
   });
 
@@ -153,7 +153,7 @@ describe('resolveRun — a persisted live run', () => {
 describe('resolveFixReport — module 6, over whichever run was resolved', () => {
   it('is exactly generateFixReport over the sample run (one canonical generator)', async () => {
     const view = await resolveFixReport('sample');
-    expect(view?.report).toEqual(generateFixReport(sampleRun('ASI06')));
+    expect(view?.report).toEqual(generateFixReport(sampleRun('ASI02')));
     expect(view?.provenance).toBe(SAMPLE_VERDICT_PROVENANCE);
   });
 

@@ -32,7 +32,7 @@ test('connect -> replay -> fix report -> clipboard', async ({ page }) => {
 
   // 3. The replay hero streams a real trace: transport, verdict, step detail.
   const heading = page.getByRole('heading', { level: 1 });
-  await expect(heading).toContainText('ASI06');
+  await expect(heading).toContainText('ASI02');
   const scrubber = page.getByRole('slider', { name: 'Scrub to step' });
   await expect(scrubber).toHaveAttribute('aria-valuetext', /^Step 1 of \d+$/);
 

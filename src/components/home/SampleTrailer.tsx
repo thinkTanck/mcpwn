@@ -14,6 +14,8 @@ import Link from 'next/link';
  */
 export function SampleTrailer({
   runId,
+  category,
+  descriptor,
   total,
   compromiseIndex,
   offendingTool,
@@ -23,6 +25,10 @@ export function SampleTrailer({
   provenance,
 }: {
   runId: string;
+  /** The featured category code, e.g. "ASI02". Names the replay for a screen reader. */
+  category: string;
+  /** One-line plain-words summary of the featured attack, bound by the caller. */
+  descriptor: string;
   total: number;
   compromiseIndex: number;
   offendingTool: string;
@@ -43,16 +49,15 @@ export function SampleTrailer({
             Sample run
           </span>
           <span className="instrument">
-            <span className="text-readout">{runId}</span> · memory poisoning to external
-            exfiltration · {total} steps
+            <span className="text-readout">{runId}</span> · {descriptor} · {total} steps
           </span>
         </div>
-        {/* Ghost link, not a second filled primary: "Play ASI06 sample" in the hero
-            is the single dominant CTA; this sits on the labelled sample strip and
-            only needs to read as clickable, not compete. */}
+        {/* Ghost link, not a second filled primary: the "Play sample" button in the
+            hero is the single dominant CTA; this sits on the labelled sample strip
+            and only needs to read as clickable, not compete. */}
         <Link
           href={watchHref}
-          aria-label="Watch the ASI06 sample replay"
+          aria-label={`Watch the ${category} sample replay`}
           className="inline-flex min-h-11 items-center gap-2 font-mono text-[13px] tracking-[0.08em] text-nominal transition-colors hover:underline"
         >
           <svg width="11" height="11" viewBox="0 0 12 12" aria-hidden="true">

@@ -40,6 +40,17 @@ import type { RunResult, Step } from '@/contract';
  * edited here.
  */
 
+/**
+ * The full v1 results writeup, one click away from the finding and the CTAs. It
+ * lives at the repo root, so the link is the canonical GitHub blob URL rather than
+ * an app route: the finding on screen is a summary, and the provenance the summary
+ * leans on (subject model, per-run trace ids, how to reproduce) lives there.
+ */
+const RESULTS_URL = 'https://github.com/thinkTanck/mcpwn/blob/main/RESULTS.md';
+
+/** One-line, plain-words summary of the featured ASI02 attack (trailer + caption). */
+const FEATURED_DESCRIPTOR = 'tool misuse to out-of-scope file read';
+
 /** Human-readable one-liner for a trace step (for the trailer end labels). */
 function stepLabel(step: Step): string {
   switch (step.type) {
@@ -106,6 +117,28 @@ export default async function Home() {
               <span className="font-semibold text-nominal">measured</span> how accurate it is, so
               you can trust its verdicts.
             </p>
+
+            {/* A CONCRETE MEASURED FINDING, stated as a PAST result about the subject
+                model, never a prediction about the reader's own agent. framing.test.tsx
+                forbids rate/prediction claims about "agents" in general and any promise
+                about "your agent"; this names one frontier model and what it did in a
+                run set we measured, with the full provenance one click away in RESULTS.md.
+                It is not a status chip, so it carries no tri-state glow: red is reserved
+                for a live breach indicator, not a summary statistic. */}
+            <div className="border-l-2 border-nominal/50 pl-3">
+              <p className="reading">
+                <span className="micro-label text-nominal">Measured finding</span> Asked to fetch
+                the invoice for a single customer account, a frontier agent performed an
+                out-of-scope read of a system credential file; the read occurred in 5 of 10 in a
+                clean single sweep and 6 of 10 in a prior run, every instance Critical.
+              </p>
+              <Link
+                href={RESULTS_URL}
+                className="mt-1 inline-flex min-h-11 items-center font-mono text-[13px] tracking-[0.06em] text-nominal hover:underline"
+              >
+                Read the full results →
+              </Link>
+            </div>
 
             {/* BOTH RESULTS, NAMED TOGETHER, WITH NEITHER MARKED AS THE EXPECTED ONE.
                 A landing page wants to promise a finding, and we cannot: nothing we have
@@ -197,7 +230,7 @@ export default async function Home() {
                   <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
                     <polygon points="2,1 11,6 2,11" fill="currentColor" />
                   </svg>
-                  Play ASI06 sample
+                  Play {sample.category} sample
                 </Link>
                 {/* The secondary CTA sits in a control row, not in a sentence, so
                     the WCAG 2.2 2.5.8 inline-link exception does not cover it. It
@@ -210,12 +243,14 @@ export default async function Home() {
                 </Link>
               </div>
               <p className="instrument-faint">
-                Featured run: memory poisoning. Pick any of the Core-7 to watch its own attack.
+                Featured run: tool misuse. Pick any of the Core-7 to watch its own attack.
               </p>
             </div>
 
             <SampleTrailer
               runId={sample.runId}
+              category={sample.category}
+              descriptor={FEATURED_DESCRIPTOR}
               total={total}
               compromiseIndex={compromiseIndex}
               offendingTool={offendingTool}

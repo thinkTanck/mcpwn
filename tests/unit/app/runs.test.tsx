@@ -95,7 +95,7 @@ beforeEach(() => {
 describe('Live Attack Replay — the sample run', () => {
   it('plays the sample with no sign-in, under its exact recorded provenance label', async () => {
     await renderPage('sample');
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('ASI06');
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('ASI02');
     expect(screen.getByText(SAMPLE_VERDICT_PROVENANCE)).toBeInTheDocument();
     expect(getUser).not.toHaveBeenCalled();
   });

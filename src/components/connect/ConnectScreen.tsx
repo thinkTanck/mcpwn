@@ -54,7 +54,7 @@ export type SampleRunIds = Partial<Record<Category, string>>;
 const CANONICAL_SAMPLE = 'sample';
 
 /** The recorded run the sample library leads with (ADR-0003's hero demonstration). */
-const DEFAULT_CATEGORY: Category = 'ASI06';
+const DEFAULT_CATEGORY: Category = 'ASI02';
 
 const MODES: [Mode, string][] = [
   ['sample', 'SAMPLE · no sign-in'],

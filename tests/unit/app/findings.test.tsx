@@ -115,8 +115,8 @@ describe('Findings / fix report screen', () => {
   it('renders the sample report through the DataSource with the sample run id', async () => {
     await renderPage('sample');
     expect(screen.getByText(SAMPLE_RUN_ID)).toBeInTheDocument();
-    expect(screen.getByText('ASI06')).toBeInTheDocument();
-    expect(screen.getByText(SAMPLE_VERDICTS.ASI06.severity)).toBeInTheDocument();
+    expect(screen.getByText('ASI02')).toBeInTheDocument();
+    expect(screen.getByText(SAMPLE_VERDICTS.ASI02.severity)).toBeInTheDocument();
   });
 
   it('labels the sample verdict with its recorded provenance (never implies a live capture)', async () => {
