@@ -1,7 +1,5 @@
 import { NAV_ITEMS } from './nav-items';
 import { NavLink } from './NavLink';
-import { FleetStatus } from './FleetStatus';
-import type { FleetStatus as FleetStatusData } from '@/data/source';
 
 /**
  * Mobile command-deck: the hamburger + a drawer via the native HTML Popover API
@@ -9,7 +7,7 @@ import type { FleetStatus as FleetStatusData } from '@/data/source';
  * Server-rendered, so it adds no hydration cost to the shell. The button is
  * hidden ≥760px, where the persistent rail takes over.
  */
-export function MobileDrawer({ pathname, fleet }: { pathname: string; fleet: FleetStatusData }) {
+export function MobileDrawer({ pathname }: { pathname: string }) {
   return (
     <>
       <button
@@ -44,7 +42,6 @@ export function MobileDrawer({ pathname, fleet }: { pathname: string; fleet: Fle
             ))}
           </nav>
           <div className="flex-1" />
-          <FleetStatus fleet={fleet} variant="full" />
         </div>
       </div>
     </>

@@ -1,15 +1,11 @@
 import { NAV_ITEMS } from './nav-items';
 import { NavLink } from './NavLink';
-import { FleetStatus } from './FleetStatus';
-import type { FleetStatus as FleetStatusData } from '@/data/source';
 
 /**
  * Persistent command-deck rail on ≥760px (icon-only 72px → full 236px at
- * ≥1100px). A Server Component — active state comes from `pathname`, and the
- * FLEET STATUS tally is bound to the DataSource (full panel wide, dots on the
- * icon-rail).
+ * ≥1100px). A Server Component — active state comes from `pathname`.
  */
-export function CommandDeck({ pathname, fleet }: { pathname: string; fleet: FleetStatusData }) {
+export function CommandDeck({ pathname }: { pathname: string }) {
   return (
     <nav
       aria-label="Command deck"
@@ -27,12 +23,6 @@ export function CommandDeck({ pathname, fleet }: { pathname: string; fleet: Flee
         />
       ))}
       <div className="flex-1" />
-      <FleetStatus fleet={fleet} variant="full" className="hidden min-[1100px]:flex" />
-      <FleetStatus
-        fleet={fleet}
-        variant="dots"
-        className="hidden min-[760px]:flex min-[1100px]:hidden"
-      />
     </nav>
   );
 }

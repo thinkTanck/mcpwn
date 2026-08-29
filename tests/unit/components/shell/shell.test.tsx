@@ -1,7 +1,6 @@
 import { render, screen, within } from '@testing-library/react';
 import { AppShell } from '@/components/shell/AppShell';
 import { MobileDrawer } from '@/components/shell/MobileDrawer';
-import type { FleetStatus } from '@/data/source';
 
 // AppShell reads the active route from the x-pathname request header.
 vi.mock('next/headers', () => ({
@@ -16,14 +15,6 @@ const DECK_LINKS = [
   'Findings',
   'Threat Model',
 ];
-const sampleFleet: FleetStatus = {
-  source: 'sample',
-  nominal: 4,
-  caution: 7,
-  breach: 4,
-  total: 15,
-  empty: false,
-};
 
 describe('AppShell (server shell)', () => {
   it('exposes banner, navigation and main landmarks with the six deck links', async () => {
@@ -34,9 +25,17 @@ describe('AppShell (server shell)', () => {
     for (const name of DECK_LINKS) {
       expect(within(deck).getByRole('link', { name })).toBeInTheDocument();
     }
-    // FLEET STATUS is bound to the DataSource (Core-7 sample leaderboard → 4/11/6).
-    expect(within(deck).getByText('4 nominal')).toBeInTheDocument();
-    expect(within(deck).getByText('11 caution')).toBeInTheDocument();
+  });
+
+  it('carries no Fleet Status tally: it was a fabricated stat and was removed', async () => {
+    render(await AppShell({ children: <p>screen content</p> }));
+    // The tri-state tally was tallied from a hardcoded placeholder leaderboard, not
+    // real runs. A fabricated stat next to the measured figures discredits them, so
+    // the whole widget is gone from the shell.
+    expect(screen.queryByRole('region', { name: /fleet status/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/\d+ nominal/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/\d+ caution/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/\d+ breach/i)).not.toBeInTheDocument();
   });
 
   it('marks the active route (Home at "/") with aria-current="page"', async () => {
@@ -66,7 +65,7 @@ describe('AppShell (server shell)', () => {
 
 describe('MobileDrawer', () => {
   it('marks the active route inside the popover drawer', () => {
-    render(<MobileDrawer pathname="/leaderboard" fleet={sampleFleet} />);
+    render(<MobileDrawer pathname="/leaderboard" />);
     const nav = screen.getByRole('navigation', { name: 'Command deck (mobile)', hidden: true });
     expect(within(nav).getByRole('link', { name: 'Leaderboard', hidden: true })).toHaveAttribute(
       'aria-current',

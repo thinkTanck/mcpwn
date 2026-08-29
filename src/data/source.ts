@@ -1,7 +1,6 @@
 import { getAttack } from '@/attacks';
 import { CategorySchema, VerdictSchema, type Category, type RunResult } from '@/contract';
 import { generateFixReport, type FixReport } from '@/fix-report';
-import { bandFor } from '@/lib/hud/bands';
 import type { Leaderboard } from '@/leaderboard/view';
 import { leaderboardFixture } from './fixtures/leaderboard';
 import { SAMPLE_VERDICTS, SAMPLE_VERDICT_PROVENANCE } from './fixtures/sample-verdicts';
@@ -49,21 +48,6 @@ export type {
  */
 export type { FixReport } from '@/fix-report';
 
-/**
- * Fleet health for the command-deck FLEET STATUS — each run's verdict tallied
- * into the tri-state (nominal = not compromised · caution = compromised Low/Med
- * · breach = compromised High/Critical). `source` carries provenance so the UI
- * never conflates the curated sample with an account's measured runs.
- */
-export type FleetStatus = {
-  source: 'sample' | 'measured';
-  nominal: number;
-  caution: number;
-  breach: number;
-  total: number;
-  empty: boolean;
-};
-
 export interface DataSource {
   getRun(id: string): Promise<RunResult | null>;
   listRuns(): Promise<RunResult[]>;
@@ -75,7 +59,6 @@ export interface DataSource {
    * state plainly that a demonstration is a demonstration.
    */
   getVerdictProvenance(id: string): Promise<string | null>;
-  getFleetStatus(): Promise<FleetStatus>;
 }
 
 /**
@@ -144,23 +127,6 @@ class InMemoryDataSource implements DataSource {
     const wanted = resolveId(id);
     const known = sampleRuns().some((r) => r.runId === wanted);
     return Promise.resolve(known ? SAMPLE_VERDICT_PROVENANCE : null);
-  }
-
-  async getFleetStatus(): Promise<FleetStatus> {
-    // Sample fleet: tally the curated leaderboard cells by tri-state band
-    // (nominal ≥.80 · caution ≥.50 · breach <.50). A measured adapter would
-    // instead tally the account's real run verdicts and report source:'measured'.
-    const lb = await this.getLeaderboard();
-    const tally = { nominal: 0, caution: 0, breach: 0 };
-    let total = 0;
-    for (const cell of lb.rows.flatMap((row) => row.cells)) {
-      // A cell with no runs behind it bands as nothing at all: an absence is not
-      // a nominal, a caution or a breach, and it is not part of the total.
-      if (cell.robustness === null) continue;
-      tally[bandFor(cell.robustness)] += 1;
-      total += 1;
-    }
-    return { source: 'sample', ...tally, total, empty: total === 0 };
   }
 }
 

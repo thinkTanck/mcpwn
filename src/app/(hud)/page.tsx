@@ -1,6 +1,6 @@
 import Link from 'next/link';
-import { SentinelCore } from '@/components/hud';
 import { Core7List } from '@/components/home/Core7List';
+import { HeroReplay } from '@/components/home/HeroReplay';
 import { SampleTrailer } from '@/components/home/SampleTrailer';
 import { getDataSource } from '@/data/source';
 import { SAMPLE_VERDICT_PROVENANCE } from '@/data/fixtures/sample-verdicts';
@@ -140,18 +140,6 @@ export default async function Home() {
               </Link>
             </div>
 
-            {/* BOTH RESULTS, NAMED TOGETHER, WITH NEITHER MARKED AS THE EXPECTED ONE.
-                A landing page wants to promise a finding, and we cannot: nothing we have
-                measured says anything about how often a real agent takes the bait. What
-                we can say is what a run produces in each case, and that the answer is
-                measured rather than predicted. */}
-            <p className="reading text-ink-muted">
-              A run ends one of two ways, and both are results. If the detector finds a compromise,
-              you get a fix report anchored to the offending step. If it finds none, you get a clean
-              run on the robustness leaderboard. Which one your agent gets is the thing we measure,
-              not something we predict.
-            </p>
-
             {/* THE COMPROMISE CALL — "was this run compromised", scored over every labeled
                 realization. Labelled for the QUESTION, never "detector accuracy": one
                 heading over this and the classification figure below is exactly how two
@@ -220,6 +208,16 @@ export default async function Home() {
               the rubric, the model or the temperature and they are void until re-measured.
             </p>
 
+            {/* BOTH OUTCOMES, NAMED ONCE, NEITHER MARKED AS EXPECTED. The full paragraph
+                that used to carry this was low-contrast and sat between the finding and
+                the numbers; this states the same two-results honesty in one line so the
+                finding leads. framing.test.tsx holds that both outcomes stay named. */}
+            <p className="reading">
+              Every run resolves one of two ways: a compromise becomes a fix report anchored to the
+              offending step, and a clean run lands on the robustness leaderboard. Which one is
+              measured, not predicted.
+            </p>
+
             {/* CTAs */}
             <div className="flex flex-col gap-3">
               <div className="flex flex-wrap items-center gap-5">
@@ -265,51 +263,14 @@ export default async function Home() {
             />
           </section>
 
-          {/* ── right: sentinel core well + Core-7 launcher ── */}
+          {/* ── right: hero micro-replay of the featured trace + Core-7 launcher ── */}
           <div className="flex min-w-0 flex-col gap-4 lg:border-l lg:border-line lg:pl-8">
-            <div className="relative flex aspect-[4/3] max-h-[240px] items-center justify-center overflow-hidden rounded-xl border border-line bg-[radial-gradient(120%_120%_at_50%_40%,color-mix(in_srgb,var(--cyan-700)_16%,transparent),var(--surface-base)_70%)]">
-              <SentinelCore
-                size={200}
-                label="Sentinel core: the detector reads only the observable trace"
-                className="relative z-10"
-              />
-              <svg
-                viewBox="0 0 560 560"
-                aria-hidden="true"
-                className="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
-              >
-                <ellipse
-                  cx="280"
-                  cy="280"
-                  rx="212"
-                  ry="74"
-                  transform="rotate(20 280 280)"
-                  className="fill-none stroke-nominal"
-                  strokeWidth="1.1"
-                  opacity="0.4"
-                />
-                <ellipse
-                  cx="280"
-                  cy="280"
-                  rx="150"
-                  ry="204"
-                  transform="rotate(-14 280 280)"
-                  className="fill-none stroke-nominal"
-                  strokeWidth="1.1"
-                  opacity="0.28"
-                />
-                <ellipse
-                  cx="280"
-                  cy="280"
-                  rx="118"
-                  ry="196"
-                  transform="rotate(62 280 280)"
-                  className="fill-none stroke-nominal"
-                  strokeWidth="1"
-                  opacity="0.2"
-                />
-              </svg>
-            </div>
+            <HeroReplay
+              steps={steps}
+              compromiseIndex={compromiseIndex}
+              offendingTool={offendingTool}
+              category={sample.category}
+            />
 
             <Core7List runHref={runHref} />
           </div>

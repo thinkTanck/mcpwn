@@ -2,7 +2,6 @@ import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { ModeBadge, type Mode } from './ModeBadge';
 import { MobileDrawer } from './MobileDrawer';
-import type { FleetStatus } from '@/data/source';
 
 /** Run-context telemetry shown in the status bar on a run screen. */
 export type RunContext = {
@@ -21,13 +20,11 @@ export type RunContext = {
  */
 export function StatusBar({
   pathname,
-  fleet,
   mode = 'sample',
   meta = 'SENTINEL FIELDS',
   runContext,
 }: {
   pathname: string;
-  fleet: FleetStatus;
   mode?: Mode;
   meta?: ReactNode;
   runContext?: RunContext;
@@ -35,7 +32,7 @@ export function StatusBar({
   const sevBreach = runContext ? /^(critical|high)$/i.test(runContext.severity) : false;
   return (
     <header className="sticky top-0 z-[45] flex h-[72px] shrink-0 items-center gap-4 border-b border-line bg-gradient-to-b from-[var(--scrim-header-top)] to-[var(--scrim-header-bottom)] px-[18px] backdrop-blur-[6px]">
-      <MobileDrawer pathname={pathname} fleet={fleet} />
+      <MobileDrawer pathname={pathname} />
       <Link
         href="/"
         aria-label="MCPwn home"
