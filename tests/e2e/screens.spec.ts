@@ -126,19 +126,10 @@ const SCREENS: Screen[] = [
       // EMPTY and says so in words. That empty state is the shipped state of
       // this screen, so it is asserted rather than worked around.
       await expect(page.getByText('No model has been measured')).toBeVisible();
-      const heatmap = page.getByRole('region', {
-        name: 'Fixture model by category robustness heatmap',
-      });
-      await expect(heatmap).toBeVisible();
-      // The fixture board is framed and labelled as one, everywhere a visitor
-      // could read a number off it.
-      await expect(page.getByText('Fixture · not a measurement')).toBeVisible();
-      await expect(page.getByText('SOURCE · fixture')).toBeVisible();
-      // Every fixture cell drills into a run, so at least one such link must
-      // exist INSIDE the heatmap: a heatmap that opens nothing is a picture,
-      // not the product. Scoped to the region on purpose, or the command deck's
-      // own Live Replay link (off-screen in the mobile drawer) would satisfy it.
-      await expect(heatmap.locator('a[href^="/runs/"]').first()).toBeVisible();
+      // The fabricated "fixture demonstration" board (invented Model A/B/C
+      // numbers) was removed: no placeholder board, no fixture label anywhere.
+      await expect(page.getByText('Fixture · not a measurement')).toHaveCount(0);
+      await expect(page.getByText('SOURCE · fixture')).toHaveCount(0);
     },
   },
   {

@@ -1,6 +1,5 @@
 import { RunResultSchema, CategorySchema, type Category } from '@/contract';
 import { getDataSource, SAMPLE_RUN_ID, sampleRun } from '@/data/source';
-import { leaderboardFixture } from '@/data/fixtures/leaderboard';
 import { SAMPLE_VERDICTS, SAMPLE_VERDICT_PROVENANCE } from '@/data/fixtures/sample-verdicts';
 import { generateFixReport } from '@/fix-report';
 import { getAttack } from '@/attacks';
@@ -120,7 +119,7 @@ describe('DataSource — sample runs served from the real attack builders', () =
   it('leakage barrier: no sample fixture leaks a held-out label anywhere in its graph', async () => {
     const runs = await ds.listRuns();
     const reports = await Promise.all(runs.map((r) => ds.getFixReport(r.runId)));
-    for (const fixture of [...runs, ...reports, leaderboardFixture]) {
+    for (const fixture of [...runs, ...reports]) {
       expect(hasKeyDeep(fixture, 'groundTruth')).toBe(false);
     }
     for (const run of runs) {
@@ -137,19 +136,6 @@ describe('DataSource — sample runs served from the real attack builders', () =
     expect(await ds.getRun(SAMPLE_RUN_ID)).toEqual(featured);
     expect(await ds.getRun('sample')).toEqual(featured);
     expect(await ds.getRun('nope')).toBeNull();
-  });
-
-  it('getLeaderboard returns 3 rows × 7 cells, overall = mean, fixture-labelled', async () => {
-    const lb = await ds.getLeaderboard();
-    expect(lb.source).toBe('fixture');
-    expect(lb.rows).toHaveLength(3);
-    for (const row of lb.rows) {
-      expect(row.cells).toHaveLength(7);
-      const mean = row.cells.reduce((a, c) => a + (c.robustness ?? 0), 0) / row.cells.length;
-      expect(row.overall).toBeCloseTo(mean, 5);
-      // Every fixture cell is scored, so the `?? 0` above never fires.
-      expect(row.cells.every((c) => c.robustness !== null)).toBe(true);
-    }
   });
 
   it('getFixReport is the REAL module-6 generator over the sample run, for every category', async () => {

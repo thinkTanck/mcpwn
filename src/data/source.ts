@@ -1,8 +1,6 @@
 import { getAttack } from '@/attacks';
 import { CategorySchema, VerdictSchema, type Category, type RunResult } from '@/contract';
 import { generateFixReport, type FixReport } from '@/fix-report';
-import type { Leaderboard } from '@/leaderboard/view';
-import { leaderboardFixture } from './fixtures/leaderboard';
 import { SAMPLE_VERDICTS, SAMPLE_VERDICT_PROVENANCE } from './fixtures/sample-verdicts';
 
 /**
@@ -51,7 +49,6 @@ export type { FixReport } from '@/fix-report';
 export interface DataSource {
   getRun(id: string): Promise<RunResult | null>;
   listRuns(): Promise<RunResult[]>;
-  getLeaderboard(): Promise<Leaderboard>;
   getFixReport(id: string): Promise<FixReport | null>;
   /**
    * Where this run's verdict came from, or `null` if the adapter cannot say. A
@@ -111,9 +108,6 @@ class InMemoryDataSource implements DataSource {
   }
   listRuns(): Promise<RunResult[]> {
     return Promise.resolve(sampleRuns());
-  }
-  getLeaderboard(): Promise<Leaderboard> {
-    return Promise.resolve(leaderboardFixture);
   }
   getFixReport(id: string): Promise<FixReport | null> {
     const wanted = resolveId(id);

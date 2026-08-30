@@ -3,7 +3,6 @@ import type { User } from '@supabase/supabase-js';
 import { RunResultSchema, type Category, type RunResult } from '@/contract';
 import type { StoredRun } from '@/data/run-repository';
 import { InMemoryRunRepository } from '@/data/run-repository';
-import { leaderboardFixtureRuns } from '@/data/fixtures/leaderboard';
 import { MEASURED_CLASSIFICATION, MEASURED_COMPROMISE } from '@/eval/measured';
 import { buildLeaderboard } from '@/leaderboard';
 
@@ -147,26 +146,18 @@ describe('Robustness leaderboard screen', () => {
     });
   });
 
-  it('keeps the fixture board framed, labelled and derived from the real aggregator', async () => {
+  it('displays no fabricated fixture demonstration board (invented models/runs are gone)', async () => {
     await renderPage();
-    expect(screen.getByRole('heading', { name: /fixture demonstration/i })).toBeInTheDocument();
-    expect(screen.getByText(/Fixture · not a measurement/i)).toBeInTheDocument();
-    expect(screen.getByText(/SOURCE · fixture/i)).toBeInTheDocument();
-    expect(screen.getByText(/never executed/i)).toBeInTheDocument();
-
-    // Every displayed fixture value is one the aggregator computed.
-    const board = buildLeaderboard(leaderboardFixtureRuns());
-    const region = screen.getByRole('region', { name: /fixture .*heatmap/i });
-    for (const model of board.models) {
-      for (const category of board.categories) {
-        const shown = board.cells[model]?.[category]?.robustness.toFixed(2);
-        const link = within(region).getAllByRole('link', {
-          name: (name) => name.startsWith(`${model} · ${category} `),
-        });
-        expect(link).toHaveLength(1);
-        expect(link[0]).toHaveAccessibleName(new RegExp(`robustness ${shown},`));
-      }
-    }
+    // The placeholder Model A/B/C campaign was invented numbers, the same problem
+    // the removed Fleet Status widget had. The board and every trace of it are gone;
+    // only the measured board (empty until real runs exist) remains.
+    expect(
+      screen.queryByRole('heading', { name: /fixture demonstration/i }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/Fixture · not a measurement/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/never executed/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Model A|Model B|Model C/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: /fixture .*heatmap/i })).not.toBeInTheDocument();
   });
 
   it('never reprints a DETECTOR measurement as if it were model robustness', async () => {
