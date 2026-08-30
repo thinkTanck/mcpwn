@@ -25,6 +25,10 @@ export function NavLink({
 }) {
   const livePathname = usePathname();
   const active = isActive(livePathname ?? pathname, item);
+  // The action routes fold a plain-words purpose into the name, so a newcomer
+  // learns what a route does on hover/focus without clicking. Self-explanatory
+  // routes keep the bare label.
+  const name = item.descriptor ? `${item.label}. ${item.descriptor}` : item.label;
   return (
     <Link
       href={item.href}
@@ -34,10 +38,10 @@ export function NavLink({
       aria-current={active ? 'page' : undefined}
       // The 72px icon-rail (760-1100px) hides the label and the icon is
       // aria-hidden, so without this the link has no accessible name and a mouse
-      // user sees an unlabelled glyph. aria-label keeps the name at every width;
-      // title gives the icon-rail a hover tooltip.
-      aria-label={item.label}
-      title={item.label}
+      // user sees an unlabelled glyph. aria-label keeps the name (with its purpose)
+      // at every width; title gives every width a hover tooltip.
+      aria-label={name}
+      title={name}
       className={cn(
         'relative flex items-center gap-3 rounded-md px-3.5 py-3.5 font-mono text-xs tracking-[0.06em] transition-colors',
         active ? 'bg-nominal/8 text-nominal' : 'text-ink-hi hover:bg-raised/70',

@@ -6,6 +6,12 @@ export type NavItem = {
   matchPrefix: string;
   icon: ReactNode;
   /**
+   * A short plain-words purpose, folded into the link's accessible name and its
+   * hover title, so a newcomer learns what a route does without clicking. Only the
+   * action routes carry one; self-explanatory routes (Home) do not.
+   */
+  descriptor?: string;
+  /**
    * Whether the destination route exists yet. Unbuilt routes are still shown in
    * the deck (per the approved design) but render with prefetch disabled so the
    * shell does not RSC-404 them on load. Each per-screen fan-out PR flips its
@@ -36,6 +42,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: 'Connect / Run',
     href: '/connect',
     matchPrefix: '/connect',
+    descriptor: 'point your own agent at an endpoint and run it',
     available: true,
     icon: (
       <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true">
@@ -50,6 +57,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: 'Live Replay',
     href: '/runs/sample',
     matchPrefix: '/runs',
+    descriptor: 'watch a recorded attack step by step',
     available: true,
     icon: (
       <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true">
