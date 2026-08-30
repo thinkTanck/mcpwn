@@ -71,4 +71,39 @@ describe('HeroReplay', () => {
     expect(nodes.indexOf(breached[0]!)).toBe(index - 1);
     expect(breached[0]!.textContent ?? '').toMatch(new RegExp(tool, 'i'));
   });
+
+  it('labels the replay as a recorded sample, never asserting a live run', async () => {
+    const run = await sampleRun();
+    const { index, tool } = compromise(run);
+    render(
+      <HeroReplay
+        steps={run.trace.steps}
+        compromiseIndex={index}
+        offendingTool={tool}
+        category={run.category}
+      />,
+    );
+    // A green "LIVE" indicator on a constructed sample fixture overclaims: this is
+    // recorded, not a live run. The label must say so, and must not read "live".
+    expect(screen.queryByText(/\blive\b/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/sample replay/i)).toBeInTheDocument();
+    expect(screen.getByText(/^recorded$/i)).toBeInTheDocument();
+  });
+
+  it('gives the breach step a distinct graphic marker, not just a red word', async () => {
+    const run = await sampleRun();
+    const { index, tool } = compromise(run);
+    const { container } = render(
+      <HeroReplay
+        steps={run.trace.steps}
+        compromiseIndex={index}
+        offendingTool={tool}
+        category={run.category}
+      />,
+    );
+    // The compromise is the focal point of the hero, so the breach step carries a
+    // graphic marker of its own that the other steps do not.
+    const markers = container.querySelectorAll('[data-testid="hero-breach-marker"]');
+    expect(markers).toHaveLength(1);
+  });
 });

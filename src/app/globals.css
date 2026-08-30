@@ -483,16 +483,6 @@ body {
     transform: scale(1.15);
   }
 }
-@keyframes hero-live {
-  0%,
-  100% {
-    opacity: 0.5;
-  }
-  50% {
-    opacity: 1;
-  }
-}
-
 /* Terminal caret — a hard on/off block blink (steps, not a fade), the way a
  * real console cursor behaves. Used by the replay transcript's active line. */
 @keyframes cursor-blink {
@@ -519,9 +509,6 @@ body {
   animation: hero-sweep 4.6s var(--ease-emphasized) infinite;
   will-change: opacity, transform;
 }
-.hero-live-dot {
-  animation: hero-live 2.4s ease-in-out infinite;
-}
 .hero-breach-dot {
   animation: breach-pulse 2.4s ease-in-out infinite;
 }
@@ -532,7 +519,6 @@ body {
   .panel-in,
   .verdict-in,
   .hero-sweep,
-  .hero-live-dot,
   .hero-breach-dot {
     animation: none;
   }
