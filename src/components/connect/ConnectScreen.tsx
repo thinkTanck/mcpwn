@@ -3,6 +3,7 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
+import { SAMPLE_CATEGORY } from '@/data/sample-category';
 import { CORE7 } from './categories';
 import { RUN_TYPES } from './run-kinds';
 import { LiveRunConsole } from './LiveRunConsole';
@@ -53,8 +54,12 @@ export type SampleRunIds = Partial<Record<Category, string>>;
 /** The sample the screens ship with, when no per-category id was resolved. */
 const CANONICAL_SAMPLE = 'sample';
 
-/** The recorded run the sample library leads with (ADR-0003's hero demonstration). */
-const DEFAULT_CATEGORY: Category = 'ASI02';
+/**
+ * The category the console starts on: the FEATURED sample category, so the connect
+ * default can never drift from the homepage hero or the Findings/sample alias. It
+ * is derived from the single source (`@/data/sample-category`), never a literal.
+ */
+const DEFAULT_CATEGORY: Category = SAMPLE_CATEGORY;
 
 const MODES: [Mode, string][] = [
   ['sample', 'SAMPLE · no sign-in'],

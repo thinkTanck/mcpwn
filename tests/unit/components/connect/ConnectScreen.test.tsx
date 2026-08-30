@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ConnectScreen } from '@/components/connect/ConnectScreen';
+import { SAMPLE_CATEGORY } from '@/data/sample-category';
 
 /**
  * Connect / Run Setup — the targeting console, redesigned for the inverted model
@@ -81,10 +82,18 @@ describe('ConnectScreen · one Core-7 category per run', () => {
     const user = userEvent.setup();
     render(<ConnectScreen />);
 
-    expect(screen.getByRole('radio', { name: /ASI02/ })).toHaveAttribute('aria-checked', 'true');
+    // The default is the FEATURED sample category, tracked from its single source
+    // rather than pinned to a literal, so it can never drift from the homepage hero.
+    expect(screen.getByRole('radio', { name: new RegExp(SAMPLE_CATEGORY) })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
     await user.click(screen.getByRole('radio', { name: /ASI01/ }));
     expect(screen.getByRole('radio', { name: /ASI01/ })).toHaveAttribute('aria-checked', 'true');
-    expect(screen.getByRole('radio', { name: /ASI02/ })).toHaveAttribute('aria-checked', 'false');
+    expect(screen.getByRole('radio', { name: new RegExp(SAMPLE_CATEGORY) })).toHaveAttribute(
+      'aria-checked',
+      'false',
+    );
   });
 });
 
@@ -251,7 +260,7 @@ describe('ConnectScreen · the chosen run type reaches the server action', () =>
 
     await issueLive(user);
 
-    expect(live.start).toHaveBeenCalledWith({ category: 'ASI02', kind: 'malicious' });
+    expect(live.start).toHaveBeenCalledWith({ category: SAMPLE_CATEGORY, kind: 'malicious' });
   });
 
   it('sends the control framing when the control run is chosen', async () => {
@@ -263,7 +272,7 @@ describe('ConnectScreen · the chosen run type reaches the server action', () =>
     await user.click(screen.getByRole('radio', { name: /control run/i }));
     await user.click(screen.getByRole('button', { name: /issue run endpoint/i }));
 
-    expect(live.start).toHaveBeenCalledWith({ category: 'ASI02', kind: 'benign' });
+    expect(live.start).toHaveBeenCalledWith({ category: SAMPLE_CATEGORY, kind: 'benign' });
   });
 
   it('sends the category and the framing together, so the two choices cannot drift apart', async () => {
@@ -283,11 +292,16 @@ describe('ConnectScreen · the chosen run type reaches the server action', () =>
 describe('ConnectScreen · sample mode', () => {
   it('plays the recorded run for the chosen category', async () => {
     const user = userEvent.setup();
-    render(<ConnectScreen sampleRunIds={{ ASI02: 'sample-asi02', ASI01: 'sample-asi01' }} />);
+    render(
+      <ConnectScreen
+        sampleRunIds={{ [SAMPLE_CATEGORY]: 'sample-featured', ASI01: 'sample-asi01' }}
+      />,
+    );
 
+    // The default play link resolves the FEATURED category's recorded run.
     expect(screen.getByRole('link', { name: /play sample run/i })).toHaveAttribute(
       'href',
-      '/runs/sample-asi02',
+      '/runs/sample-featured',
     );
     await user.click(screen.getByRole('radio', { name: /ASI01/ }));
     expect(screen.getByRole('link', { name: /play sample run/i })).toHaveAttribute(

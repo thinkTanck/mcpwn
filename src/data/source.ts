@@ -1,6 +1,7 @@
 import { getAttack } from '@/attacks';
 import { CategorySchema, VerdictSchema, type Category, type RunResult } from '@/contract';
 import { generateFixReport, type FixReport } from '@/fix-report';
+import { SAMPLE_CATEGORY } from './sample-category';
 import { SAMPLE_VERDICTS, SAMPLE_VERDICT_PROVENANCE } from './fixtures/sample-verdicts';
 
 /**
@@ -95,8 +96,12 @@ function sampleRuns(): RunResult[] {
   return CategorySchema.options.map(sampleRun);
 }
 
-/** The canonical sample run: ASI02 Tool Misuse and Exploitation (the hero demo). */
-export const SAMPLE_CATEGORY: Category = 'ASI02';
+/**
+ * The canonical sample run: the featured Core-7 category (the hero demo). The
+ * value is the single source of truth in `./sample-category`, re-exported here so
+ * existing `@/data/source` importers are unchanged.
+ */
+export { SAMPLE_CATEGORY };
 export const SAMPLE_RUN_ID = sampleRun(SAMPLE_CATEGORY).runId;
 
 const resolveId = (id: string) => (id === 'sample' ? SAMPLE_RUN_ID : id);
