@@ -1,5 +1,6 @@
 import { render, screen, within } from '@testing-library/react';
 import ThreatsPage from '@/app/(hud)/threats/page';
+import { getDataSource } from '@/data/source';
 
 /**
  * /threats — Threat Model / Coverage. An editorial reference over all ten OWASP
@@ -7,7 +8,14 @@ import ThreatsPage from '@/app/(hud)/threats/page';
  * red). These tests assert the honest substance renders (pinned codes + titles,
  * the measurability bar, the three-state legend, and the not-measurable reasons)
  * and that the not-measurable state never borrows the breach-red signal.
+ *
+ * The page is a server component that derives each covered row's "watch" target
+ * from the sample library, so the tests render its resolved tree.
  */
+
+const renderPage = async () => render(await ThreatsPage());
+
+const COVERED = ['ASI01', 'ASI02', 'ASI03', 'ASI04', 'ASI05', 'ASI06', 'ASI10'] as const;
 
 const PINNED: Array<[string, string]> = [
   ['ASI01', 'Agent Goal Hijack'],
@@ -23,42 +31,42 @@ const PINNED: Array<[string, string]> = [
 ];
 
 describe('Threat Model / Coverage (/threats)', () => {
-  it('renders a single level-1 heading (heading order starts at h1)', () => {
-    render(<ThreatsPage />);
+  it('renders a single level-1 heading (heading order starts at h1)', async () => {
+    await renderPage();
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
   });
 
-  it('states the measurability bar in the header', () => {
-    render(<ThreatsPage />);
+  it('states the measurability bar in the header', async () => {
+    await renderPage();
     expect(screen.getByText(/observable in the agent.s own steps/i)).toBeInTheDocument();
     expect(screen.getByText(/inside one bounded run/i)).toBeInTheDocument();
     expect(screen.getByText(/compromised at step N, or not/i)).toBeInTheDocument();
   });
 
-  it('renders all ten codes with their pinned titles verbatim', () => {
-    render(<ThreatsPage />);
+  it('renders all ten codes with their pinned titles verbatim', async () => {
+    await renderPage();
     for (const [code, title] of PINNED) {
       expect(screen.getByText(code)).toBeInTheDocument();
       expect(screen.getByText(title)).toBeInTheDocument();
     }
   });
 
-  it('pins ASI04 as "Vulnerabilities" and never "Compromise"', () => {
-    render(<ThreatsPage />);
+  it('pins ASI04 as "Vulnerabilities" and never "Compromise"', async () => {
+    await renderPage();
     expect(screen.getByText('Agentic Supply Chain Vulnerabilities')).toBeInTheDocument();
     expect(screen.queryByText(/Agentic Supply Chain Compromise/i)).not.toBeInTheDocument();
   });
 
-  it('shows a three-state legend: covered, not measurable, addable', () => {
-    render(<ThreatsPage />);
+  it('shows a three-state legend: covered, not measurable, addable', async () => {
+    await renderPage();
     const legend = screen.getByRole('list', { name: /coverage legend/i });
     expect(within(legend).getByText(/covered/i)).toBeInTheDocument();
     expect(within(legend).getByText(/not measurable/i)).toBeInTheDocument();
     expect(within(legend).getByText(/addable/i)).toBeInTheDocument();
   });
 
-  it('marks ASI07/08/09 NOT MEASURABLE with their honest reasons', () => {
-    render(<ThreatsPage />);
+  it('marks ASI07/08/09 NOT MEASURABLE with their honest reasons', async () => {
+    await renderPage();
     const cases: Array<[string, RegExp]> = [
       ['ASI07', /no agent-to-agent step type/i],
       ['ASI08', /propagation of a fault/i],
@@ -72,8 +80,19 @@ describe('Threat Model / Coverage (/threats)', () => {
     }
   });
 
-  it('never styles the not-measurable state with breach red', () => {
-    render(<ThreatsPage />);
+  it('keeps the not-measurable rows on the Measurability bar link, not a run', async () => {
+    await renderPage();
+    for (const code of ['ASI07', 'ASI08', 'ASI09']) {
+      const entry = screen.getByTestId(`threat-${code}`);
+      expect(within(entry).getByRole('link', { name: /measurability bar/i })).toBeInTheDocument();
+      expect(
+        within(entry).queryByRole('link', { name: /watch a real run/i }),
+      ).not.toBeInTheDocument();
+    }
+  });
+
+  it('never styles the not-measurable state with breach red', async () => {
+    await renderPage();
     for (const code of ['ASI07', 'ASI08', 'ASI09']) {
       const entry = screen.getByTestId(`threat-${code}`);
       // No breach/red token or class leaks into the inert state.
@@ -84,10 +103,33 @@ describe('Threat Model / Coverage (/threats)', () => {
     }
   });
 
-  it('covers the seven Core-7 categories (state=covered)', () => {
-    render(<ThreatsPage />);
-    for (const code of ['ASI01', 'ASI02', 'ASI03', 'ASI04', 'ASI05', 'ASI06', 'ASI10']) {
+  it('covers the seven Core-7 categories (state=covered)', async () => {
+    await renderPage();
+    for (const code of COVERED) {
       expect(screen.getByTestId(`threat-${code}`)).toHaveAttribute('data-state', 'covered');
+    }
+  });
+
+  /**
+   * THE DRIFT GUARD. Every covered row's "watch" button used to hardcode
+   * `/runs/sample`, so all seven opened the featured ASI02 run regardless of which
+   * threat they sat under (same class of bug as the Findings nav and the hero
+   * label). Each row must link to ITS OWN category's sample run, derived from the
+   * source rather than a literal, so it cannot silently drift again.
+   */
+  it('links each covered row to its OWN category sample run, never the featured one', async () => {
+    const runs = await getDataSource().listRuns();
+    const runIdByCategory = Object.fromEntries(runs.map((r) => [r.category, r.runId]));
+    await renderPage();
+
+    const featuredHref = `/runs/${runIdByCategory.ASI02}`;
+    for (const code of COVERED) {
+      const entry = screen.getByTestId(`threat-${code}`);
+      const watch = within(entry).getByRole('link', { name: /watch a real run/i });
+      expect(watch).toHaveAttribute('href', `/runs/${runIdByCategory[code]}`);
+      if (code !== 'ASI02') {
+        expect(watch).not.toHaveAttribute('href', featuredHref);
+      }
     }
   });
 
@@ -98,16 +140,16 @@ describe('Threat Model / Coverage (/threats)', () => {
    * it states plainly that the filing is not.
    */
   describe('ASI10 — detection reliable, classification unreliable', () => {
-    it('stays COVERED: a measured filing weakness is not a failing category', () => {
-      render(<ThreatsPage />);
+    it('stays COVERED: a measured filing weakness is not a failing category', async () => {
+      await renderPage();
       const entry = screen.getByTestId('threat-ASI10');
       expect(entry).toHaveAttribute('data-state', 'covered');
       expect(within(entry).getByText(/covered/i)).toBeInTheDocument();
       expect(within(entry).queryByText(/not measurable/i)).not.toBeInTheDocument();
     });
 
-    it('states the measured split: detection holds, classification does not', () => {
-      render(<ThreatsPage />);
+    it('states the measured split: detection holds, classification does not', async () => {
+      await renderPage();
       const entry = screen.getByTestId('threat-ASI10');
       expect(within(entry).getByText(/detection reliable/i)).toBeInTheDocument();
       expect(within(entry).getByText(/classification unreliable/i)).toBeInTheDocument();
@@ -115,23 +157,23 @@ describe('Threat Model / Coverage (/threats)', () => {
       expect(within(entry).getByText(/category-v2/i)).toBeInTheDocument();
     });
 
-    it('renders the caveat in the neutral inert token, never breach red', () => {
-      render(<ThreatsPage />);
+    it('renders the caveat in the neutral inert token, never breach red', async () => {
+      await renderPage();
       const caveat = screen.getByTestId('threat-caveat-ASI10');
       expect(caveat.innerHTML).not.toMatch(/breach|status-breach|glow-breach/i);
       expect(caveat.innerHTML).toContain('var(--status-inert)');
     });
 
-    it('carries no caveat on the categories that have none', () => {
-      render(<ThreatsPage />);
+    it('carries no caveat on the categories that have none', async () => {
+      await renderPage();
       for (const code of ['ASI01', 'ASI02', 'ASI05', 'ASI07']) {
         expect(screen.queryByTestId(`threat-caveat-${code}`)).not.toBeInTheDocument();
       }
     });
   });
 
-  it('links every entry to the OWASP source on genai.owasp.org', () => {
-    render(<ThreatsPage />);
+  it('links every entry to the OWASP source on genai.owasp.org', async () => {
+    await renderPage();
     const owasp = screen
       .getAllByRole('link')
       .filter((a) => a.getAttribute('href')?.includes('genai.owasp.org'));

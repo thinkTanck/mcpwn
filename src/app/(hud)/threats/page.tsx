@@ -4,6 +4,7 @@ import { CoverageLegend } from '@/components/threats/CoverageLegend';
 import { CoverageIcon } from '@/components/threats/CoverageIcon';
 import { ThreatEntry } from '@/components/threats/ThreatEntry';
 import { THREATS } from '@/components/threats/threat-data';
+import { getDataSource } from '@/data/source';
 
 export const metadata: Metadata = {
   title: 'Threat Model / Coverage · MCPwn',
@@ -17,7 +18,16 @@ export const metadata: Metadata = {
  * MEASURABLE under the current contract. Register: PRODUCT, editorial — the
  * explanations are READING roles; codes, labels, and chips are INSTRUMENT.
  */
-export default function ThreatsPage() {
+export default async function ThreatsPage() {
+  // category id -> its own sample run id, from the sample library (never a
+  // literal), the same server-derive the homepage uses. Each covered row's
+  // "watch" button opens ITS OWN category's run, not the featured one; a missing
+  // id falls back to the featured sample alias.
+  const runs = await getDataSource().listRuns();
+  const runIdByCategory = Object.fromEntries(runs.map((r) => [r.category, r.runId]));
+  const sampleHref = (code: string) =>
+    runIdByCategory[code] ? `/runs/${runIdByCategory[code]}` : '/runs/sample';
+
   return (
     <div className="type-flow mx-auto max-w-[1440px] px-6 py-12">
       <SectionLabel>Threat Model · Coverage</SectionLabel>
@@ -53,7 +63,7 @@ export default function ThreatsPage() {
       {/* The coverage board — all ten categories, in OWASP order. */}
       <div className="mt-6 border-t border-line">
         {THREATS.map((threat) => (
-          <ThreatEntry key={threat.code} threat={threat} />
+          <ThreatEntry key={threat.code} threat={threat} sampleHref={sampleHref(threat.code)} />
         ))}
       </div>
 

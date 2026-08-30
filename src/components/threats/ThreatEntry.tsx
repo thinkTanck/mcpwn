@@ -11,7 +11,18 @@ import type { Threat } from './threat-data';
  * State color: covered → `text-nominal` + glow; inert → the neutral
  * `--status-inert` token, NO glow, NEVER red.
  */
-export function ThreatEntry({ threat }: { threat: Threat }) {
+export function ThreatEntry({
+  threat,
+  sampleHref = '/runs/sample',
+}: {
+  threat: Threat;
+  /**
+   * Where the covered "watch a real run" button points: this threat's OWN
+   * category sample run, derived by the page from the sample library. Defaults to
+   * the featured sample only as a fallback when a category's run id is missing.
+   */
+  sampleHref?: string;
+}) {
   const covered = threat.state === 'covered';
   // Inert color comes from the neutral token via inline style so it resolves at
   // integration; covered color rides the semantic `text-nominal` utility.
@@ -93,7 +104,7 @@ export function ThreatEntry({ threat }: { threat: Threat }) {
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
           {covered && (
             <Link
-              href="/runs/sample"
+              href={sampleHref}
               className="inline-flex min-h-11 items-center gap-2 rounded-md border border-line-em bg-nominal/10 px-3 py-1.5 font-mono text-[13px] tracking-[0.06em] text-readout"
             >
               <svg width="11" height="11" viewBox="0 0 12 12" aria-hidden="true">
