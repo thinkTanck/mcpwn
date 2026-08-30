@@ -2,7 +2,6 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { SectionLabel } from '@/components/hud';
 import { InertMark, LeaderboardHeatmap } from '@/components/leaderboard';
-import { getDataSource, SAMPLE_RUN_ID } from '@/data/source';
 import { getRunRepository } from '@/data/run-repository.factory';
 import { measuredLeaderboard } from '@/leaderboard/measured';
 import { getUser } from '@/lib/auth/user';
@@ -16,16 +15,17 @@ export const metadata: Metadata = {
 /**
  * ROBUSTNESS LEADERBOARD (route `/leaderboard`, register: PRODUCT).
  *
- * Server component. TWO boards, and keeping them apart is the whole design:
+ * Server component. ONE board: MEASURED, built by module 5 from the runs this
+ * account has actually persisted, read owner-scoped through `RunRepository`.
+ * Nobody has produced a multi-model campaign yet (plan.md B4), so what this ships
+ * as is an EMPTY board with the reason stated. An empty leaderboard that says why
+ * is worth more than a full one implying work nobody did.
  *
- *  1. MEASURED — built by module 5 from the runs this account has actually
- *     persisted, read owner-scoped through `RunRepository`. Nobody has produced
- *     a multi-model campaign yet (plan.md B4), so what this ships as is an
- *     EMPTY board with the reason stated. An empty leaderboard that says why is
- *     worth more than a full one implying work nobody did.
- *  2. FIXTURE — the placeholder campaign, kept only to show the aggregation and
- *     the colour language working end to end. It is framed, labelled and
- *     subordinate, and every one of its cells carries `state: 'fixture'`.
+ * The placeholder "fixture demonstration" board was REMOVED: even framed and
+ * labelled, its Model A/B/C campaign was invented numbers, the same problem the
+ * removed Fleet Status widget had, and a fabricated board beside the real
+ * provenance discredits it. The aggregation it used to demonstrate is exercised
+ * by its own unit tests instead.
  *
  * NO NUMBER ON THIS SCREEN IS INVENTED OR BORROWED. Every value is computed by
  * `buildLeaderboard` from run verdicts. The detector's published precision,
@@ -34,22 +34,11 @@ export const metadata: Metadata = {
  * robustness figure out of an unrelated measurement.
  */
 export default async function LeaderboardPage() {
-  const ds = getDataSource();
-  const [fixture, sampleRuns, user] = await Promise.all([
-    ds.getLeaderboard(),
-    ds.listRuns(),
-    getUser(),
-  ]);
+  const user = await getUser();
 
   // Owner-scoped: a leaderboard is only ever built from runs the caller owns.
   const stored = user ? await (await getRunRepository()).listRuns(user.id) : [];
   const measured = measuredLeaderboard(stored.map((row) => row.run));
-
-  // category id → sample run id (from the DataSource, never a literal). Applies
-  // to the fixture board only: the replay route serves the sample library, so a
-  // measured cell has no run of its own to open yet.
-  const runIdByCategory: Record<string, string> = {};
-  for (const run of sampleRuns) runIdByCategory[run.category] = run.runId;
 
   return (
     <section
@@ -101,36 +90,6 @@ export default async function LeaderboardPage() {
           <LeaderboardHeatmap leaderboard={measured} />
         </div>
       )}
-
-      <h2 className="reading-h2 mt-12">Fixture demonstration</h2>
-      <p className="reading mt-3 max-w-[72ch]">
-        The board below is placeholder data. Model A, B and C are not products and the runs behind
-        them were never executed, so no cell in it is a result. It is here because the aggregation
-        and the colour language are real and worth showing: every value in it is computed from run
-        verdicts by the same code the measured board uses.
-      </p>
-      {/* One quiet inert frame, not a second bordered panel competing with the
-          empty state above it: a soft inert hairline and a faint wash, so the
-          board inside is legibly cordoned off without shouting. */}
-      <div
-        className="mt-4 rounded-lg border p-4 sm:p-5"
-        style={{
-          borderColor: 'color-mix(in srgb, var(--status-inert) 40%, transparent)',
-          backgroundColor: 'color-mix(in srgb, var(--status-inert) 4%, transparent)',
-        }}
-      >
-        <p
-          className="micro-label mb-4 flex items-center gap-2"
-          style={{ color: 'var(--status-inert)' }}
-        >
-          <InertMark />
-          Fixture · not a measurement
-        </p>
-        <LeaderboardHeatmap
-          leaderboard={fixture}
-          drillIn={{ runIdByCategory, fallbackRunId: SAMPLE_RUN_ID }}
-        />
-      </div>
     </section>
   );
 }

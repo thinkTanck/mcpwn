@@ -74,7 +74,9 @@ export const NAV_ITEMS: NavItem[] = [
   },
   {
     label: 'Findings',
-    href: '/findings/asi06-run',
+    // The featured sample alias, so the nav tracks SAMPLE_CATEGORY (ASI02 now)
+    // instead of a hardcoded run id that goes stale when the featured run changes.
+    href: '/findings/sample',
     matchPrefix: '/findings',
     available: true,
     icon: (

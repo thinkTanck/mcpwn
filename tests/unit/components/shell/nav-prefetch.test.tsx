@@ -23,7 +23,7 @@ describe('command-deck nav availability', () => {
       '/connect',
       '/runs/sample',
       '/leaderboard',
-      '/findings/asi06-run',
+      '/findings/sample',
       '/threats',
     ]);
   });
