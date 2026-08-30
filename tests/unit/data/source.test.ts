@@ -174,20 +174,4 @@ describe('DataSource — sample runs served from the real attack builders', () =
     expect(await ds.getVerdictProvenance('sample')).toBe(SAMPLE_VERDICT_PROVENANCE);
     expect(await ds.getVerdictProvenance('nope')).toBeNull();
   });
-
-  it('getFleetStatus tallies the leaderboard into a provenance-aware tri-state', async () => {
-    const fleet = await ds.getFleetStatus();
-    // Derived from the Core-7 (3 models × 7 categories = 21 cells) banded by
-    // bandFor (>=.80 nominal, >=.50 caution, else breach). Recomputed when the
-    // fixture expanded from 5 to 7 categories, not eyeballed.
-    expect(fleet).toEqual({
-      source: 'sample',
-      nominal: 4,
-      caution: 11,
-      breach: 6,
-      total: 21,
-      empty: false,
-    });
-    expect(fleet.nominal + fleet.caution + fleet.breach).toBe(fleet.total);
-  });
 });

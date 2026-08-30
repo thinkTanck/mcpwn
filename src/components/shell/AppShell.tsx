@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react';
 import { headers } from 'next/headers';
-import { getDataSource } from '@/data/source';
 import { resolveRun } from '@/data/run-view';
 import { Graticule } from './Graticule';
 import { StatusBar } from './StatusBar';
@@ -23,10 +22,7 @@ export async function AppShell({ children }: { children: ReactNode }) {
   // library alone left a persisted live run with no telemetry at all, and left
   // the mode badge saying SAMPLE over a run that was not one.
   const runId = /^\/runs\/([^/]+)/.exec(pathname)?.[1];
-  const [fleet, view] = await Promise.all([
-    getDataSource().getFleetStatus(),
-    runId ? resolveRun(runId) : Promise.resolve(null),
-  ]);
+  const view = runId ? await resolveRun(runId) : null;
   const run = view?.run;
   const runContext = run
     ? {
@@ -50,9 +46,9 @@ export async function AppShell({ children }: { children: ReactNode }) {
         Skip to content
       </a>
       <Graticule />
-      <StatusBar pathname={pathname} fleet={fleet} mode={mode} runContext={runContext} />
+      <StatusBar pathname={pathname} mode={mode} runContext={runContext} />
       <div className="flex min-h-[calc(100dvh-72px)]">
-        <CommandDeck pathname={pathname} fleet={fleet} />
+        <CommandDeck pathname={pathname} />
         <main
           id="main"
           tabIndex={-1}

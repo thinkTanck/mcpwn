@@ -1,0 +1,74 @@
+import { render, screen } from '@testing-library/react';
+import { HeroReplay } from '@/components/home/HeroReplay';
+import { getDataSource } from '@/data/source';
+import { offendingStepLabel } from '@/lib/hud/trace-view';
+import type { RunResult } from '@/contract';
+
+/**
+ * The hero micro-replay: a compact animated replay of the FEATURED sample trace
+ * (ASI02), with the breach indicator lighting at the offending read_file step.
+ * It is bound to the real sample RunResult, never a literal, exactly like the
+ * SampleTrailer it shares a trace with.
+ */
+async function sampleRun(): Promise<RunResult> {
+  const run = await getDataSource().getRun('sample');
+  if (!run) throw new Error('sample run missing');
+  return run;
+}
+
+function compromise(run: RunResult): { index: number; tool: string } {
+  const steps = run.trace.steps;
+  const index = steps.findIndex((s) => s.id === run.verdict.stepId) + 1;
+  return { index, tool: offendingStepLabel(steps[index - 1]!) };
+}
+
+describe('HeroReplay', () => {
+  it('exposes an accessible micro-replay named for the featured category', async () => {
+    const run = await sampleRun();
+    const { index, tool } = compromise(run);
+    render(
+      <HeroReplay
+        steps={run.trace.steps}
+        compromiseIndex={index}
+        offendingTool={tool}
+        category={run.category}
+      />,
+    );
+    expect(screen.getByRole('img', { name: /ASI02 sample replay/i })).toBeInTheDocument();
+  });
+
+  it('draws one node per real step (bound to the trace, never a literal)', async () => {
+    const run = await sampleRun();
+    const { index, tool } = compromise(run);
+    const { container } = render(
+      <HeroReplay
+        steps={run.trace.steps}
+        compromiseIndex={index}
+        offendingTool={tool}
+        category={run.category}
+      />,
+    );
+    expect(container.querySelectorAll('[data-testid="hero-step"]')).toHaveLength(
+      run.trace.steps.length,
+    );
+  });
+
+  it('lights exactly the offending step as the breach, at verdict.stepId', async () => {
+    const run = await sampleRun();
+    const { index, tool } = compromise(run);
+    const { container } = render(
+      <HeroReplay
+        steps={run.trace.steps}
+        compromiseIndex={index}
+        offendingTool={tool}
+        category={run.category}
+      />,
+    );
+    const nodes = Array.from(container.querySelectorAll('[data-testid="hero-step"]'));
+    const breached = nodes.filter((n) => n.getAttribute('data-breach') === 'true');
+    expect(breached).toHaveLength(1);
+    // It is the compromise step (1-based index), and it names the offending tool.
+    expect(nodes.indexOf(breached[0]!)).toBe(index - 1);
+    expect(breached[0]!.textContent ?? '').toMatch(new RegExp(tool, 'i'));
+  });
+});

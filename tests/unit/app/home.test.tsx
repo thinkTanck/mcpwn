@@ -151,6 +151,25 @@ describe('Home — CTAs', () => {
   });
 });
 
+describe('Home — hero micro-replay', () => {
+  it('renders the featured trace as a micro-replay in the hero slot', async () => {
+    await renderHome();
+    // The hero is a live micro-replay of the ASI02 finding, not generic decoration.
+    expect(screen.getByRole('img', { name: /ASI02 sample replay/i })).toBeInTheDocument();
+  });
+
+  it('has retired the particle-globe sentinel core from the hero', async () => {
+    await renderHome();
+    expect(screen.queryByLabelText(/sentinel core/i)).not.toBeInTheDocument();
+  });
+
+  it('keeps the Core-7 launcher and its "Tap to watch" cue', async () => {
+    await renderHome();
+    expect(screen.getByRole('navigation', { name: /core-7 sample runs/i })).toBeInTheDocument();
+    expect(screen.getByText(/tap to watch/i)).toBeInTheDocument();
+  });
+});
+
 describe('Home — the featured ASI02 finding', () => {
   it('states the measured out-of-scope-read finding in plain words near the top', async () => {
     await renderHome();
