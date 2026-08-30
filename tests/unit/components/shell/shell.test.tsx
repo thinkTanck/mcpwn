@@ -22,9 +22,24 @@ describe('AppShell (server shell)', () => {
     expect(screen.getByRole('banner')).toBeInTheDocument();
     expect(screen.getByRole('main')).toBeInTheDocument();
     const deck = screen.getByRole('navigation', { name: 'Command deck' });
+    // Substring match: some links carry a purpose descriptor in their accessible
+    // name (see the descriptor test below), so the deck label is a prefix, not the
+    // whole name.
     for (const name of DECK_LINKS) {
-      expect(within(deck).getByRole('link', { name })).toBeInTheDocument();
+      expect(within(deck).getByRole('link', { name: new RegExp(name) })).toBeInTheDocument();
     }
+  });
+
+  it('gives the action routes a purpose descriptor in their accessible name', async () => {
+    render(await AppShell({ children: <p>screen content</p> }));
+    const deck = screen.getByRole('navigation', { name: 'Command deck' });
+    // A newcomer should not have to click to learn what these do.
+    expect(
+      within(deck).getByRole('link', { name: /Live Replay.*watch a recorded attack/i }),
+    ).toBeInTheDocument();
+    expect(
+      within(deck).getByRole('link', { name: /Connect \/ Run.*point your own agent/i }),
+    ).toBeInTheDocument();
   });
 
   it('carries no Fleet Status tally: it was a fabricated stat and was removed', async () => {
@@ -58,7 +73,9 @@ describe('AppShell (server shell)', () => {
       hidden: true,
     });
     for (const name of DECK_LINKS) {
-      expect(within(mobileNav).getByRole('link', { name, hidden: true })).toBeInTheDocument();
+      expect(
+        within(mobileNav).getByRole('link', { name: new RegExp(name), hidden: true }),
+      ).toBeInTheDocument();
     }
   });
 });

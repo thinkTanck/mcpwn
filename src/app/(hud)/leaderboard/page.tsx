@@ -68,10 +68,12 @@ export default async function LeaderboardPage() {
             No measurement yet
           </p>
           <p className="reading mt-3 max-w-[72ch]">
-            No model has been measured. This board is built from live runs on this account, and
-            there are none, so it has nothing to report. Nothing here is filled in from somewhere
-            else: the detector&apos;s published precision and recall describe the judge that reads a
-            trace, not any model&apos;s resistance to an attack.
+            This leaderboard populates from real robustness runs, and none have been published yet,
+            so it is empty by design rather than unfinished. No model has been measured. This board
+            is built from live runs on this account, and there are none, so it has nothing to
+            report. Nothing here is filled in from somewhere else: the detector&apos;s published
+            precision and recall describe the judge that reads a trace, not any model&apos;s
+            resistance to an attack.
           </p>
           <p className="reading mt-3 text-ink-muted">
             {user

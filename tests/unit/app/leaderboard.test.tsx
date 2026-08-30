@@ -109,6 +109,15 @@ describe('Robustness leaderboard screen', () => {
       await renderPage();
       expect(screen.getByText(/Sign in to see your own measured runs/i)).toBeInTheDocument();
     });
+
+    it('reads as intentional: it fills from real runs, none published yet, not broken', async () => {
+      await renderPage();
+      // The empty state must not read as unfinished. One honest sentence says the
+      // board fills from real robustness runs and none exist yet, so empty is by
+      // design. No invented numbers stand in for the absent runs.
+      expect(screen.getByText(/populates from real robustness runs/i)).toBeInTheDocument();
+      expect(screen.getByText(/empty by design|none have been published yet/i)).toBeInTheDocument();
+    });
   });
 
   describe('with measured runs', () => {
