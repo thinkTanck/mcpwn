@@ -76,21 +76,9 @@ function CellShapeAndValue({ cell }: { cell: ScoredCell }) {
   );
 }
 
-export function LeaderboardHeatmap({
-  leaderboard,
-  drillIn,
-}: {
-  leaderboard: Leaderboard;
-  /**
-   * Replay drill-in, when the caller has runs the replay can serve.
-   * `runIdByCategory` comes from the DataSource, never a hard-coded literal.
-   */
-  drillIn?: { runIdByCategory: Record<string, string>; fallbackRunId: string };
-}) {
+export function LeaderboardHeatmap({ leaderboard }: { leaderboard: Leaderboard }) {
   const { categories, rows, source } = leaderboard;
   const measured = source === 'measured';
-  const runHref = (category: string) =>
-    drillIn ? `/runs/${drillIn.runIdByCategory[category] ?? drillIn.fallbackRunId}` : null;
 
   const provenanceWord = measured ? 'measured' : 'fixture';
   // Suffix carried in every scored cell's accessible name, so provenance is not
@@ -108,7 +96,6 @@ export function LeaderboardHeatmap({
   const weakestFull = weakest
     ? (categories.find((cat) => cat.id === weakest.category)?.full ?? weakest.category)
     : '';
-  const weakestHref = weakest ? runHref(weakest.category) : null;
 
   const weakestLabel = measured ? 'Weakest' : 'Weakest fixture cell';
   const weakestBody =
@@ -144,32 +131,19 @@ export function LeaderboardHeatmap({
   return (
     <figure className="m-0">
       {weakestBody ? (
-        weakestHref ? (
-          <Link
-            href={weakestHref}
-            aria-label={`${weakestAria} Open run in Live Attack Replay.`}
-            className={cn(
-              'mb-4 inline-flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-md border px-3.5 py-2.5 transition-colors hover:border-line-em',
-              weakestFrame,
-            )}
-          >
+        <p
+          className={cn(
+            'mb-4 inline-flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-md border px-3.5 py-2.5',
+            weakestFrame,
+          )}
+        >
+          {/* One sentence for assistive tech, the HUD readout for everyone else,
+              so the same fact is not announced twice. */}
+          <span className="sr-only">{weakestAria}</span>
+          <span aria-hidden="true" className="contents">
             {weakestBody}
-          </Link>
-        ) : (
-          <p
-            className={cn(
-              'mb-4 inline-flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-md border px-3.5 py-2.5',
-              weakestFrame,
-            )}
-          >
-            {/* One sentence for assistive tech, the HUD readout for everyone
-                else, so the same fact is not announced twice. */}
-            <span className="sr-only">{weakestAria}</span>
-            <span aria-hidden="true" className="contents">
-              {weakestBody}
-            </span>
-          </p>
-        )
+          </span>
+        </p>
       ) : null}
 
       {/* Legend + provenance — INSTRUMENT telemetry (mono, terse). */}
@@ -341,7 +315,6 @@ export function LeaderboardHeatmap({
                       const category = categories.find((cat) => cat.id === c.category);
                       const full = category ? category.full : c.category;
                       const isWorst = c === weakest;
-                      const href = runHref(c.category);
                       const name = `${row.model} · ${c.category} ${full}: robustness ${fmt(
                         c.robustness,
                       )}, ${label}${
@@ -354,34 +327,19 @@ export function LeaderboardHeatmap({
                           data-cell-state={c.state}
                           className={cn('border-b border-l border-line p-0', TONE[band].tint)}
                         >
-                          {href ? (
-                            <Link
-                              href={href}
-                              aria-label={`${name} Open run in Live Attack Replay.`}
-                              className={cn(
-                                'flex min-h-[52px] items-center justify-center px-2 py-3 transition-[filter] duration-150 hover:brightness-125 focus-visible:brightness-125',
-                                isWorst &&
-                                  measured &&
-                                  'ring-2 ring-inset ring-breach/70 shadow-glow-breach',
-                              )}
-                            >
+                          <span
+                            className={cn(
+                              'flex min-h-[52px] items-center justify-center px-2 py-3',
+                              isWorst &&
+                                measured &&
+                                'ring-2 ring-inset ring-breach/70 shadow-glow-breach',
+                            )}
+                          >
+                            <span className="sr-only">{name}</span>
+                            <span aria-hidden="true" className="contents">
                               {inner}
-                            </Link>
-                          ) : (
-                            <span
-                              className={cn(
-                                'flex min-h-[52px] items-center justify-center px-2 py-3',
-                                isWorst &&
-                                  measured &&
-                                  'ring-2 ring-inset ring-breach/70 shadow-glow-breach',
-                              )}
-                            >
-                              <span className="sr-only">{name}</span>
-                              <span aria-hidden="true" className="contents">
-                                {inner}
-                              </span>
                             </span>
-                          )}
+                          </span>
                         </td>
                       );
                     })}
@@ -398,8 +356,6 @@ export function LeaderboardHeatmap({
           </table>
         </div>
       </div>
-
-      {drillIn ? <p className="micro-label mt-3.5">Cell → its run in Live Attack Replay</p> : null}
     </figure>
   );
 }
