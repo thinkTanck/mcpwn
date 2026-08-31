@@ -94,23 +94,8 @@ const measuredMock: Leaderboard = {
   ],
 };
 
-const runIds: Record<string, string> = {
-  ASI01: 'run01',
-  ASI02: 'run02',
-  ASI03: 'run03',
-  ASI04: 'run04',
-  ASI05: 'run05',
-  ASI06: 'run06',
-  ASI10: 'run10',
-};
-
 function renderHeatmap() {
-  return render(
-    <LeaderboardHeatmap
-      leaderboard={sevenColMock}
-      drillIn={{ runIdByCategory: runIds, fallbackRunId: 'sample-run' }}
-    />,
-  );
+  return render(<LeaderboardHeatmap leaderboard={sevenColMock} />);
 }
 
 describe('LeaderboardHeatmap', () => {
@@ -124,53 +109,37 @@ describe('LeaderboardHeatmap', () => {
     expect(screen.getByRole('columnheader', { name: /overall/i })).toBeInTheDocument();
   });
 
-  it('produces exactly models × categories drill-in cells (2 × 7 = 14)', () => {
-    renderHeatmap();
-    // Cell drill-ins live inside the scroll region; the focal "weakest" callout and
-    // the "category names" link sit outside it, so scope the count to the region.
+  it('renders one cell per model × category (2 × 7 = 14), none of them a link', () => {
+    const { container } = renderHeatmap();
+    // The drill-in was removed with the fabricated board, so cells no longer link
+    // anywhere: there is no per-cell run to open, and nothing to collapse to a
+    // featured run.
+    expect(container.querySelectorAll('[data-cell-state="fixture"]')).toHaveLength(2 * CATS.length);
     const region = screen.getByRole('region', { name: /heatmap/i });
-    expect(within(region).getAllByRole('link')).toHaveLength(2 * CATS.length);
+    expect(within(region).queryAllByRole('link')).toHaveLength(0);
   });
 
-  it('surfaces the single weakest cell as a focal callout that links to its run', () => {
+  it('surfaces the single weakest cell as a focal callout (text, not a link)', () => {
     renderHeatmap();
-    // Anchored at the start: a cell link also mentions "the weakest cell", and
-    // the callout is the one whose whole name begins with the label.
-    expect(
-      screen.getByRole('link', { name: /^Weakest fixture cell:.*Open run/i }),
-    ).toBeInTheDocument();
+    // The weakest cell is M1 × ASI06 at 0.34. The callout states it for assistive
+    // tech; with the drill-in gone it is no longer a link.
+    expect(screen.getByText(/Weakest fixture cell:.*ASI06.*0\.34.*BREACH/i)).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Weakest fixture cell/i })).not.toBeInTheDocument();
   });
 
   it('makes each cell the value-as-hero and names its band in text (never color-only)', () => {
-    renderHeatmap();
-    // breach cell M1 × ASI03 = 0.40
-    const breach = screen.getByRole('link', { name: /M1.*ASI03.*0\.40.*BREACH/ });
-    expect(within(breach).getByText('0.40')).toBeInTheDocument();
-    // shape code present as a decorative glyph (distinguishable without colour)
-    expect(breach.querySelector('svg[aria-hidden="true"]')).toBeInTheDocument();
-
-    // nominal + caution bands are also named in text, not colour alone
-    expect(screen.getByRole('link', { name: /M1.*ASI01.*0\.91.*NOMINAL/ })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /M1.*ASI02.*0\.78.*CAUTION/ })).toBeInTheDocument();
-  });
-
-  it('drills each cell into its run replay via a DataSource run id (not a literal)', () => {
-    renderHeatmap();
-    expect(screen.getByRole('link', { name: /M1.*ASI03/ })).toHaveAttribute('href', '/runs/run03');
-    expect(screen.getByRole('link', { name: /M2.*ASI10/ })).toHaveAttribute('href', '/runs/run10');
-  });
-
-  it('falls back to the DataSource sample run id when a category has no mapped run', () => {
-    render(
-      <LeaderboardHeatmap
-        leaderboard={sevenColMock}
-        drillIn={{ runIdByCategory: {}, fallbackRunId: 'sample-run' }}
-      />,
-    );
-    expect(screen.getByRole('link', { name: /M1.*ASI01/ })).toHaveAttribute(
-      'href',
-      '/runs/sample-run',
-    );
+    const { container } = renderHeatmap();
+    // Each cell names its band in its accessible text, so the band never rides on
+    // colour alone. (Cell name uses " · " between model and category.)
+    expect(screen.getByText(/M1 · ASI03.*0\.40.*BREACH/)).toBeInTheDocument();
+    expect(screen.getByText(/M1 · ASI01.*0\.91.*NOMINAL/)).toBeInTheDocument();
+    expect(screen.getByText(/M1 · ASI02.*0\.78.*CAUTION/)).toBeInTheDocument();
+    // The value itself is the visible hero, and a band-shape glyph carries the
+    // band without relying on colour.
+    expect(screen.getByText('0.40')).toBeInTheDocument();
+    expect(
+      container.querySelector('td[data-cell-state="fixture"] svg[aria-hidden="true"]'),
+    ).toBeInTheDocument();
   });
 
   it('renders the per-row OVERALL magnitude', () => {
@@ -192,11 +161,12 @@ describe('LeaderboardHeatmap', () => {
     expect(screen.getByText(/source\s*·\s*fixture/i)).toBeInTheDocument();
     expect(screen.getByText(/not a claimed benchmark/i)).toBeInTheDocument();
     // Every scored cell repeats it, so provenance travels with the value rather
-    // than sitting in a chip a screen-reader user has to go and find.
+    // than sitting in a chip a screen-reader user has to go and find: at least one
+    // per model × category cell (14), all inside the scroll region.
     const region = screen.getByRole('region', { name: /heatmap/i });
-    for (const link of within(region).getAllByRole('link')) {
-      expect(link).toHaveAccessibleName(/fixture data/i);
-    }
+    expect(within(region).getAllByText(/fixture data/i).length).toBeGreaterThanOrEqual(
+      2 * CATS.length,
+    );
   });
 
   it('never dresses a fixture cell as a measured one: no run count, no breach glow', () => {
