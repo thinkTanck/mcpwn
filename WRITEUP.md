@@ -91,6 +91,10 @@ was wrong, so the detector was not actually watching the step that would have sh
 compromise. A zero produced by looking in the wrong place is not a measurement of
 resistance; it is the absence of a measurement wearing the costume of one. It
 survived exactly until someone read the traces and asked what the zero was counting.
+Unlike the first and third, this one is not pinned to a committed artifact. It is
+recalled from the build rather than written down as a limitation in RESULTS.md, so it
+is stated here from development history, and the category is left unnamed because the
+repo does not record which one it was.
 
 The third was a gap in the gold set. The fixtures the detector was validated against
 had no benign-exploration cases: clean runs where an agent does its task and makes
